@@ -1,0 +1,8 @@
+[package]
+name = "pundoc"
+version = "0.1.0"
+authors = ["oberien <jaro.fietz@gmx.de>"]
+
+[dependencies]
+pulldown-cmark = "0.1.2"
+str-concat = "0.1.4"
