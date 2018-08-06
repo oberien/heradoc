@@ -1,12 +1,9 @@
 extern crate pulldown_cmark;
 extern crate str_concat;
+#[macro_use]
 extern crate structopt;
 extern crate void;
-
-use std::fs;
-use std::io;
-use std::path::PathBuf;
-use std::str::FromStr;
+extern crate boolinator;
 
 use pulldown_cmark::{Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use structopt::StructOpt;
@@ -17,57 +14,21 @@ mod config;
 
 use concat::Concat;
 
-#[derive(StructOpt)]
-#[structopt(name = "pundoc", about = "Convert Markdown to LaTeX / PDF")]
-struct Opts {
-    /// Output file to write to
-    ///
-    /// If left blank or `-` is specified, output will be written to std.
-    #[structopt(short = "o", parse(from_os_str))]
-    output: Option<PathBuf>,
-    /// Input markdown file
-    #[structopt(parse(from_os_str))]
-    input: PathBuf,
-    /// Output format to overwrite the determined one based on the file ending
-    #[structopt(short = "t", long = "type", long = "outtype")]
-    output_format: Option<OutType>,
-}
-
-enum OutType {
-    Latex,
-    Pdf,
-}
-
-impl FromStr for OutType {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mapping = &[(&["tex", "latex"], OutType::Latex),
-            (&["pdf"], OutType::Pdf)];
-        for (list, res) in mapping {
-            for variant in list {
-                if s.eq_ignore_ascii_case(variant) {
-                    return Ok(res);
-                }
-            }
-        }
-        Err(())
-    }
-}
-
 fn main() {
-    let opts = Opts::from_args();
-    let outtype =
+    let mut cfg = config::Config::from_args();
+    cfg.normalize();
 
-    let s = fs::read_to_string(opts.input).unwrap();
+    let mut markdown = String::new();
+    cfg.input.to_read().read_to_string(&mut markdown).expect("Can't read input");
+
     let parser = Parser::new_with_broken_link_callback(
-        &s,
+        &markdown,
         OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
         Some(&refsolve)
     );
     let events = Concat(parser.peekable()).collect::<Vec<_>>();
     println!("{:#?}", events);
-    gen::generate(events, stdout.lock()).unwrap();
+    gen::generate(events, cfg.output.to_write()).unwrap();
 }
 
 fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
