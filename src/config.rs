@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{PathBuf};
 use std::fs::File;
 use std::str::FromStr;
 use std::io::{self, Read, Write};
@@ -7,20 +7,21 @@ use std::fmt;
 use void::Void;
 use boolinator::Boolinator;
 
-#[derive(StructOpt)]
+#[derive(StructOpt, Debug)]
 #[structopt(name = "pundoc", about = "Convert Markdown to LaTeX / PDF")]
 pub struct Config {
-    #[structopt(short = "o", long = "out", long = "output", default_value = "FileOrStream::StdIo")]
+    #[structopt(short = "o", long = "out", long = "output", default_value = "-")]
     pub output: FileOrStdio,
-    #[structopt(short = "i", long = "in", long = "input", default_value = "FileOrStream::StdIo")]
+    #[structopt()]
     pub input: FileOrStdio,
-    #[structopt(short = "t", long = "to", long = "type")]
+    #[structopt(short = "t", long = "to", long = "type", parse(try_from_str = "OutType::from_str"))]
     pub output_type: Option<OutType>,
 }
 
 impl Config {
     pub fn normalize(&mut self) {
-        self.output_type.get_or_insert_with(|| match self.input {
+        let input = &self.input;
+        self.output_type.get_or_insert_with(|| match input {
             FileOrStdio::StdIo => OutType::Pdf,
             FileOrStdio::File(path) => {
                 path.extension()
@@ -35,6 +36,7 @@ impl Config {
     }
 }
 
+#[derive(Debug)]
 pub enum FileOrStdio {
     StdIo,
     File(PathBuf),
@@ -51,7 +53,7 @@ impl FileOrStdio {
     pub fn to_write(&self) -> Box<Write> {
         match self {
             FileOrStdio::StdIo => Box::new(Box::leak(Box::new(io::stdout())).lock()),
-            FileOrStdio::File(path) => Box::new(File::create(path).expect("can't open input source")),
+            FileOrStdio::File(path) => Box::new(File::create(path).expect("can't open output source")),
         }
     }
 }
@@ -67,24 +69,23 @@ impl FromStr for FileOrStdio {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum OutType {
     Latex,
     Pdf,
 }
 
+#[derive(Debug)]
 struct OutTypeParseError<'a>(&'a str);
 
-impl fmt::Display for OutTypeParseError {
+impl<'a> fmt::Display for OutTypeParseError<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "unknown type `{}`", self.0)
     }
 }
 
-impl FromStr for OutType {
-    type Err = OutTypeParseError<'a>;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl OutType {
+    fn from_str<'a>(s: &'a str) -> Result<OutType, OutTypeParseError<'a>> {
         let mapping = &[
             (&["tex", "latex"][..], OutType::Latex),
             (&["pdf"][..], OutType::Pdf)
@@ -99,4 +100,3 @@ impl FromStr for OutType {
         Err(OutTypeParseError(s))
     }
 }
-

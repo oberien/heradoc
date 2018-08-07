@@ -3,6 +3,8 @@ use std::iter::Peekable;
 
 use pulldown_cmark::{Event, Tag};
 
+mod preamble;
+
 pub fn generate<'a>(events: impl IntoIterator<Item = Event<'a>>, out: impl Write) -> Result<()> {
     Generator::new(events, out).gen()
 }
@@ -92,7 +94,11 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
         // TODO: use minted instead of lstlistings?
         // TODO: lstset
         writeln!(self.out, "\\usepackage{{listings}}")?;
-        writeln!(self.out, "\\usepackage{{color}}")?;
+        writeln!(self.out, "\\usepackage[usenames, dvipsnames]{{color}}")?;
+        writeln!(self.out, "\\usepackage{{xcolor}}")?;
+        writeln!(self.out, "{}", preamble::lstset)?;
+        writeln!(self.out, "{}", preamble::lstdefineasm)?;
+        writeln!(self.out, "{}", preamble::lstdefinerust)?;
         // TODO: graphicspath
         writeln!(self.out, "\\usepackage{{graphicx}}")?;
         writeln!(self.out, "\\usepackage{{hyperref}}")?;
@@ -195,8 +201,12 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
             for (i, part) in parts.enumerate() {
                 if i == 0 {
                     if !part.contains("=") {
-                        // TODO: language translation (use correct language, e.g. `Rust` instead of `rust`)
-                        write!(self.out, "language={}", part)?;
+                        // TODO: language translation (use correct language, e.g. `Rust` instead of `rust` if that matters)
+                        match lang {
+                            // TODO: sequence and stuff generation
+                            "sequence" => (),
+                            lang => write!(self.out, "language={}", part)?,
+                        }
                         continue;
                     }
                 }

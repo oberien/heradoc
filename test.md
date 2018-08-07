@@ -11,7 +11,7 @@ Paragraph 2
 
 ### Rust
 
-Some rust code, in the future with syntax highlighting:
+Some rust code:
 
 ```rust
 fn main() {
