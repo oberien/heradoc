@@ -89,3 +89,14 @@ pub const aquote: &'static str = r#"
   {\savebox\mybox{#1}\begin{quote}}
   {\signed{\usebox\mybox}\end{quote}}
 "#;
+
+// https://tex.stackexchange.com/a/41761
+pub const thickhline: &'static str = r#"
+\makeatletter
+\newcommand{\thickhline}{%
+    \noalign {\ifnum 0=`}\fi \hrule height 1pt
+    \futurelet \reserved@a \@xhline
+}
+\newcolumntype{"}{@{\hskip\tabcolsep\vrule width 1pt\hskip\tabcolsep}}
+\makeatother
+"#;

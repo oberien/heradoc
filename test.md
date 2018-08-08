@@ -97,7 +97,10 @@ Nullam nulla est, vestibulum non consectetur vitae, fringilla a nibh.
     
 ## Rule (the world)
 
+Text before rule
+
 ---
+Text after rule
 
 ## Block Quote
 
@@ -113,3 +116,10 @@ This is the second line without indentation.
 > This is the second line.
 > **Bold text** *italic*
 > -- [@Author]
+
+## Tables
+
+Col 1 | Col 2 | Col 3
+:-- | :-: | --:
+Left | Center | Right
+**Foo** | *Bar* | `Baz`

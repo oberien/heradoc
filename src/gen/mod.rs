@@ -1,7 +1,7 @@
 use std::io::{Write, Result};
 use std::iter::Peekable;
 
-use pulldown_cmark::{Event, Tag};
+use pulldown_cmark::{Event, Tag, Alignment};
 
 mod preamble;
 
@@ -105,6 +105,8 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
         // TODO: cleveref options
         writeln!(self.out, "\\usepackage{{cleveref}}")?;
         writeln!(self.out, "\\usepackage{{refcount}}")?;
+        writeln!(self.out, "\\usepackage{{array}}")?;
+        writeln!(self.out, "{}", preamble::thickhline)?;
         writeln!(self.out)?;
         writeln!(self.out, "{}", preamble::aquote)?;
         writeln!(self.out)?;
@@ -136,10 +138,10 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
             Event::Start(Tag::List(start)) => self.gen_list(start),
             Event::Start(Tag::Item) => self.gen_item(),
             Event::Start(Tag::FootnoteDefinition(fnote)) => self.gen_footnote_definition(&fnote),
-            Event::Start(Tag::Table(align)) => unimplemented!(),
-            Event::Start(Tag::TableHead)
-            | Event::Start(Tag::TableRow)
-            | Event::Start(Tag::TableCell) => unreachable!("table elements should be handled by gen_table"),
+            Event::Start(Tag::Table(align)) => self.gen_table(align),
+            Event::Start(Tag::TableHead) => self.gen_table_head(),
+            Event::Start(Tag::TableRow) => self.gen_table_row(),
+            Event::Start(Tag::TableCell) => self.gen_table_cell(),
             Event::Start(Tag::Emphasis) => self.gen_emphasized(),
             Event::Start(Tag::Strong) => self.gen_strong(),
             Event::Start(Tag::Code) => self.gen_code(),
@@ -187,7 +189,12 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
     }
 
     fn gen_rule(&mut self) -> Result<()> {
+        // TODO: find out why text after the hrule is indented
+        writeln!(self.out)?;
+        writeln!(self.out, "\\vspace{{1em}}")?;
         writeln!(self.out, "\\hrule")?;
+        writeln!(self.out, "\\vspace{{1em}}")?;
+        writeln!(self.out)?;
         match self.events.next().unwrap() {
             Event::End(Tag::Rule) => (),
             _ => unreachable!("rule shouldn't have anything between start and end")
@@ -206,16 +213,13 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
 
     fn gen_block_quote(&mut self) -> Result<()> {
         let quote = read_until!(self, Tag::BlockQuote)?;
-        println!("{:?}", quote);
 
         let mut quote = quote.as_str();
 
         // check if last line of quote is source of quote
         let mut source = None;
         if let Some(pos) = quote.trim_right().rfind("\n") {
-            println!("{:?}", pos);
             let src = &quote[pos+1..];
-            println!("{:?}", src);
             if src.starts_with("--") {
                 let src = src.trim_left_matches("-");
                 source = Some(src.trim());
@@ -227,7 +231,6 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
         } else {
             writeln!(self.out, "\\begin{{quote}}")?;
         }
-        writeln!(self.out)?;
         write!(self.out, "{}", quote)?;
         if source.is_some() {
             writeln!(self.out, "\\end{{aquote}}")?;
@@ -302,6 +305,44 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
         writeln!(self.out, "}}")
     }
 
+    fn gen_table(&mut self, align: Vec<Alignment>) -> Result<()> {
+        // TODO: in-cell linebreaks
+        // TODO: merging columns
+        // TODO: merging rows
+        // TODO: easier custom formatting
+        write!(self.out, "\\begin{{tabular}}{{|")?;
+        for align in align {
+            match align {
+                Alignment::None | Alignment::Left => write!(self.out, " l |")?,
+                Alignment::Center => write!(self.out, " c |")?,
+                Alignment::Right => write!(self.out, " r |")?,
+            }
+        }
+        writeln!(self.out, "}}")?;
+        writeln!(self.out, "\\hline")?;
+        handle_until!(self, Tag::Table(_));
+        writeln!(self.out, "\\end{{tabular}}")?;
+        Ok(())
+    }
+
+    fn gen_table_head(&mut self) -> Result<()> {
+        handle_until!(self, Tag::TableHead);
+        writeln!(self.out, "\\\\ \\thickhline")
+    }
+
+    fn gen_table_row(&mut self) -> Result<()> {
+        handle_until!(self, Tag::TableRow);
+        writeln!(self.out, "\\\\ \\hline")
+    }
+
+    fn gen_table_cell(&mut self) -> Result<()> {
+        handle_until!(self, Tag::TableCell);
+        if let Event::Start(Tag::TableCell) = self.events.peek().unwrap() {
+            write!(self.out, "&")?;
+        }
+        Ok(())
+    }
+
     fn gen_emphasized(&mut self) -> Result<()> {
         write!(self.out, "\\emph{{")?;
         handle_until!(self, Tag::Emphasis);
@@ -315,7 +356,7 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
     }
 
     fn gen_code(&mut self) -> Result<()> {
-        write!(self.out, "\\textt{{")?;
+        write!(self.out, "\\texttt{{")?;
         handle_until!(self, Tag::Code);
         write!(self.out, "}}")
     }
