@@ -106,6 +106,8 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
         writeln!(self.out, "\\usepackage{{cleveref}}")?;
         writeln!(self.out, "\\usepackage{{refcount}}")?;
         writeln!(self.out)?;
+        writeln!(self.out, "{}", preamble::aquote)?;
+        writeln!(self.out)?;
         writeln!(self.out, "\\begin{{document}}")?;
         writeln!(self.out)?;
         Ok(())
@@ -127,9 +129,9 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
             Event::HardBreak => self.gen_hard_break(),
             // complex
             Event::Start(Tag::Paragraph) => self.gen_par(),
-            Event::Start(Tag::Rule) => unimplemented!(),
+            Event::Start(Tag::Rule) => self.gen_rule(),
             Event::Start(Tag::Header(level)) => self.gen_header(level),
-            Event::Start(Tag::BlockQuote) => unimplemented!(),
+            Event::Start(Tag::BlockQuote) => self.gen_block_quote(),
             Event::Start(Tag::CodeBlock(lang)) => self.gen_code_block(&lang),
             Event::Start(Tag::List(start)) => self.gen_list(start),
             Event::Start(Tag::Item) => self.gen_item(),
@@ -179,7 +181,16 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
             | Some(Event::Start(Tag::Code))
             | Some(Event::Start(Tag::Link(..)))
             | Some(Event::Start(Tag::Image(..))) => writeln!(self.out, "\\\\\n\\\\")?,
-            _ => writeln!(self.out, "\n")?,
+            _ => writeln!(self.out)?,
+        }
+        Ok(())
+    }
+
+    fn gen_rule(&mut self) -> Result<()> {
+        writeln!(self.out, "\\hrule")?;
+        match self.events.next().unwrap() {
+            Event::End(Tag::Rule) => (),
+            _ => unreachable!("rule shouldn't have anything between start and end")
         }
         Ok(())
     }
@@ -191,6 +202,40 @@ impl<'a, I: Iterator<Item = Event<'a>>, W: Write> Generator<'a, I, W> {
             _ => '-',
         }).collect::<String>();
         writeln!(self.out, "\\{}section{{{}}}\\label{{{}}}\n", "sub".repeat(level as usize - 1), section, replaced)
+    }
+
+    fn gen_block_quote(&mut self) -> Result<()> {
+        let quote = read_until!(self, Tag::BlockQuote)?;
+        println!("{:?}", quote);
+
+        let mut quote = quote.as_str();
+
+        // check if last line of quote is source of quote
+        let mut source = None;
+        if let Some(pos) = quote.trim_right().rfind("\n") {
+            println!("{:?}", pos);
+            let src = &quote[pos+1..];
+            println!("{:?}", src);
+            if src.starts_with("--") {
+                let src = src.trim_left_matches("-");
+                source = Some(src.trim());
+                quote = &quote[..pos+1];
+            }
+        }
+        if let Some(source) = source {
+            writeln!(self.out, "\\begin{{aquote}}{{{}}}", source)?;
+        } else {
+            writeln!(self.out, "\\begin{{quote}}")?;
+        }
+        writeln!(self.out)?;
+        write!(self.out, "{}", quote)?;
+        if source.is_some() {
+            writeln!(self.out, "\\end{{aquote}}")?;
+        } else {
+            writeln!(self.out, "\\end{{quote}}")?;
+        }
+
+        Ok(())
     }
 
     fn gen_code_block(&mut self, lang: &str) -> Result<()> {

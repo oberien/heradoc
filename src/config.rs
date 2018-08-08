@@ -20,9 +20,9 @@ pub struct Config {
 
 impl Config {
     pub fn normalize(&mut self) {
-        let input = &self.input;
-        self.output_type.get_or_insert_with(|| match input {
-            FileOrStdio::StdIo => OutType::Pdf,
+        let output = &self.output;
+        self.output_type.get_or_insert_with(|| match output {
+            FileOrStdio::StdIo => OutType::Latex,
             FileOrStdio::File(path) => {
                 path.extension()
                     .and_then(|s| s.to_str())

@@ -94,4 +94,22 @@ Nullam nulla est, vestibulum non consectetur vitae, fringilla a nibh.
 2. Numbered 3
     1. SubNumbered 2.1
     1. SubNumbered 2.2
+    
+## Rule (the world)
 
+---
+
+## Block Quote
+
+> Single-line block quote
+
+> Multi-line block quote without new tick in the beginning.
+This is the second line without indentation.
+
+> Multi-line block quote without new tick in the beginning.
+  This is the second line with indentation.
+
+> Multi-line block quote with new tick in the beginning.
+> This is the second line.
+> **Bold text** *italic*
+> -- [@Author]

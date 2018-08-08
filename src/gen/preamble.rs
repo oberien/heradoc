@@ -1,7 +1,7 @@
 #![allow(non_upper_case_globals)]
 
+// https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings
 pub const lstset: &'static str = r#"
-% https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings
 \lstset{%
   numbers=left,
   numberstyle=\tiny\color{gray},
@@ -33,8 +33,8 @@ pub const lstset: &'static str = r#"
 }
 "#;
 
+// https://tex.stackexchange.com/questions/51645/
 pub const lstdefineasm: &'static str = r#"
-% https://tex.stackexchange.com/questions/51645/
 %  x86-64-assembler-language-dialect-for-the-listings-package
 \lstdefinelanguage
    [x86_64]{Assembler}
@@ -51,16 +51,16 @@ pub const lstdefineasm: &'static str = r#"
 pub const lstdefinerust: &'static str = r#"
 \lstdefinelanguage{rust}{%
   keywords={%
-    abstract, alignof, as, become, box,
-    break, const, continue, crate, do,
-    else, enum, extern, false, final,
-    fn, for, if, impl, in,
-    let, loop, macro, match, mod,
-    move, mut, offsetof, override, priv,
-    proc, pub, pure, ref, return, Self, self, sizeof, static, struct,
-    super, trait, true, type, typeof,
-    unsafe, unsized, use, virtual, where,
-    while, yield
+    % strict keywords
+    as, break, const, continue, crate, else, enum, extern, false, fn,
+    for, if, impl, in, let, loop, match, mod, move, mut, pub, ref,
+    return, self, Self, static, struct, super, trait, true, type,
+    unsafe, use, where, while,
+    % reserved keywords
+    abstract, become, box, do, final, macro, override, priv, typeof,
+    unsized, virtual, yield,
+    % weak keywords
+    union, dyn,
   },
   keywords=[2]{%
     i8, u8, i16, u16, i32, u32, i64, u64, i128, u128, isize, usize,
@@ -76,4 +76,16 @@ pub const lstdefinerust: &'static str = r#"
   morestring=[b]"
   %morestring=[b]'
 }[keywords,comments,strings,directives]
+"#;
+
+// https://tex.stackexchange.com/a/13761
+pub const aquote: &'static str = r#"
+\def\signed #1{{\leavevmode\unskip\nobreak\hfil\penalty50\hskip2em
+  \hbox{}\nobreak\hfil(#1)%
+  \parfillskip=0pt \finalhyphendemerits=0 \endgraf}}
+
+\newsavebox\mybox
+\newenvironment{aquote}[1]
+  {\savebox\mybox{#1}\begin{quote}}
+  {\signed{\usebox\mybox}\end{quote}}
 "#;
