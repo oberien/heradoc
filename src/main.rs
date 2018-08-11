@@ -1,6 +1,7 @@
+#![feature(rust_2018_preview)]
+
 extern crate pulldown_cmark;
 extern crate str_concat;
-#[macro_use]
 extern crate structopt;
 extern crate void;
 extern crate boolinator;
@@ -18,8 +19,8 @@ mod concat;
 mod gen;
 mod config;
 
-use concat::Concat;
-use config::{Config, OutType};
+use crate::concat::Concat;
+use crate::config::{Config, OutType};
 
 fn main() {
     let mut cfg = Config::from_args();

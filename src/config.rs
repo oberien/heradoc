@@ -6,6 +6,7 @@ use std::fmt;
 
 use void::Void;
 use boolinator::Boolinator;
+use structopt::StructOpt;
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "pundoc", about = "Convert Markdown to LaTeX / PDF")]
