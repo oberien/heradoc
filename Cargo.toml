@@ -5,6 +5,7 @@ authors = ["oberien <jaro.fietz@gmx.de>"]
 
 [dependencies]
 pulldown-cmark = "0.1.2"
+#pulldown-cmark = { path = "../pulldown-cmark" }
 str-concat = "0.1.4"
 structopt = "0.2.10"
 void = "1.0.2"
