@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 
 use pulldown_cmark::{Event, Tag};
 
-use crate::gen::{Generator, State};
+use crate::gen::{Generator, State, Container};
 use crate::gen::peek::Peek;
 
 pub struct ListGenerator<'b, G: for<'a> Generator<'a> + 'b> {
@@ -19,6 +19,7 @@ impl<'b, G: for<'a> Generator<'a> + 'b> ListGenerator<'b, G> {
     }
 
     pub fn gen_list(&mut self, start: Option<usize>, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+        state.stack.push(Container::List);
         if let Some(start) = start {
             let start = start as i32 - 1;
             self.enumerate_depth += 1;
@@ -44,6 +45,7 @@ impl<'b, G: for<'a> Generator<'a> + 'b> ListGenerator<'b, G> {
         } else {
             writeln!(state.out, "\\end{{itemize}}")?;
         }
+        assert_eq!(state.stack.pop(), Some(Container::List));
         Ok(())
     }
 

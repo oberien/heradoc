@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 
 use pulldown_cmark::{Event, Tag};
 
-use crate::gen::{Generator, State};
+use crate::gen::{Generator, State, Container};
 use crate::gen::peek::Peek;
 
 mod list;
@@ -30,6 +30,7 @@ pub fn gen_hard_break<'a>(state: &mut State<'a, impl Peek<Item = Event<'a>>, imp
 }
 
 pub fn gen_par(gen: &mut impl Generator<'a>, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::Paragraph);
     handle_until!(gen, state, Tag::Paragraph);
     // TODO: improve readability (e.g. no newline between list items)
     match state.events.peek() {
@@ -45,6 +46,7 @@ pub fn gen_par(gen: &mut impl Generator<'a>, state: &mut State<'a, impl Peek<Ite
         | Some(Event::Start(Tag::Image(..))) => writeln!(state.out, "\\\\\n\\\\")?,
         _ => writeln!(state.out)?,
     }
+    assert_eq!(state.stack.pop(), Some(Container::Paragraph));
     Ok(())
 }
 
@@ -57,21 +59,26 @@ pub fn gen_rule(state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) 
     writeln!(state.out)?;
     match state.events.next().unwrap() {
         Event::End(Tag::Rule) => (),
+        // TODO: check this
         _ => unreachable!("rule shouldn't have anything between start and end")
     }
     Ok(())
 }
 
 pub fn gen_header(gen: &mut impl Generator<'a>, level: i32, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::Header);
     let section = read_until!(gen, state, Tag::Header(_));
     let replaced = section.chars().map(|c| match c {
         'a'...'z' | 'A'...'Z' | '0'...'9' => c.to_ascii_lowercase(),
         _ => '-',
     }).collect::<String>();
-    writeln!(state.out, "\\{}section{{{}}}\\label{{{}}}\n", "sub".repeat(level as usize - 1), section, replaced)
+    writeln!(state.out, "\\{}section{{{}}}\\label{{{}}}\n", "sub".repeat(level as usize - 1), section, replaced)?;
+    assert_eq!(state.stack.pop(), Some(Container::Header));
+    Ok(())
 }
 
 pub fn gen_block_quote(gen: &mut impl Generator<'a>, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::BlockQuote);
     let quote = read_until!(gen, state, Tag::BlockQuote);
 
     let mut quote = quote.as_str();
@@ -98,10 +105,12 @@ pub fn gen_block_quote(gen: &mut impl Generator<'a>, state: &mut State<'a, impl 
         writeln!(state.out, "\\end{{quote}}")?;
     }
 
+    assert_eq!(state.stack.pop(), Some(Container::BlockQuote));
     Ok(())
 }
 
 pub fn gen_code_block(gen: &mut impl Generator<'a>, lang: &str, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::CodeBlock);
     write!(state.out, "\\begin{{lstlisting}}")?;
     if !lang.is_empty() {
         write!(state.out, "[")?;
@@ -129,36 +138,52 @@ pub fn gen_code_block(gen: &mut impl Generator<'a>, lang: &str, state: &mut Stat
     writeln!(state.out)?;
 
     handle_until!(gen, state, Tag::CodeBlock(_));
-    writeln!(state.out, "\\end{{lstlisting}}")
+    writeln!(state.out, "\\end{{lstlisting}}")?;
+
+    assert_eq!(state.stack.pop(), Some(Container::CodeBlock));
+    Ok(())
 }
 
 // https://github.com/google/pulldown-cmark/issues/20#issuecomment-410453631
 pub fn gen_footnote_definition(gen: &mut impl Generator<'a>, fnote: &str, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::FootnoteDefinition);
     // TODO: Add pass to get all definitions to put definition on the same site as the first reference
     write!(state.out, "\\footnotetext{{\\label{{fnote:{}}}", fnote)?;
     handle_until!(gen, state, Tag::FootnoteDefinition(..));
-    writeln!(state.out, "}}")
+    writeln!(state.out, "}}")?;
+    assert_eq!(state.stack.pop(), Some(Container::FootnoteDefinition));
+    Ok(())
 }
 
 pub fn gen_emphasized(gen: &mut impl Generator<'a>, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::InlineEmphasis);
     write!(state.out, "\\emph{{")?;
     handle_until!(gen, state, Tag::Emphasis);
-    write!(state.out, "}}")
+    write!(state.out, "}}")?;
+    assert_eq!(state.stack.pop(), Some(Container::InlineEmphasis));
+    Ok(())
 }
 
 pub fn gen_strong(gen: &mut impl Generator<'a>, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::InlineStrong);
     write!(state.out, "\\textbf{{")?;
     handle_until!(gen, state, Tag::Strong);
-    write!(state.out, "}}")
+    write!(state.out, "}}")?;
+    assert_eq!(state.stack.pop(), Some(Container::InlineStrong));
+    Ok(())
 }
 
 pub fn gen_code(gen: &mut impl Generator<'a>, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::InlineCode);
     write!(state.out, "\\texttt{{")?;
     handle_until!(gen, state, Tag::Code);
-    write!(state.out, "}}")
+    write!(state.out, "}}")?;
+    assert_eq!(state.stack.pop(), Some(Container::InlineCode));
+    Ok(())
 }
 
 pub fn gen_link(gen: &mut impl Generator<'a>, dst: &str, _title: &str, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::Link);
     // TODO: handle all links properly
     // Markdown Types of links: https://github.com/google/pulldown-cmark/issues/141
     //
@@ -191,23 +216,26 @@ pub fn gen_link(gen: &mut impl Generator<'a>, dst: &str, _title: &str, state: &m
 
         if text.is_empty() || dst_eq_text {
             if uppercase {
-                write!(state.out, "\\Cref{{{}}}", dst)
+                write!(state.out, "\\Cref{{{}}}", dst)?;
             } else {
-                write!(state.out, "\\cref{{{}}}", dst)
+                write!(state.out, "\\cref{{{}}}", dst)?;
             }
         } else {
-            write!(state.out, "\\hyperref[{}]{{{}}}", dst, text)
+            write!(state.out, "\\hyperref[{}]{{{}}}", dst, text)?;
         }
     } else {
         if text.is_empty() || dst_eq_text {
-            write!(state.out, "\\url{{{}}}", dst)
+            write!(state.out, "\\url{{{}}}", dst)?;
         } else {
-            write!(state.out, "\\href{{{}}}{{{}}}", dst, text)
+            write!(state.out, "\\href{{{}}}{{{}}}", dst, text)?;
         }
     }
+    assert_eq!(state.stack.pop(), Some(Container::Link));
+    Ok(())
 }
 
 pub fn gen_image(gen: &mut impl Generator<'a>, dst: &str, title: &str, state: &mut State<'a, impl Peek<Item = Event<'a>>, impl Write>) -> Result<()> {
+    state.stack.push(Container::Image);
     writeln!(state.out, "\\begin{{figure}}")?;
     writeln!(state.out, "\\includegraphics{{{}}}", dst)?;
     let caption = read_until!(gen, state, Tag::Image(..));
@@ -217,5 +245,7 @@ pub fn gen_image(gen: &mut impl Generator<'a>, dst: &str, title: &str, state: &m
     if !title.is_empty() {
         writeln!(state.out, "\\label{{img:{}}}", title)?;
     }
-    writeln!(state.out, "\\end{{figure}}")
+    writeln!(state.out, "\\end{{figure}}")?;
+    assert_eq!(state.stack.pop(), Some(Container::Image));
+    Ok(())
 }

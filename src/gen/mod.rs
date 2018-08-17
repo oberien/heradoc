@@ -24,6 +24,7 @@ pub fn generate<'a>(events: impl IntoIterator<Item = Event<'a>>, mut out: impl W
     })
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum Container {
     Paragraph,
     Header,
