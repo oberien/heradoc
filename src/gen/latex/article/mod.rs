@@ -6,9 +6,29 @@ use crate::gen::Document;
 
 mod preamble;
 
+#[derive(Debug)]
 pub struct Article;
 
-impl Document for Article {
+impl<'a> Document<'a> for Article {
+    type Simple = super::SimpleGen;
+    type Paragraph = super::Paragraph;
+    type Rule = super::Rule;
+    type Header = super::Header<'a>;
+    type BlockQuote = super::BlockQuote<'a>;
+    type CodeBlock = super::CodeBlock;
+    type List = super::List;
+    type Item = super::Item;
+    type FootnoteDefinition = super::FootnoteDefinition;
+    type Table = super::Table;
+    type TableHead = super::TableHead;
+    type TableRow = super::TableRow;
+    type TableCell = super::TableCell;
+    type InlineEmphasis = super::InlineEmphasis;
+    type InlineStrong = super::InlineStrong;
+    type InlineCode = super::InlineCode;
+    type Link = super::Link<'a>;
+    type Image = super::Image<'a>;
+
     fn new() -> Self {
         Article
     }

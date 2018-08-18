@@ -1,14 +1,15 @@
 use std::io::{Result, Write};
+use std::fmt::Debug;
 
 use pulldown_cmark::{Tag, Event};
 
-use super::{State, States, Generator};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct FootnoteDefinition;
 
 impl<'a> State<'a> for FootnoteDefinition {
-    fn new(tag: Tag<'a>, stack: &[States], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
         let fnote = match tag {
             Tag::FootnoteDefinition(fnote) => fnote,
             _ => unreachable!(),
@@ -22,7 +23,7 @@ impl<'a> State<'a> for FootnoteDefinition {
         Ok(Some(e))
     }
 
-    fn finish(self, gen: &mut Generator<'a>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "}}")?;
         Ok(())
     }

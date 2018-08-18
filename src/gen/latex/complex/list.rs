@@ -1,8 +1,9 @@
 use std::io::{Result, Write};
+use std::fmt::Debug;
 
 use pulldown_cmark::{Tag, Event};
 
-use super::{State, States, Generator};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct List {
@@ -10,7 +11,7 @@ pub struct List {
 }
 
 impl<'a> State<'a> for List {
-    fn new(tag: Tag<'a>, stack: &[States], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
         let start = match tag {
             Tag::List(start) => start,
             _ => unreachable!("List::new must be called with Tag::List"),
@@ -34,7 +35,7 @@ impl<'a> State<'a> for List {
         Ok(Some(e))
     }
 
-    fn finish(self, gen: &mut Generator<'a>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         if self.start.is_some() {
             writeln!(out, "\\end{{enumerate}}")?;
         } else {
@@ -48,7 +49,7 @@ impl<'a> State<'a> for List {
 pub struct Item;
 
 impl<'a> State<'a> for Item {
-    fn new(tag: Tag<'a>, stack: &[States], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
         write!(out, "\\item ")?;
         Ok(Item)
     }
@@ -57,7 +58,7 @@ impl<'a> State<'a> for Item {
         Ok(Some(e))
     }
 
-    fn finish(self, gen: &mut Generator<'a>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         writeln!(out)?;
         Ok(())
     }

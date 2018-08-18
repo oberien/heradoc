@@ -21,7 +21,7 @@ mod config;
 
 use crate::concat::Concat;
 use crate::config::{Config, OutType};
-use gen::Article;
+use gen::latex::Article;
 
 fn main() {
     let mut cfg = Config::from_args();

@@ -1,14 +1,15 @@
 use std::io::{Result, Write};
+use std::fmt::Debug;
 
-use super::{State, States, Generator};
+use pulldown_cmark::{Event, Tag};
 
-use pulldown_cmark::{Tag, Event};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct Rule;
 
 impl<'a> State<'a> for Rule {
-    fn new(tag: Tag<'a>, stack: &[States], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
         Ok(Rule)
     }
 
@@ -17,7 +18,7 @@ impl<'a> State<'a> for Rule {
         unreachable!("rule shouldn't have anything between start and end")
     }
 
-    fn finish(self, gen: &mut Generator<'a>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         // TODO: find out why text after the hrule is indented in the pdf
         writeln!(out)?;
         writeln!(out, "\\vspace{{1em}}")?;
