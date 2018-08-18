@@ -4,12 +4,7 @@ use std::fmt::Debug;
 
 use pulldown_cmark::{Event, Tag};
 
-#[macro_use]
-mod macros;
-mod peek;
 pub mod latex;
-
-use self::peek::Peek;
 
 pub struct Generator<'a, D: Document<'a>> {
     doc: D,
@@ -47,10 +42,14 @@ pub trait Document<'a>: Debug {
 }
 
 pub trait State<'a>: Sized + Debug {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self>;
-    // TODO: refactor intercept_event to pass generator to collect Vec<u8> while intercepting instead of collecting into a Vec<Event>
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>>;
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()>;
+    fn new<'b>(tag: Tag<'a>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self>;
+    fn output_redirect(&mut self) -> Option<&mut dyn Write> {
+        None
+    }
+    fn intercept_event<'b>(&mut self, e: &Event<'a>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        Ok(())
+    }
+    fn finish<'b>(self, peek: Option<&Event<'a>>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()>;
 }
 
 pub trait Simple: Debug {
@@ -58,6 +57,30 @@ pub trait Simple: Debug {
     fn gen_footnote_reference(fnote: &str, out: &mut impl Write) -> Result<()>;
     fn gen_soft_break(out: &mut impl Write) -> Result<()>;
     fn gen_hard_break(out: &mut impl Write) -> Result<()>;
+}
+
+pub struct Stack<'a: 'b, 'b, D: Document<'a> + 'b, W: Write> {
+    default_out: W,
+    stack: &'b mut [States<'a, D>],
+}
+
+impl<'a: 'b, 'b, D: Document<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
+    fn new(default_out: W, stack: &'b mut [States<'a, D>]) -> Self {
+        Stack {
+            default_out,
+            stack,
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &States<'a, D>> {
+        self.stack.iter()
+    }
+
+    pub fn get_out(&mut self) -> &mut dyn Write {
+        self.stack.iter_mut().rev()
+            .filter_map(|state| state.output_redirect()).next()
+            .unwrap_or(&mut self.default_out)
+    }
 }
 
 #[derive(Debug)]
@@ -82,69 +105,91 @@ pub enum States<'a, D: Document<'a>> {
 }
 
 impl<'a, D: Document<'a>> States<'a, D> {
-    fn new(tag: Tag<'a>, stack: &[States<'a, D>], out: &mut impl Write) -> Result<Self> {
+    fn new<'b>(tag: Tag<'a>, stack: Stack<'a, 'b, D, impl Write>) -> Result<Self> {
         match &tag {
-            Tag::Paragraph => Ok(States::Paragraph(D::Paragraph::new(tag, stack, out)?)),
-            Tag::Rule => Ok(States::Rule(D::Rule::new(tag, stack, out)?)),
-            Tag::Header(_) => Ok(States::Header(D::Header::new(tag, stack, out)?)),
-            Tag::BlockQuote => Ok(States::BlockQuote(D::BlockQuote::new(tag, stack, out)?)),
-            Tag::CodeBlock(_) => Ok(States::CodeBlock(D::CodeBlock::new(tag, stack, out)?)),
-            Tag::List(_) => Ok(States::List(D::List::new(tag, stack, out)?)),
-            Tag::Item => Ok(States::Item(D::Item::new(tag, stack, out)?)),
-            Tag::FootnoteDefinition(_) => Ok(States::FootnoteDefinition(D::FootnoteDefinition::new(tag, stack, out)?)),
-            Tag::Table(_) => Ok(States::Table(D::Table::new(tag, stack, out)?)),
-            Tag::TableHead => Ok(States::TableHead(D::TableHead::new(tag, stack, out)?)),
-            Tag::TableRow => Ok(States::TableRow(D::TableRow::new(tag, stack, out)?)),
-            Tag::TableCell => Ok(States::TableCell(D::TableCell::new(tag, stack, out)?)),
-            Tag::Emphasis => Ok(States::InlineEmphasis(D::InlineEmphasis::new(tag, stack, out)?)),
-            Tag::Strong => Ok(States::InlineStrong(D::InlineStrong::new(tag, stack, out)?)),
-            Tag::Code => Ok(States::InlineCode(D::InlineCode::new(tag, stack, out)?)),
-            Tag::Link(..) => Ok(States::Link(D::Link::new(tag, stack, out)?)),
-            Tag::Image(..) => Ok(States::Image(D::Image::new(tag, stack, out)?)),
+            Tag::Paragraph => Ok(States::Paragraph(D::Paragraph::new(tag, stack)?)),
+            Tag::Rule => Ok(States::Rule(D::Rule::new(tag, stack)?)),
+            Tag::Header(_) => Ok(States::Header(D::Header::new(tag, stack)?)),
+            Tag::BlockQuote => Ok(States::BlockQuote(D::BlockQuote::new(tag, stack)?)),
+            Tag::CodeBlock(_) => Ok(States::CodeBlock(D::CodeBlock::new(tag, stack)?)),
+            Tag::List(_) => Ok(States::List(D::List::new(tag, stack)?)),
+            Tag::Item => Ok(States::Item(D::Item::new(tag, stack)?)),
+            Tag::FootnoteDefinition(_) => Ok(States::FootnoteDefinition(D::FootnoteDefinition::new(tag, stack)?)),
+            Tag::Table(_) => Ok(States::Table(D::Table::new(tag, stack)?)),
+            Tag::TableHead => Ok(States::TableHead(D::TableHead::new(tag, stack)?)),
+            Tag::TableRow => Ok(States::TableRow(D::TableRow::new(tag, stack)?)),
+            Tag::TableCell => Ok(States::TableCell(D::TableCell::new(tag, stack)?)),
+            Tag::Emphasis => Ok(States::InlineEmphasis(D::InlineEmphasis::new(tag, stack)?)),
+            Tag::Strong => Ok(States::InlineStrong(D::InlineStrong::new(tag, stack)?)),
+            Tag::Code => Ok(States::InlineCode(D::InlineCode::new(tag, stack)?)),
+            Tag::Link(..) => Ok(States::Link(D::Link::new(tag, stack)?)),
+            Tag::Image(..) => Ok(States::Image(D::Image::new(tag, stack)?)),
         }
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
+    fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         match self {
-            States::Paragraph(s) => s.intercept_event(e, out),
-            States::Rule(s) => s.intercept_event(e, out),
-            States::Header(s) => s.intercept_event(e, out),
-            States::BlockQuote(s) => s.intercept_event(e, out),
-            States::CodeBlock(s) => s.intercept_event(e, out),
-            States::List(s) => s.intercept_event(e, out),
-            States::Item(s) => s.intercept_event(e, out),
-            States::FootnoteDefinition(s) => s.intercept_event(e, out),
-            States::Table(s) => s.intercept_event(e, out),
-            States::TableHead(s) => s.intercept_event(e, out),
-            States::TableRow(s) => s.intercept_event(e, out),
-            States::TableCell(s) => s.intercept_event(e, out),
-            States::InlineEmphasis(s) => s.intercept_event(e, out),
-            States::InlineStrong(s) => s.intercept_event(e, out),
-            States::InlineCode(s) => s.intercept_event(e, out),
-            States::Link(s) => s.intercept_event(e, out),
-            States::Image(s) => s.intercept_event(e, out),
+            States::Paragraph(s) => s.output_redirect(),
+            States::Rule(s) => s.output_redirect(),
+            States::Header(s) => s.output_redirect(),
+            States::BlockQuote(s) => s.output_redirect(),
+            States::CodeBlock(s) => s.output_redirect(),
+            States::List(s) => s.output_redirect(),
+            States::Item(s) => s.output_redirect(),
+            States::FootnoteDefinition(s) => s.output_redirect(),
+            States::Table(s) => s.output_redirect(),
+            States::TableHead(s) => s.output_redirect(),
+            States::TableRow(s) => s.output_redirect(),
+            States::TableCell(s) => s.output_redirect(),
+            States::InlineEmphasis(s) => s.output_redirect(),
+            States::InlineStrong(s) => s.output_redirect(),
+            States::InlineCode(s) => s.output_redirect(),
+            States::Link(s) => s.output_redirect(),
+            States::Image(s) => s.output_redirect(),
         }
     }
 
-    fn finish(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn intercept_event<'b>(&mut self, e: &Event<'a>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        match self {
+            States::Paragraph(s) => s.intercept_event(e, stack),
+            States::Rule(s) => s.intercept_event(e, stack),
+            States::Header(s) => s.intercept_event(e, stack),
+            States::BlockQuote(s) => s.intercept_event(e, stack),
+            States::CodeBlock(s) => s.intercept_event(e, stack),
+            States::List(s) => s.intercept_event(e, stack),
+            States::Item(s) => s.intercept_event(e, stack),
+            States::FootnoteDefinition(s) => s.intercept_event(e, stack),
+            States::Table(s) => s.intercept_event(e, stack),
+            States::TableHead(s) => s.intercept_event(e, stack),
+            States::TableRow(s) => s.intercept_event(e, stack),
+            States::TableCell(s) => s.intercept_event(e, stack),
+            States::InlineEmphasis(s) => s.intercept_event(e, stack),
+            States::InlineStrong(s) => s.intercept_event(e, stack),
+            States::InlineCode(s) => s.intercept_event(e, stack),
+            States::Link(s) => s.intercept_event(e, stack),
+            States::Image(s) => s.intercept_event(e, stack),
+        }
+    }
+
+    fn finish<'b>(self, tag: Tag<'a>, peek: Option<&Event<'a>>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
         match (self, tag) {
-            (States::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek, out),
-            (States::Rule(s), Tag::Rule) => s.finish(gen, peek, out),
-            (States::Header(s), Tag::Header(_)) => s.finish(gen, peek, out),
-            (States::BlockQuote(s), Tag::BlockQuote) => s.finish(gen, peek, out),
-            (States::CodeBlock(s), Tag::CodeBlock(_)) => s.finish(gen, peek, out),
-            (States::List(s), Tag::List(_)) => s.finish(gen, peek, out),
-            (States::Item(s), Tag::Item) => s.finish(gen, peek, out),
-            (States::FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(gen, peek, out),
-            (States::Table(s), Tag::Table(_)) => s.finish(gen, peek, out),
-            (States::TableHead(s), Tag::TableHead) => s.finish(gen, peek, out),
-            (States::TableRow(s), Tag::TableRow) => s.finish(gen, peek, out),
-            (States::TableCell(s), Tag::TableCell) => s.finish(gen, peek, out),
-            (States::InlineEmphasis(s), Tag::Emphasis) => s.finish(gen, peek, out),
-            (States::InlineStrong(s), Tag::Strong) => s.finish(gen, peek, out),
-            (States::InlineCode(s), Tag::Code) => s.finish(gen, peek, out),
-            (States::Link(s), Tag::Link(..)) => s.finish(gen, peek, out),
-            (States::Image(s), Tag::Image(..)) => s.finish(gen, peek, out),
+            (States::Paragraph(s), Tag::Paragraph) => s.finish(peek, stack),
+            (States::Rule(s), Tag::Rule) => s.finish(peek, stack),
+            (States::Header(s), Tag::Header(_)) => s.finish(peek, stack),
+            (States::BlockQuote(s), Tag::BlockQuote) => s.finish(peek, stack),
+            (States::CodeBlock(s), Tag::CodeBlock(_)) => s.finish(peek, stack),
+            (States::List(s), Tag::List(_)) => s.finish(peek, stack),
+            (States::Item(s), Tag::Item) => s.finish(peek, stack),
+            (States::FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(peek, stack),
+            (States::Table(s), Tag::Table(_)) => s.finish(peek, stack),
+            (States::TableHead(s), Tag::TableHead) => s.finish(peek, stack),
+            (States::TableRow(s), Tag::TableRow) => s.finish(peek, stack),
+            (States::TableCell(s), Tag::TableCell) => s.finish(peek, stack),
+            (States::InlineEmphasis(s), Tag::Emphasis) => s.finish(peek, stack),
+            (States::InlineStrong(s), Tag::Strong) => s.finish(peek, stack),
+            (States::InlineCode(s), Tag::Code) => s.finish(peek, stack),
+            (States::Link(s), Tag::Link(..)) => s.finish(peek, stack),
+            (States::Image(s), Tag::Image(..)) => s.finish(peek, stack),
             (state, tag) => unreachable!("invalid end tag {:?}, expected {:?}", tag, state),
         }
     }
@@ -166,51 +211,49 @@ impl<'a, D: Document<'a>> Generator<'a, D> {
     }
 
     pub fn generate(mut self, events: impl IntoIterator<Item = Event<'a>>, out: &mut impl Write) -> Result<()> {
+        self.doc.gen_preamble(out)?;
         let mut events = events.into_iter().peekable();
 
         while let Some(event) = events.next() {
             self.visit_event(event, events.peek(), out)?;
         }
+        self.doc.gen_epilogue(out)?;
         Ok(())
     }
 
     fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         if let Event::End(tag) = event {
             let state = self.stack.pop().unwrap();
-            state.finish(tag, self, peek, out)?;
+            state.finish(tag, peek, Stack::new(out, &mut self.stack))?;
             return Ok(());
         }
 
-        let event = match self.stack.last_mut() {
-            Some(state) => state.intercept_event(event, out)?,
-            None => Some(event),
-        };
+        if !self.stack.is_empty() {
+            let index = self.stack.len() - 1;
+            let (stack, last) = self.stack.split_at_mut(index);
+            last[0].intercept_event(&event, Stack::new(&mut *out, stack))?;
+        }
 
         match event {
-            None => (),
-            Some(Event::End(_)) => unreachable!(),
-            Some(Event::Start(tag)) => {
-                let state = States::new(tag, &self.stack, out)?;
+            Event::End(_) => unreachable!(),
+            Event::Start(tag) => {
+                let state = States::new(tag, Stack::new(&mut *out, &mut self.stack))?;
                 self.stack.push(state);
             },
-            Some(Event::Text(text)) => D::Simple::gen_text(&text, out)?,
-            Some(Event::Html(html)) => unimplemented!(),
-            Some(Event::InlineHtml(html)) => unimplemented!(),
-            Some(Event::FootnoteReference(fnote)) => D::Simple::gen_footnote_reference(&fnote, out)?,
-            Some(Event::SoftBreak) => D::Simple::gen_soft_break(out)?,
-            Some(Event::HardBreak) => D::Simple::gen_hard_break(out)?,
+            Event::Text(text) => D::Simple::gen_text(&text, &mut self.get_out(out))?,
+            Event::Html(html) => unimplemented!(),
+            Event::InlineHtml(html) => unimplemented!(),
+            Event::FootnoteReference(fnote) => D::Simple::gen_footnote_reference(&fnote, &mut self.get_out(out))?,
+            Event::SoftBreak => D::Simple::gen_soft_break(&mut self.get_out(out))?,
+            Event::HardBreak => D::Simple::gen_hard_break(&mut self.get_out(out))?,
         }
 
         Ok(())
     }
-}
 
-fn read_until<'a>(gen: &mut Generator<'a, impl Document<'a>>, events: impl IntoIterator<Item = Event<'a>>, peek: Option<&Event<'a>>) -> Result<String> {
-    let mut events = events.into_iter().peekable();
-    let mut res = Vec::new();
-    while let Some(event) = events.next() {
-        let peek = events.peek().or(peek);
-        gen.visit_event(event, peek, &mut res)?;
+    fn get_out<'s: 'b, 'b>(&'s mut self, out: &'b mut dyn Write) -> &'b mut dyn Write {
+        self.stack.iter_mut().rev()
+            .filter_map(|state| state.output_redirect()).next()
+            .unwrap_or(out)
     }
-    Ok(String::from_utf8(res).expect("invalid UTF8"))
 }

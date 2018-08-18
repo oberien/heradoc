@@ -2,27 +2,27 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Document, read_until};
+use crate::gen::{State, States, Generator, Stack, Document};
 
 #[derive(Debug)]
-pub struct BlockQuote<'a> {
-    events: Vec<Event<'a>>,
+pub struct BlockQuote {
+    quote: Vec<u8>
 }
 
-impl<'a> State<'a> for BlockQuote<'a> {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
+impl<'a> State<'a> for BlockQuote {
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(BlockQuote {
-            events: Vec::with_capacity(20),
+            quote: Vec::new(),
         })
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        self.events.push(e);
-        Ok(None)
+    fn output_redirect(&mut self) -> Option<&mut dyn Write> {
+        Some(&mut self.quote)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        let quote = read_until(gen, self.events, peek)?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        let out = stack.get_out();
+        let quote = String::from_utf8(self.quote).expect("invalid UTF8");
         let mut quote = quote.as_str();
 
         // check if last line of quote is source of quote

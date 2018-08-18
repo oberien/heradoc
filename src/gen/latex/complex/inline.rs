@@ -2,23 +2,19 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{State, States, Generator, Stack, Document};
 
 #[derive(Debug)]
 pub struct InlineEmphasis;
 
 impl<'a> State<'a> for InlineEmphasis {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
-        write!(out, "\\emph{{")?;
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+        write!(stack.get_out(), "\\emph{{")?;
         Ok(InlineEmphasis)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        write!(out, "}}")?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        write!(stack.get_out(), "}}")?;
         Ok(())
     }
 }
@@ -27,17 +23,13 @@ impl<'a> State<'a> for InlineEmphasis {
 pub struct InlineStrong;
 
 impl<'a> State<'a> for InlineStrong {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
-        write!(out, "\\textbf{{")?;
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+        write!(stack.get_out(), "\\textbf{{")?;
         Ok(InlineStrong)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        write!(out, "}}")?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        write!(stack.get_out(), "}}")?;
         Ok(())
     }
 }
@@ -46,17 +38,13 @@ impl<'a> State<'a> for InlineStrong {
 pub struct InlineCode;
 
 impl<'a> State<'a> for InlineCode {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
-        write!(out, "\\texttt{{")?;
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+        write!(stack.get_out(), "\\texttt{{")?;
         Ok(InlineCode)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        write!(out, "}}")?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        write!(stack.get_out(), "}}")?;
         Ok(())
     }
 }

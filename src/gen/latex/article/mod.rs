@@ -13,8 +13,8 @@ impl<'a> Document<'a> for Article {
     type Simple = super::SimpleGen;
     type Paragraph = super::Paragraph;
     type Rule = super::Rule;
-    type Header = super::Header<'a>;
-    type BlockQuote = super::BlockQuote<'a>;
+    type Header = super::Header;
+    type BlockQuote = super::BlockQuote;
     type CodeBlock = super::CodeBlock;
     type List = super::List;
     type Item = super::Item;

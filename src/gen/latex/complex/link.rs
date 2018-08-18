@@ -3,17 +3,17 @@ use std::borrow::Cow;
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Document, read_until};
+use crate::gen::{State, States, Generator, Stack, Document};
 
 #[derive(Debug)]
 pub struct Link<'a> {
     dst: Cow<'a, str>,
     title: Cow<'a, str>,
-    events: Vec<Event<'a>>,
+    text: Vec<u8>,
 }
 
 impl<'a> State<'a> for Link<'a> {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
         let (dst, title) = match tag {
             Tag::Link(dst, title) => (dst, title),
             _ => unreachable!(),
@@ -21,16 +21,16 @@ impl<'a> State<'a> for Link<'a> {
         Ok(Link {
             dst,
             title,
-            events: Vec::new(),
+            text: Vec::new(),
         })
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        self.events.push(e);
-        Ok(None)
+    fn output_redirect(&mut self) -> Option<&mut dyn Write> {
+        Some(&mut self.text)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        let out = stack.get_out();
         // TODO: handle all links properly
         // Markdown Types of links: https://github.com/google/pulldown-cmark/issues/141
 
@@ -50,7 +50,7 @@ impl<'a> State<'a> for Link<'a> {
         // * [text][ref]: same as [text](link "title")
         //     * dst="link", title="title", text="text"
         // TODO: use title
-        let text = read_until(gen, self.events, peek)?;
+        let text = String::from_utf8(self.text).expect("invalid UTF8");
 
         let uppercase = self.dst.chars().nth(0).unwrap().is_ascii_uppercase();
         let dst = self.dst.to_ascii_lowercase();

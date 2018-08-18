@@ -2,13 +2,14 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event, Alignment};
 
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{State, States, Generator, Stack, Document};
 
 #[derive(Debug)]
 pub struct Table;
 
 impl<'a> State<'a> for Table {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+        let out = stack.get_out();
         let align = match tag {
             Tag::Table(align) => align,
             _ => unreachable!(),
@@ -31,12 +32,8 @@ impl<'a> State<'a> for Table {
         Ok(Table)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\end{{tabular}}")?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        writeln!(stack.get_out(), "\\end{{tabular}}")?;
         Ok(())
     }
 }
@@ -45,16 +42,12 @@ impl<'a> State<'a> for Table {
 pub struct TableHead;
 
 impl<'a> State<'a> for TableHead {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(TableHead)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\\\ \\thickhline")?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        writeln!(stack.get_out(), "\\\\ \\thickhline")?;
         Ok(())
     }
 }
@@ -63,16 +56,12 @@ impl<'a> State<'a> for TableHead {
 pub struct TableRow;
 
 impl<'a> State<'a> for TableRow {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(TableRow)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\\\ \\hline")?;
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+        writeln!(stack.get_out(), "\\\\ \\hline")?;
         Ok(())
     }
 }
@@ -81,17 +70,13 @@ impl<'a> State<'a> for TableRow {
 pub struct TableCell;
 
 impl<'a> State<'a> for TableCell {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
+    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(TableCell)
     }
 
-    fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
-
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
         if let Event::Start(Tag::TableCell) = peek.unwrap() {
-            write!(out, "&")?;
+            write!(stack.get_out(), "&")?;
         }
         Ok(())
     }
