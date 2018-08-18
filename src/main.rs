@@ -21,6 +21,7 @@ mod config;
 
 use crate::concat::Concat;
 use crate::config::{Config, OutType};
+use gen::Article;
 
 fn main() {
     let mut cfg = Config::from_args();
@@ -38,13 +39,13 @@ fn main() {
     let events = Concat(parser.peekable()).collect::<Vec<_>>();
     println!("{:#?}", events);
     match cfg.output_type.unwrap() {
-        OutType::Latex => gen::generate(events, cfg.output.to_write()).unwrap(),
+        OutType::Latex => gen::generate(Article, events, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
             let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
             let tex_path = tmpdir.path().join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
-            gen::generate(events, tex_file).unwrap();
+            gen::generate(Article, events, tex_file).unwrap();
             let mut pdflatex = Command::new("pdflatex");
             pdflatex.arg("-halt-on-error")
                 .args(&["-interaction", "nonstopmode"])
