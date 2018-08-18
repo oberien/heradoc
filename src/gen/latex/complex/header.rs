@@ -1,5 +1,4 @@
 use std::io::{Result, Write};
-use std::fmt::Debug;
 
 use pulldown_cmark::{Tag, Event};
 
@@ -13,7 +12,7 @@ pub struct Header<'a> {
 }
 
 impl<'a> State<'a> for Header<'a> {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
         let level = match tag {
             Tag::Header(level) => level,
             _ => unreachable!(),
@@ -37,7 +36,7 @@ impl<'a> State<'a> for Header<'a> {
         Ok(None)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         write!(out, "\\{}section{{", "sub".repeat(self.level as usize - 1))?;
         for event in self.events {
             gen.visit_event(event, None, out)?;

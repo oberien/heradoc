@@ -11,49 +11,49 @@ pub mod latex;
 
 use self::peek::Peek;
 
-pub struct Generator<'a, D: Document<'a> + Debug> {
+pub struct Generator<'a, D: Document<'a>> {
     doc: D,
     stack: Vec<States<'a, D>>,
 }
 
-pub fn generate<'a>(mut doc: impl Document<'a> + Debug, events: impl IntoIterator<Item = Event<'a>>, mut out: impl Write) -> Result<()> {
+pub fn generate<'a>(mut doc: impl Document<'a>, events: impl IntoIterator<Item = Event<'a>>, mut out: impl Write) -> Result<()> {
     Generator::new(doc).generate(events, &mut out)?;
     Ok(())
 }
 
-pub trait Document<'a> {
-    type Simple: Simple + Debug;
-    type Paragraph: State<'a> + Debug;
-    type Rule: State<'a> + Debug;
-    type Header: State<'a> + Debug;
-    type BlockQuote: State<'a> + Debug;
-    type CodeBlock: State<'a> + Debug;
-    type List: State<'a> + Debug;
-    type Item: State<'a> + Debug;
-    type FootnoteDefinition: State<'a> + Debug;
-    type Table: State<'a> + Debug;
-    type TableHead: State<'a> + Debug;
-    type TableRow: State<'a> + Debug;
-    type TableCell: State<'a> + Debug;
-    type InlineEmphasis: State<'a> + Debug;
-    type InlineStrong: State<'a> + Debug;
-    type InlineCode: State<'a> + Debug;
-    type Link: State<'a> + Debug;
-    type Image: State<'a> + Debug;
+pub trait Document<'a>: Debug {
+    type Simple: Simple;
+    type Paragraph: State<'a>;
+    type Rule: State<'a>;
+    type Header: State<'a>;
+    type BlockQuote: State<'a>;
+    type CodeBlock: State<'a>;
+    type List: State<'a>;
+    type Item: State<'a>;
+    type FootnoteDefinition: State<'a>;
+    type Table: State<'a>;
+    type TableHead: State<'a>;
+    type TableRow: State<'a>;
+    type TableCell: State<'a>;
+    type InlineEmphasis: State<'a>;
+    type InlineStrong: State<'a>;
+    type InlineCode: State<'a>;
+    type Link: State<'a>;
+    type Image: State<'a>;
 
     fn new() -> Self;
     fn gen_preamble(&mut self, out: &mut impl Write) -> Result<()>;
     fn gen_epilogue(&mut self, out: &mut impl Write) -> Result<()>;
 }
 
-pub trait State<'a>: Sized {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self>;
+pub trait State<'a>: Sized + Debug {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self>;
     // TODO: refactor intercept_event to pass generator to collect Vec<u8> while intercepting instead of collecting into a Vec<Event>
     fn intercept_event(&mut self, e: Event<'a>, out: &mut impl Write) -> Result<Option<Event<'a>>>;
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()>;
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()>;
 }
 
-pub trait Simple {
+pub trait Simple: Debug {
     fn gen_text(text: &str, out: &mut impl Write) -> Result<()>;
     fn gen_footnote_reference(fnote: &str, out: &mut impl Write) -> Result<()>;
     fn gen_soft_break(out: &mut impl Write) -> Result<()>;
@@ -61,7 +61,7 @@ pub trait Simple {
 }
 
 #[derive(Debug)]
-pub enum States<'a, D: Document<'a> + Debug> {
+pub enum States<'a, D: Document<'a>> {
     Paragraph(D::Paragraph),
     Rule(D::Rule),
     Header(D::Header),
@@ -81,7 +81,7 @@ pub enum States<'a, D: Document<'a> + Debug> {
     Image(D::Image),
 }
 
-impl<'a, D: Document<'a> + Debug> States<'a, D> {
+impl<'a, D: Document<'a>> States<'a, D> {
     fn new(tag: Tag<'a>, stack: &[States<'a, D>], out: &mut impl Write) -> Result<Self> {
         match &tag {
             Tag::Paragraph => Ok(States::Paragraph(D::Paragraph::new(tag, stack, out)?)),
@@ -126,7 +126,7 @@ impl<'a, D: Document<'a> + Debug> States<'a, D> {
         }
     }
 
-    fn finish(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         match (self, tag) {
             (States::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek, out),
             (States::Rule(s), Tag::Rule) => s.finish(gen, peek, out),
@@ -157,7 +157,7 @@ impl<'a, D: Document<'a> + Debug> States<'a, D> {
     }
 }
 
-impl<'a, D: Document<'a> + Debug> Generator<'a, D> {
+impl<'a, D: Document<'a>> Generator<'a, D> {
     pub fn new(doc: D) -> Self {
         Generator {
             doc,
@@ -205,7 +205,7 @@ impl<'a, D: Document<'a> + Debug> Generator<'a, D> {
     }
 }
 
-fn read_until<'a>(gen: &mut Generator<'a, impl Document<'a> + Debug>, events: impl IntoIterator<Item = Event<'a>>, peek: Option<&Event<'a>>) -> Result<String> {
+fn read_until<'a>(gen: &mut Generator<'a, impl Document<'a>>, events: impl IntoIterator<Item = Event<'a>>, peek: Option<&Event<'a>>) -> Result<String> {
     let mut events = events.into_iter().peekable();
     let mut res = Vec::new();
     while let Some(event) = events.next() {

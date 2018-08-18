@@ -1,5 +1,4 @@
 use std::io::{Result, Write};
-use std::fmt::Debug;
 
 use pulldown_cmark::{Tag, Event};
 
@@ -11,7 +10,7 @@ pub struct BlockQuote<'a> {
 }
 
 impl<'a> State<'a> for BlockQuote<'a> {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
         Ok(BlockQuote {
             events: Vec::with_capacity(20),
         })
@@ -22,7 +21,7 @@ impl<'a> State<'a> for BlockQuote<'a> {
         Ok(None)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         let quote = read_until(gen, self.events, peek)?;
         let mut quote = quote.as_str();
 

@@ -1,5 +1,4 @@
 use std::io::{Result, Write};
-use std::fmt::Debug;
 
 use pulldown_cmark::{Event, Tag};
 
@@ -9,7 +8,7 @@ use crate::gen::{State, States, Generator, Document};
 pub struct Paragraph;
 
 impl<'a> State<'a> for Paragraph {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
         Ok(Paragraph)
     }
 
@@ -17,7 +16,7 @@ impl<'a> State<'a> for Paragraph {
         Ok(Some(e))
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         // TODO: improve readability (e.g. no newline between list items)
         match peek {
             Some(Event::Text(_))

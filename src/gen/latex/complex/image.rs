@@ -1,5 +1,4 @@
 use std::io::{Result, Write};
-use std::fmt::Debug;
 use std::borrow::Cow;
 
 use pulldown_cmark::{Tag, Event};
@@ -14,7 +13,7 @@ pub struct Image<'a> {
 }
 
 impl<'a> State<'a> for Image<'a> {
-    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a> + Debug>], out: &mut impl Write) -> Result<Self> {
+    fn new(tag: Tag<'a>, stack: &[States<'a, impl Document<'a>>], out: &mut impl Write) -> Result<Self> {
         let (dst, title) = match tag {
             Tag::Image(dst, title) => (dst, title),
             _ => unreachable!(),
@@ -35,7 +34,7 @@ impl<'a> State<'a> for Image<'a> {
         Ok(None)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a> + Debug>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>>, peek: Option<&Event<'a>>, out: &mut impl Write) -> Result<()> {
         let caption = read_until(gen, self.events, peek)?;
 
         if !caption.is_empty() {
