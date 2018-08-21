@@ -10,30 +10,30 @@ pub struct Header {
 }
 
 impl<'a> State<'a> for Header {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let level = match tag {
             Tag::Header(level) => level,
             _ => unreachable!(),
         };
-        write!(stack.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
+        write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
         Ok(Header {
             label: String::with_capacity(100),
         })
     }
 
-    fn intercept_event<'b>(&mut self, e: &Event<'a>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        match e {
+    fn intercept_event<'b>(&mut self, stack: &mut Stack<'a, 'b, impl Document<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
+        match &e {
             Event::Text(text) => self.label.extend(text.chars().map(|c| match c {
                 'a'...'z' | 'A'...'Z' | '0'...'9' => c.to_ascii_lowercase(),
                 _ => '-',
             })),
             _ => (),
         }
-        Ok(())
+        Ok(Some(e))
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        writeln!(stack.get_out(), "}}\\label{{{}}}\n", self.label)?;
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label)?;
         Ok(())
     }
 }

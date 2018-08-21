@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Stack, Document};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct BlockQuote {
@@ -10,7 +10,7 @@ pub struct BlockQuote {
 }
 
 impl<'a> State<'a> for BlockQuote {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(BlockQuote {
             quote: Vec::new(),
         })
@@ -20,8 +20,8 @@ impl<'a> State<'a> for BlockQuote {
         Some(&mut self.quote)
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        let out = stack.get_out();
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        let out = gen.get_out();
         let quote = String::from_utf8(self.quote).expect("invalid UTF8");
         let mut quote = quote.as_str();
 

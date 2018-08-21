@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Stack, Document};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct List {
@@ -10,7 +10,7 @@ pub struct List {
 }
 
 impl<'a> State<'a> for List {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let start = match tag {
             Tag::List(start) => start,
             _ => unreachable!("List::new must be called with Tag::List"),
@@ -18,11 +18,11 @@ impl<'a> State<'a> for List {
 
         if let Some(start) = start {
             let start = start as i32 - 1;
-            let enumerate_depth = 1 + stack.iter().filter(|state| state.is_list()).count();
-            writeln!(stack.get_out(), "\\begin{{enumerate}}")?;
-            writeln!(stack.get_out(), "\\setcounter{{enum{}}}{{{}}}", "i".repeat(enumerate_depth), start)?;
+            let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_list()).count();
+            writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
+            writeln!(gen.get_out(), "\\setcounter{{enum{}}}{{{}}}", "i".repeat(enumerate_depth), start)?;
         } else {
-            writeln!(stack.get_out(), "\\begin{{itemize}}")?;
+            writeln!(gen.get_out(), "\\begin{{itemize}}")?;
         }
 
         Ok(List {
@@ -30,11 +30,11 @@ impl<'a> State<'a> for List {
         })
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         if self.start.is_some() {
-            writeln!(stack.get_out(), "\\end{{enumerate}}")?;
+            writeln!(gen.get_out(), "\\end{{enumerate}}")?;
         } else {
-            writeln!(stack.get_out(), "\\end{{itemize}}")?;
+            writeln!(gen.get_out(), "\\end{{itemize}}")?;
         }
         Ok(())
     }
@@ -44,13 +44,13 @@ impl<'a> State<'a> for List {
 pub struct Item;
 
 impl<'a> State<'a> for Item {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
-        write!(stack.get_out(), "\\item ")?;
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+        write!(gen.get_out(), "\\item ")?;
         Ok(Item)
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        writeln!(stack.get_out())?;
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        writeln!(gen.get_out())?;
         Ok(())
     }
 }

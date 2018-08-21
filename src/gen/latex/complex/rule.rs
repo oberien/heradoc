@@ -8,18 +8,18 @@ use crate::gen::{State, States, Generator, Stack, Document};
 pub struct Rule;
 
 impl<'a> State<'a> for Rule {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(Rule)
     }
 
 
-    fn intercept_event<'b>(&mut self, e: &Event<'a>, stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+    fn intercept_event<'b>(&mut self, stack: &mut Stack<'a, 'b, impl Document<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
         // TODO: check this
         unreachable!("rule shouldn't have anything between start and end")
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        let out = stack.get_out();
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        let out = gen.get_out();
         // TODO: find out why text after the hrule is indented in the pdf
         writeln!(out)?;
         writeln!(out, "\\vspace{{1em}}")?;

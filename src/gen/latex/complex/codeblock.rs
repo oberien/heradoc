@@ -2,14 +2,14 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Stack, Document};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct CodeBlock;
 
 impl<'a> State<'a> for CodeBlock {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
-        let out = stack.get_out();
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+        let out = gen.get_out();
         let lang = match tag {
             Tag::CodeBlock(lang) => lang,
             _ => unreachable!("CodeBlock::new must be called with Tag::CodeBlock"),
@@ -42,8 +42,8 @@ impl<'a> State<'a> for CodeBlock {
         Ok(CodeBlock)
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        writeln!(stack.get_out(), "\\end{{lstlisting}}")?;
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        writeln!(gen.get_out(), "\\end{{lstlisting}}")?;
         Ok(())
     }
 }

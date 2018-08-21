@@ -3,7 +3,7 @@ use std::borrow::Cow;
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Stack, Document};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct Image<'a> {
@@ -13,8 +13,8 @@ pub struct Image<'a> {
 }
 
 impl<'a> State<'a> for Image<'a> {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
-        let out = stack.get_out();
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+        let out = gen.get_out();
         let (dst, title) = match tag {
             Tag::Image(dst, title) => (dst, title),
             _ => unreachable!(),
@@ -34,8 +34,8 @@ impl<'a> State<'a> for Image<'a> {
         Some(&mut self.caption)
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
-        let out = stack.get_out();
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        let out = gen.get_out();
         let caption = String::from_utf8(self.caption).expect("inavlid UTF8");
 
         if !caption.is_empty() {

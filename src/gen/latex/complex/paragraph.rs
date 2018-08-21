@@ -2,17 +2,17 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Event, Tag};
 
-use crate::gen::{State, States, Generator, Stack, Document};
+use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct Paragraph;
 
 impl<'a> State<'a> for Paragraph {
-    fn new<'b>(tag: Tag<'a>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(Paragraph)
     }
 
-    fn finish<'b>(self, peek: Option<&Event<'a>>, mut stack: Stack<'a, 'b, impl Document<'a>, impl Write>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         // TODO: improve readability (e.g. no newline between list items)
         match peek {
             Some(Event::Text(_))
@@ -24,8 +24,8 @@ impl<'a> State<'a> for Paragraph {
             | Some(Event::Start(Tag::Strong))
             | Some(Event::Start(Tag::Code))
             | Some(Event::Start(Tag::Link(..)))
-            | Some(Event::Start(Tag::Image(..))) => writeln!(stack.get_out(), "\\\\\n\\\\"),
-            _ => writeln!(stack.get_out()),
+            | Some(Event::Start(Tag::Image(..))) => writeln!(gen.get_out(), "\\\\\n\\\\"),
+            _ => writeln!(gen.get_out()),
         }
     }
 }
