@@ -15,13 +15,11 @@ use pulldown_cmark::{Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use structopt::StructOpt;
 use tempdir::TempDir;
 
-mod concat;
 mod gen;
 mod config;
 
-use crate::concat::Concat;
 use crate::config::{Config, OutType};
-use gen::latex::Article;
+use crate::gen::latex::Article;
 
 fn main() {
     let mut cfg = Config::from_args();
@@ -29,14 +27,7 @@ fn main() {
     println!("{:?}", cfg);
 
     let mut markdown = String::new();
-    cfg.input.to_read().read_to_string(&mut markdown).expect("can't read input");
-
-    let parser = Parser::new_with_broken_link_callback(
-        &markdown,
-        OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
-        Some(&refsolve)
-    );
-    let events = Concat(parser.peekable()).collect::<Vec<_>>();
+    let events = gen::get_parser(&mut markdown, cfg.input.to_read()).collect::<Vec<_>>();
     println!("{:#?}", events);
     match cfg.output_type.unwrap() {
         OutType::Latex => gen::generate(Article, events, cfg.output.to_write()).unwrap(),
@@ -66,15 +57,6 @@ fn main() {
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
         }
-    }
-}
-
-fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
-    println!("Unk: {:?} {:?}", a, b);
-    if a.starts_with('@') {
-        Some(("biblatex-link-dst".to_string(), "title".to_string()))
-    } else {
-        Some((a.to_string(), b.to_string()))
     }
 }
 
