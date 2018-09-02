@@ -123,3 +123,14 @@ Col 1 | Col 2 | Col 3
 :-- | :-: | --:
 Left | Center | Right
 **Foo** | *Bar* | `Baz`
+
+# Includes
+
+!!include{test-include.md}
+
+* List to include into
+  !!include{test-include.md}
+
+1. Numbered list to include into (test continuous state)
+  !!include{test-include.md}
+

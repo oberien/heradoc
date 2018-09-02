@@ -3,6 +3,7 @@ use std::iter::Peekable;
 use std::fmt::Debug;
 
 use pulldown_cmark::{Event, Tag, Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
+use typed_arena::Arena;
 
 pub mod latex;
 mod states;
@@ -14,29 +15,11 @@ pub use self::generator::Generator;
 
 use self::concat::Concat;
 
-pub fn generate<'a>(mut doc: impl Document<'a>, events: impl IntoIterator<Item = Event<'a>>, mut out: impl Write) -> Result<()> {
-    Generator::new(doc, out).generate(events)?;
+pub fn generate<'a>(mut doc: impl Document<'a>, arena: &'a Arena<String>, markdown: String, mut out: impl Write) -> Result<()> {
+    let mut gen = Generator::new(doc, out, arena);
+    let events = gen.get_events(markdown);
+    gen.generate(events)?;
     Ok(())
-}
-
-pub fn get_parser<'a>(buf: &'a mut String, mut src: impl Read) -> impl Iterator<Item = Event<'a>> {
-    src.read_to_string(buf).expect("can't read input");
-
-    let parser = Parser::new_with_broken_link_callback(
-        buf,
-        OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
-        Some(&refsolve)
-    );
-    Concat(parser.peekable())
-}
-
-fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
-    println!("Unk: {:?} {:?}", a, b);
-    if a.starts_with('@') {
-        Some(("biblatex-link-dst".to_string(), "title".to_string()))
-    } else {
-        Some((a.to_string(), b.to_string()))
-    }
 }
 
 pub trait Document<'a>: Debug {

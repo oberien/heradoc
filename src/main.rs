@@ -6,6 +6,7 @@ extern crate structopt;
 extern crate void;
 extern crate boolinator;
 extern crate tempdir;
+extern crate typed_arena;
 
 use std::fs::File;
 use std::process::Command;
@@ -14,6 +15,7 @@ use std::io::{self, Write};
 use pulldown_cmark::{Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use structopt::StructOpt;
 use tempdir::TempDir;
+use typed_arena::Arena;
 
 mod gen;
 mod config;
@@ -27,16 +29,15 @@ fn main() {
     println!("{:?}", cfg);
 
     let mut markdown = String::new();
-    let events = gen::get_parser(&mut markdown, cfg.input.to_read()).collect::<Vec<_>>();
-    println!("{:#?}", events);
+    cfg.input.to_read().read_to_string(&mut markdown).unwrap();
     match cfg.output_type.unwrap() {
-        OutType::Latex => gen::generate(Article, events, cfg.output.to_write()).unwrap(),
+        OutType::Latex => gen::generate(Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
             let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
             let tex_path = tmpdir.path().join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
-            gen::generate(Article, events, tex_file).unwrap();
+            gen::generate(Article, &Arena::new(), markdown, tex_file).unwrap();
             let mut pdflatex = Command::new("pdflatex");
             pdflatex.arg("-halt-on-error")
                 .args(&["-interaction", "nonstopmode"])

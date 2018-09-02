@@ -1,34 +1,55 @@
-use std::io::{Write, Result};
+use std::io::{Read, Write, Result};
 use std::path::Path;
 use std::fs::File;
+use std::iter::Peekable;
 
-use pulldown_cmark::{Tag, Event};
+use pulldown_cmark::{Tag, Event, Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
+use typed_arena::Arena;
 
 use gen::{Document, Stack, State, States, Simple};
+use gen::concat::Concat;
 
 pub struct Generator<'a, D: Document<'a>, W: Write> {
+    arena: &'a Arena<String>,
     doc: D,
     default_out: W,
     stack: Vec<States<'a, D>>,
 }
 
 impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
-    pub fn new(doc: D, default_out: W) -> Self {
+    pub fn new(doc: D, default_out: W, arena: &'a Arena<String>) -> Self {
         Generator {
+            arena,
             doc,
             default_out,
             stack: Vec::new(),
         }
     }
 
-    pub fn generate(mut self, events: impl IntoIterator<Item = Event<'a>>) -> Result<()> {
-        self.doc.gen_preamble(&mut self.default_out)?;
-        let mut events = events.into_iter().peekable();
+    pub fn get_events(&mut self, markdown: String) -> Peekable<impl Iterator<Item = Event<'a>>> {
+        let markdown = self.arena.alloc(markdown);
+        let parser = Parser::new_with_broken_link_callback(
+            markdown,
+            OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
+            Some(&refsolve)
+        );
+        // TODO: don't print events
+        let events: Vec<_> = Concat(parser.peekable()).collect();
+        println!("{:#?}", events);
+        events.into_iter().peekable()
+    }
 
+    pub fn generate(&mut self, events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
+        self.doc.gen_preamble(&mut self.default_out)?;
+        self.generate_body(events);
+        self.doc.gen_epilogue(&mut self.default_out)?;
+        Ok(())
+    }
+
+    pub fn generate_body(&mut self, mut events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
         while let Some(event) = events.next() {
             self.visit_event(event, events.peek())?;
         }
-        self.doc.gen_epilogue(&mut self.default_out)?;
         Ok(())
     }
 
@@ -77,6 +98,9 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
             .unwrap_or(&mut self.default_out)
     }
 
+    /// Checks if the passed text is an include and handles it if it is.
+    ///
+    /// Returns true if the text was consumed and false if the caller should handle it further.
     fn handle_include(&mut self, text: &str) -> Result<bool> {
         let text = text.trim();
         let should_include = text.starts_with("!!include{") && text.ends_with("}")
@@ -85,12 +109,22 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
         if !should_include {
             return Ok(false);
         }
+
+        println!("should include: {:?}", &text[10..text.len() - 1]);
+
         let mut file = File::open(&text[10..text.len() - 1])?;
         let mut buf = String::new();
-        let mut events = super::get_parser(&mut buf, file).peekable();
-        while let Some(event) = events.next() {
-            self.visit_event(event, events.peek())?;
-        }
-        Ok(false)
+        file.read_to_string(&mut buf)?;
+        let events = self.get_events(buf);
+        self.generate_body(events).map(|()| true)
+    }
+}
+
+fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
+    println!("Unk: {:?} {:?}", a, b);
+    if a.starts_with('@') {
+        Some(("biblatex-link-dst".to_string(), "title".to_string()))
+    } else {
+        Some((a.to_string(), b.to_string()))
     }
 }
