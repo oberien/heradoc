@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::{Tag, Event};
 
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{self, State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct List {
@@ -18,7 +18,7 @@ impl<'a> State<'a> for List {
 
         if let Some(start) = start {
             let start = start as i32 - 1;
-            let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_list()).count();
+            let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate_list()).count();
             writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
             writeln!(gen.get_out(), "\\setcounter{{enum{}}}{{{}}}", "i".repeat(enumerate_depth), start)?;
         } else {
@@ -37,6 +37,12 @@ impl<'a> State<'a> for List {
             writeln!(gen.get_out(), "\\end{{itemize}}")?;
         }
         Ok(())
+    }
+}
+
+impl<'a> gen::List<'a> for List {
+    fn is_enumerate(&self) -> bool {
+        self.start.is_some()
     }
 }
 

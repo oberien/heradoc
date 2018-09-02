@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 
 use pulldown_cmark::{Tag, Event};
 
-use gen::{Document, Generator, Stack, State};
+use gen::{Document, Generator, Stack, State, List};
 
 #[derive(Debug)]
 pub enum States<'a, D: Document<'a>> {
@@ -126,6 +126,13 @@ impl<'a, D: Document<'a>> States<'a, D> {
         match self {
             States::List(_) => true,
             _ => false,
+        }
+    }
+
+    pub fn is_enumerate_list(&self) -> bool {
+        match self {
+            States::List(l) => l.is_enumerate(),
+            _ => false
         }
     }
 

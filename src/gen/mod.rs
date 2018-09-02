@@ -29,7 +29,7 @@ pub trait Document<'a>: Debug {
     type Header: State<'a>;
     type BlockQuote: State<'a>;
     type CodeBlock: State<'a>;
-    type List: State<'a>;
+    type List: List<'a>;
     type Item: State<'a>;
     type FootnoteDefinition: State<'a>;
     type Table: State<'a>;
@@ -56,6 +56,10 @@ pub trait State<'a>: Sized + Debug {
         Ok(Some(e))
     }
     fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
+}
+
+pub trait List<'a>: State<'a> {
+    fn is_enumerate(&self) -> bool;
 }
 
 pub trait Simple: Debug {
