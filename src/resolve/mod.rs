@@ -11,13 +11,13 @@
 use std::collections::HashMap;
 use std::io;
 use std::fs::{self, File};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
-use url::{Url, Origin, ParseError};
+use url::{Url, Host, Origin, ParseError};
 
 pub struct Resolver {
     grants: Grants,
-    special_provider: HashMap<Origin, Box<DocumentProvider>>,
+    special_provider: HashMap<Host, Box<DocumentProvider>>,
 }
 
 /// Manages additional request types explicitely allowed by command line options.
@@ -28,7 +28,7 @@ pub trait DocumentProvider {
     fn build(&self, target: Url, builder: DocumentBuilder) -> io::Result<Document>;
 }
 
-struct Documents;
+struct Documents(PathBuf);
 
 struct Locals;
 
@@ -88,9 +88,16 @@ impl Resolver {
         }
     }
 
-    pub fn add_provider(&mut self, origin: Origin, provider: Box<DocumentProvider>) {
-        let previous = self.special_provider.insert(origin.clone(), provider);
-        assert!(previous.is_none(), "Two providers for same origin {:?}", origin);
+    /// Add a standard provider for a document tree.
+    pub fn add_documents<P: Into<PathBuf>>(&mut self, base: P) {
+        let documents = Documents(base.into());
+        self.add_provider("document", Box::new(documents));
+    }
+
+    pub fn add_provider<H: Into<String>>(&mut self, host: H, provider: Box<DocumentProvider>) {
+        let host = Host::Domain(host.into());
+        let previous = self.special_provider.insert(host.clone(), provider);
+        assert!(previous.is_none(), "Two providers for same host {:?}", &host);
     }
 
     /// Make a request to an uri in the context of a document with the specified source.
@@ -106,11 +113,25 @@ impl Resolver {
         let builder = self.builder(&target);
         let provider = self.provider(&target);
 
-        provider.build(target.as_url().clone(), builder)
+        provider
+            .ok_or_else(|| io::Error::new(
+                io::ErrorKind::AddrNotAvailable,
+                format!("No handler providing url {:?}", target.as_url()),
+            ))?
+            .build(target.as_url().clone(), builder)
     }
 
-    pub fn provider(&self, target: &Source) -> &DocumentProvider {
-        unimplemented!()
+    pub fn provider(&self, target: &Source) -> Option<&DocumentProvider> {
+        let host = match target.inner {
+            InnerSource::Local(_) => return Some(&Locals),
+            InnerSource::Remote(_) => return Some(&Remotes),
+            InnerSource::Implementation(ref url) => url.host(),
+        };
+
+        host
+            .map(|host| host.to_owned())
+            .and_then(|host| self.special_provider.get(&host))
+            .map(|provider| provider.as_ref())
     }
 
     pub fn builder(&self, source: &Source) -> DocumentBuilder {
@@ -177,10 +198,8 @@ impl Document {
 
 impl Source {
     /// Construct the local top level source.
-    pub fn document_root(&self) -> Source {
-        Source {
-            inner: InnerSource::Local("pundoc://document/".parse().unwrap()),
-        }
+    pub fn document_root() -> Source {
+        Self::from_url("pundoc://document/".parse().unwrap())
     }
 
     /// Try to parse the source as one of the categories.
@@ -235,7 +254,9 @@ impl Source {
 
 impl Default for Resolver {
     fn default() -> Self {
-        Self::new()
+        let mut base = Self::new();
+        base.add_documents(".");
+        base
     }
 }
 
@@ -246,8 +267,30 @@ impl Default for Grants {
 }
 
 impl DocumentProvider for Documents {
-    fn build(&self, target: Url, builder: DocumentBuilder) -> io::Result<Document> {
-        unimplemented!("Return a reference to the file in the working directory")
+    fn build(&self, mut target: Url, builder: DocumentBuilder) -> io::Result<Document> {
+        // Normalize the url to interpret the serialization as a relative path.
+
+        // Host can not be cleared from some special schemes, so normalize the scheme first.
+        target.set_scheme("pundoc").unwrap();
+        // Clear the host
+        target.set_host(None).unwrap();
+        target.set_query(None);
+        target.set_fragment(None);
+        
+        // Url is now: `pundoc:<absolute path>`, e.g. `pundoc:/main.md`
+        let path = target.into_string();
+        assert_eq!(&path[..8], "pundoc:/");
+        let path = Path::new(&path[8..]);
+
+        let downwards = path.components()
+            .filter_map(|component| match component {
+                Component::Normal(os) => Some(os),
+                _ => None,
+            });
+        let mut output_path = self.0.clone();
+        output_path.extend(downwards);
+
+        Ok(builder.with_path(output_path))
     }
 }
 
@@ -261,6 +304,54 @@ impl DocumentProvider for Locals {
 impl DocumentProvider for Remotes {
     fn build(&self, _target: Url, _builder: DocumentBuilder) -> io::Result<Document> {
         unimplemented!("Remote urls can not yet be used inside documents")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn standard_resolves() {
+        let resolver = Resolver::default();
+        let top = Source::document_root();
+
+        let main_doc = resolver.request(&top, "main.md")
+            .expect("Failed to resolve direct path");
+        let sibling = resolver.request(main_doc.source(), "image.png")
+            .expect("Failed to resolve sibling file");
+
+        assert_eq!(main_doc.to_path(), Some(Path::new("./main.md")));
+        assert_eq!(sibling.to_path(), Some(Path::new("./image.png")));
+    }
+
+    #[test]
+    fn domain_resolves() {
+        struct Toc;
+
+        impl DocumentProvider for Toc {
+            fn build(&self, _target: Url, builder: DocumentBuilder) -> io::Result<Document> {
+                let reader = Box::new(io::Cursor::new("Table of Contents"));
+                Ok(builder.with_reader(reader))
+            }
+        }
+
+        let mut resolver = Resolver::default();
+        let top = Source::document_root();
+        let main_doc = resolver.request(&top, "main.md")
+            .expect("Failed to resolve direct path");
+
+        resolver.add_provider("toc", Box::new(Toc));
+        let toc = resolver.request(main_doc.source(), "//toc")
+            .expect("Failed to resolve path in different domain");
+
+        let mut toc_file = toc.into_reader()
+            .expect("Toc should be directly readable");
+        let mut content = String::new();
+        toc_file.read_to_string(&mut content)
+            .expect("Failed to read toc contents");
+
+        assert_eq!(content.as_str(), "Table of Contents");
     }
 }
 
