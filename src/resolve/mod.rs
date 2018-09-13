@@ -62,7 +62,7 @@ enum InnerSource {
     /// Implementation detail with vetted access.
     ///
     /// The burden is on this implemention to ensure that no confused deputy situation arises. This
-    /// implements special such as `//TOC`. The `//document` host allows qccess to the all project
+    /// implements special such as `//TOC`. The `//document` host allows access to the all project
     /// local files and other files with user setup.
     Implementation(Url),
 
@@ -77,7 +77,7 @@ enum InnerSource {
 
 enum Resource {
     File(PathBuf),
-    Abstract(Box<io::Read>),
+    Abstract(Box<dyn io::Read>),
 }
 
 impl Resolver {
@@ -154,7 +154,7 @@ impl DocumentBuilder {
         }
     }
 
-    pub fn with_reader(self, reader: Box<io::Read>) -> Document {
+    pub fn with_reader(self, reader: Box<dyn io::Read>) -> Document {
         Document {
             source: self.source,
             resource: Resource::Abstract(reader),
@@ -188,7 +188,7 @@ impl Document {
     /// This will not give a sensible result for all documents. Some documents might be filled
     /// during the processing of the markdown document. These will of course initially appear empty
     /// or contain data of previous runs.
-    pub fn into_reader(self) -> io::Result<Box<io::Read>> {
+    pub fn into_reader(self) -> io::Result<Box<dyn io::Read>> {
         Ok(match self.resource {
             Resource::File(path) => Box::new(File::open(path)?),
             Resource::Abstract(io) => io,
@@ -225,10 +225,10 @@ impl Source {
     }
 
     fn as_url(&self) -> &Url {
-        match self.inner {
-            InnerSource::Implementation(ref url) => url,
-            InnerSource::Local(ref url) => url,
-            InnerSource::Remote(ref url) => url,
+        match &self.inner {
+            InnerSource::Implementation(url) => url,
+            InnerSource::Local(url) => url,
+            InnerSource::Remote(url) => url,
         }
     }
 
