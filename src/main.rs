@@ -7,6 +7,7 @@ extern crate void;
 extern crate boolinator;
 extern crate tempdir;
 extern crate typed_arena;
+extern crate url;
 
 use std::fs::File;
 use std::process::Command;
@@ -19,6 +20,7 @@ use typed_arena::Arena;
 
 mod gen;
 mod config;
+mod resolve;
 
 use crate::config::{Config, OutType};
 use crate::gen::latex::Article;
