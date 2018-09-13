@@ -25,8 +25,8 @@ pub struct DocumentBuilder {
 pub enum Include {
     Command(Command),
     Markdown(PathBuf),
-    Image(PathBuf, Option<ImageMeta>),
-    Pdf(PathBuf, Option<PdfMeta>),
+    Image(PathBuf, ImageMeta),
+    Pdf(PathBuf, PdfMeta),
 }
 
 /// A direct command to the pundoc processor.
@@ -37,14 +37,14 @@ pub enum Command {
 }
 
 /// Additional meta data about an image.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct ImageMeta {
     pub width: Option<String>,
     pub height: Option<String>,
 }
 
 /// Additional available meta data about a pdf.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq)]
 pub struct PdfMeta;
 
 impl Document {
@@ -84,7 +84,7 @@ impl DocumentBuilder {
 
     pub fn with_path<P: Into<PathBuf>>(self, path: P) -> Document {
         // TODO: deduce more types.
-        self.build(Include::Image(path.into(), None))
+        self.build(Include::Image(path.into(), ImageMeta::default()))
     }
 
     // TODO: save to (cached) temporary file.
