@@ -32,7 +32,9 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
     + still render markdown between `\begin` and `\end` etc, which pandoc doesn't
     + not if HTML as backend
 - [ ] citation style (.cs)
-- [ ] todolist (enumitem)
+- [ ] todolist (enumitem): `- [ ] foo`
+- [ ] label: ``* `label`: Description`` (escape hatch with double-space after list item dot)
+- [ ] description: ``* **description**: Description`` (escape hatch with double-space after list item dot)
 - [ ] includes of files other than images / md
 - [ ] inline latex math mode (`$foo$`)
 - [ ] equation without number (`$$\nfoo\n$$`)
