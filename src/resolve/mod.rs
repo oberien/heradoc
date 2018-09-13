@@ -10,10 +10,13 @@
 //! a restrictive-by-default filter and error when violating security boundaries.
 use std::collections::HashMap;
 use std::io;
-use std::fs::{self, File};
 use std::path::{Component, Path, PathBuf};
 
 use url::{Url, Host, Origin, ParseError};
+
+mod document;
+
+pub use self::document::*;
 
 pub struct Resolver {
     grants: Grants,
@@ -33,23 +36,6 @@ struct Documents(PathBuf);
 struct Locals;
 
 struct Remotes;
-
-pub struct DocumentBuilder {
-    source: Source,
-    mime: Option<String>,
-}
-
-/// Metadata about a data source.
-///
-/// Each document, either local or possible remote, is associated with a source identified by the
-/// host tuple as established by browsers. A path can be retrieved for every document so that you
-/// can refer to them even in other auxiliary files and generic programs. This operation
-/// potentially stores the data stream in a cache or temporary file. Where available, it is also
-/// possible to query an indication of the documents MIME-type.
-pub struct Document {
-    source: Source,
-    resource: Resource,
-}
 
 /// Differentiates between sources based on their access right characteristics.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -73,11 +59,6 @@ enum InnerSource {
 
     /// Any other arbitrary url.
     Remote(Url),
-}
-
-enum Resource {
-    File(PathBuf),
-    Abstract(Box<dyn io::Read>),
 }
 
 impl Resolver {
@@ -135,65 +116,12 @@ impl Resolver {
     }
 
     pub fn builder(&self, source: &Source) -> DocumentBuilder {
-        DocumentBuilder {
-            source: source.clone(),
-            mime: None,
-        }
+        DocumentBuilder::new(source.clone())
     }
 }
 
 impl Grants {
 
-}
-
-impl DocumentBuilder {
-    pub fn with_path<P: Into<PathBuf>>(self, path: P) -> Document {
-        Document {
-            source: self.source,
-            resource: Resource::File(path.into()),
-        }
-    }
-
-    pub fn with_reader(self, reader: Box<dyn io::Read>) -> Document {
-        Document {
-            source: self.source,
-            resource: Resource::Abstract(reader),
-        }
-    }
-}
-
-impl Document {
-    pub fn source(&self) -> &Source {
-        &self.source
-    }
-
-    /// Return the origin of this URL (<https://url.spec.whatwg.org/#origin>)
-    pub fn origin(&self) -> Origin {
-        self.source.as_url().origin()
-    }
-
-    /// Return a backing file path if one has already been established.
-    ///
-    /// Documents that are backed by in-memory `std::io::Read` instances have no path until they
-    /// are committed to a file with `into_file`.
-    pub fn to_path(&self) -> Option<&Path> {
-        match self.resource {
-            Resource::File(ref path) => Some(path),
-            _ => None,
-        }
-    }
-
-    /// Turn this document in a readable data stream.
-    ///
-    /// This will not give a sensible result for all documents. Some documents might be filled
-    /// during the processing of the markdown document. These will of course initially appear empty
-    /// or contain data of previous runs.
-    pub fn into_reader(self) -> io::Result<Box<dyn io::Read>> {
-        Ok(match self.resource {
-            Resource::File(path) => Box::new(File::open(path)?),
-            Resource::Abstract(io) => io,
-        })
-    }
 }
 
 impl Source {
@@ -331,8 +259,7 @@ mod tests {
 
         impl DocumentProvider for Toc {
             fn build(&self, _target: Url, builder: DocumentBuilder) -> io::Result<Document> {
-                let reader = Box::new(io::Cursor::new("Table of Contents"));
-                Ok(builder.with_reader(reader))
+                Ok(builder.build(Include::Command(Command::Toc)))
             }
         }
 
@@ -345,13 +272,7 @@ mod tests {
         let toc = resolver.request(main_doc.source(), "//toc")
             .expect("Failed to resolve path in different domain");
 
-        let mut toc_file = toc.into_reader()
-            .expect("Toc should be directly readable");
-        let mut content = String::new();
-        toc_file.read_to_string(&mut content)
-            .expect("Failed to read toc contents");
-
-        assert_eq!(content.as_str(), "Table of Contents");
+        assert_eq!(toc.include(), &Include::Command(Command::Toc));
     }
 }
 
