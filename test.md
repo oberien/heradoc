@@ -54,6 +54,9 @@ Link to existing reference with title with text [Text][Existing]
 
 This is hopefully an image with a title which is used as label, such that I can reference it here as [img:placeholdit].
 ![Foobar](100x100.png "placeholdit")
+![placeholditimage]
+
+[placeholditimage]: 100x100.png
 
 In the future a biber reference: [@foo].
 This a footnote[^foo].
@@ -133,4 +136,6 @@ Left | Center | Right
 
 1. Numbered list to include into (test continuous state)
   !!include{test-include.md}
+
+[include "foo.md"]
 

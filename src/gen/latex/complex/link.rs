@@ -1,12 +1,13 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
-use pulldown_cmark::{Tag, Event};
+use pulldown_cmark::{Tag, Event, LinkType};
 
 use crate::gen::{State, States, Generator, Document};
 
 #[derive(Debug)]
 pub struct Link<'a> {
+    typ: LinkType,
     dst: Cow<'a, str>,
     title: Cow<'a, str>,
     text: Vec<u8>,
@@ -14,11 +15,12 @@ pub struct Link<'a> {
 
 impl<'a> State<'a> for Link<'a> {
     fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
-        let (dst, title) = match tag {
-            Tag::Link(dst, title) => (dst, title),
+        let (typ, dst, title) = match tag {
+            Tag::Link(typ, dst, title) => (typ, dst, title),
             _ => unreachable!(),
         };
         Ok(Link {
+            typ,
             dst,
             title,
             text: Vec::new(),

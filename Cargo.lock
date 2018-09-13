@@ -100,7 +100,7 @@ dependencies = [
 [[package]]
 name = "pulldown-cmark"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/oberien/pulldown-cmark?rev=24c851db576f5127281aa68d660543e6534c2a90#24c851db576f5127281aa68d660543e6534c2a90"
 dependencies = [
  "bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -111,7 +111,7 @@ name = "pundoc"
 version = "0.1.0"
 dependencies = [
  "boolinator 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "pulldown-cmark 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pulldown-cmark 0.1.2 (git+https://github.com/oberien/pulldown-cmark?rev=24c851db576f5127281aa68d660543e6534c2a90)",
  "str-concat 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "structopt 0.2.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -307,7 +307,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum matches 0.1.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7ffc5c5338469d4d3ea17d269fa8ea3512ad247247c30bd2df69e68309ed0a08"
 "checksum percent-encoding 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "31010dd2e1ac33d5b46a5b413495239882813e0369f8ed8a5e266f173602f831"
 "checksum proc-macro2 0.4.9 (registry+https://github.com/rust-lang/crates.io-index)" = "cccdc7557a98fe98453030f077df7f3a042052fae465bb61d2c2c41435cfd9b6"
-"checksum pulldown-cmark 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "d6fdf85cda6cadfae5428a54661d431330b312bc767ddbc57adbedc24da66e32"
+"checksum pulldown-cmark 0.1.2 (git+https://github.com/oberien/pulldown-cmark?rev=24c851db576f5127281aa68d660543e6534c2a90)" = "<none>"
 "checksum quote 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)" = "3372dc35766b36a99ce2352bd1b6ea0137c38d215cc0c8780bf6de6df7842ba9"
 "checksum rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "eba5f8cb59cc50ed56be8880a5c7b496bfd9bd26394e176bc67884094145c2c5"
 "checksum redox_syscall 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)" = "c214e91d3ecf43e9a4e41e578973adeb14b474f2bee858742d127af75a0112b1"

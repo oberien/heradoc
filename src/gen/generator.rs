@@ -110,8 +110,6 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
             return Ok(false);
         }
 
-        println!("should include: {:?}", &text[10..text.len() - 1]);
-
         let mut file = File::open(&text[10..text.len() - 1])?;
         let mut buf = String::new();
         file.read_to_string(&mut buf)?;

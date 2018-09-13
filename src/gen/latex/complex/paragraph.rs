@@ -13,7 +13,8 @@ impl<'a> State<'a> for Paragraph {
     }
 
     fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
-        // TODO: improve readability (e.g. no newline between list items)
+        // TODO: improve latex readability (e.g. no newline between list items)
+        // TODO: fix too many linebreaks (e.g. after placeholditimage)
         match peek {
             Some(Event::Text(_))
             | Some(Event::Html(_))
@@ -24,7 +25,7 @@ impl<'a> State<'a> for Paragraph {
             | Some(Event::Start(Tag::Strong))
             | Some(Event::Start(Tag::Code))
             | Some(Event::Start(Tag::Link(..)))
-            | Some(Event::Start(Tag::Image(..))) => writeln!(gen.get_out(), "\\\\\n\\\\"),
+            | Some(Event::Start(Tag::Image(..))) => writeln!(gen.get_out(), "\\mbox{{}}\\\\\n\\mbox{{}}\\\\"),
             _ => writeln!(gen.get_out()),
         }
     }
