@@ -1,20 +1,24 @@
 //! Result type of the resolution of a file include.
+
 use std::path::{Path, PathBuf};
-use super::{Origin, Source};
+
+use url::Origin;
+
+use resolve::Source;
 
 /// Metadata about a data source.
 ///
-/// Each document, either local or possible remote, is associated with a source identified by the
-/// host tuple as established by browsers. A path can be retrieved for every document so that you
+/// Each resource, either local or possible remote, is associated with a source identified by the
+/// host tuple as established by browsers. A path can be retrieved for every resource so that you
 /// can refer to them even in other auxiliary files and generic programs. This operation
 /// potentially stores the data stream in a cache or temporary file. Each resource has one of the
 /// include types.
-pub struct Document {
+pub struct Resource {
     source: Source,
-    resource: Include,
+    include: Include,
 }
 
-pub struct DocumentBuilder {
+pub struct ResourceBuilder {
     source: Source,
 }
 
@@ -47,7 +51,7 @@ pub struct ImageMeta {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct PdfMeta;
 
-impl Document {
+impl Resource {
     pub fn source(&self) -> &Source {
         &self.source
     }
@@ -59,36 +63,37 @@ impl Document {
 
     /// Return a backing file path if the include type has one.
     pub fn to_path(&self) -> Option<&Path> {
-        self.resource.to_path()
+        self.include.to_path()
     }
 
-    /// The type of include that this document represents.
+    /// The type of include that this resource represents.
     pub fn include(&self) -> &Include {
-        &self.resource
+        &self.include
     }
 }
 
-impl DocumentBuilder {
+impl ResourceBuilder {
     pub(super) fn new(source: Source) -> Self {
-        DocumentBuilder {
+        ResourceBuilder {
             source,
         }
     }
 
-    pub fn build(self, include: Include) -> Document {
-        Document {
+    pub fn build(self, include: Include) -> Resource {
+        Resource {
             source: self.source,
-            resource: include,
+            include,
         }
+        // TODO: save to cache
     }
 
-    pub fn with_path<P: Into<PathBuf>>(self, path: P) -> Document {
+    pub fn with_path<P: Into<PathBuf>>(self, path: P) -> Resource {
         // TODO: deduce more types.
         self.build(Include::Image(path.into(), ImageMeta::default()))
     }
 
-    // TODO: save to (cached) temporary file.
-    // TODO: method to query cache for http downloader?
+    // TODO: method to query cache for http downloader (both to fall back on in case
+    // of download error (e.g. no internet) and to use in offline mode)
 }
 
 impl Include {

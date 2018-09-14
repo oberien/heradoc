@@ -8,39 +8,38 @@
 //! This module provides an interface for both problems. First, it allows resolution of an url to
 //! an open read stream or to an auxiliary file. Secondly, this resolution will automatically apply
 //! a restrictive-by-default filter and error when violating security boundaries.
-use std::collections::HashMap;
 use std::io;
-use std::path::{Component, Path, PathBuf};
+use std::path::PathBuf;
 
-use url::{Url, Host, Origin, ParseError};
+use url::Url;
 
-mod document;
+mod resource;
+mod providers;
 
-pub use self::document::*;
+pub use self::resource::*;
+
+use self::providers::ResourceProviderProvider;
 
 pub struct Resolver {
     grants: Grants,
-    special_provider: HashMap<Host, Box<DocumentProvider>>,
+    provider_provider: ResourceProviderProvider,
 }
 
 /// Manages additional request types explicitely allowed by command line options.
+#[derive(Default)]
 struct Grants {
 }
 
-pub trait DocumentProvider {
-    fn build(&self, target: Url, builder: DocumentBuilder) -> io::Result<Document>;
+/// Context to resolve a Url in
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct Context {
+    source: Source,
 }
 
-struct Documents(PathBuf);
-
-struct Locals;
-
-struct Remotes;
-
-/// Differentiates between sources based on their access right characteristics.
+/// Differentiate between sources based on their access right characteristics.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Source {
-    inner: InnerSource,
+    inner: InnerSource
 }
 
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -65,99 +64,53 @@ impl Resolver {
     pub fn new() -> Self {
         Resolver {
             grants: Default::default(),
-            special_provider: Default::default(),
+            // TODO: correct base folder
+            provider_provider: ResourceProviderProvider::new(PathBuf::from(".")),
         }
     }
 
-    /// Add a standard provider for a document tree.
-    pub fn add_documents<P: Into<PathBuf>>(&mut self, base: P) {
-        let documents = Documents(base.into());
-        self.add_provider("document", Box::new(documents));
-    }
-
-    pub fn add_provider<H: Into<String>>(&mut self, host: H, provider: Box<DocumentProvider>) {
-        let host = Host::Domain(host.into());
-        let previous = self.special_provider.insert(host.clone(), provider);
-        assert!(previous.is_none(), "Two providers for same host {:?}", &host);
-    }
-
     /// Make a request to an uri in the context of a document with the specified source.
-    pub fn request(&self, source: &Source, url: &str) -> io::Result<Document> {
-        let target = source.resolve(url)
+    pub fn request(&self, context: &Context, url: &str) -> io::Result<Resource> {
+        let target = context.as_url().join(url)
             .map_err(|err| io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 format!("Malformed reference: {:?}", err),
             ))?;
+        let target = Source::from(target);
 
-        source.check_access(&target, &self.grants)?;
+        context.check_access(&target, &self.grants)?;
 
-        let builder = self.builder(&target);
-        let provider = self.provider(&target);
+        let builder = ResourceBuilder::new(target.clone());
+        let provider = self.provider_provider.get_provider(&target);
 
         provider
             .ok_or_else(|| io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 format!("No handler providing url {:?}", target.as_url()),
             ))?
-            .build(target.as_url().clone(), builder)
+            .build(target.into(), builder)
     }
 
-    pub fn provider(&self, target: &Source) -> Option<&DocumentProvider> {
-        let host = match target.inner {
-            InnerSource::Local(_) => return Some(&Locals),
-            InnerSource::Remote(_) => return Some(&Remotes),
-            InnerSource::Implementation(ref url) => url.host(),
-        };
-
-        host
-            .map(|host| host.to_owned())
-            .and_then(|host| self.special_provider.get(&host))
-            .map(|provider| provider.as_ref())
-    }
-
-    pub fn builder(&self, source: &Source) -> DocumentBuilder {
-        DocumentBuilder::new(source.clone())
+    pub fn builder(&self, source: Source) -> ResourceBuilder {
+        ResourceBuilder::new(source)
     }
 }
 
-impl Grants {
-
-}
-
-impl Source {
-    /// Construct the local top level source.
-    pub fn document_root() -> Source {
-        Self::from_url("pundoc://document/".parse().unwrap())
-    }
-
-    /// Try to parse the source as one of the categories.
-    pub fn from_url(url: Url) -> Source {
-        let inner = if url.scheme() == "pundoc" {
-            InnerSource::Implementation(url)
-        } else if url.scheme() == "file" {
-            InnerSource::Local(url)
-        } else {
-            InnerSource::Remote(url)
-        };
-
-        Source {
-            inner 
+impl Context {
+    /// Create a new Context from given Source.
+    pub fn new(source: Source) -> Context {
+        Context {
+            source,
         }
     }
 
-    /// Resolve a reference in the context of this source.
-    pub fn resolve(&self, reference: &str) -> Result<Source, ParseError> {
-        self.as_url()
-            .join(reference)
-            .map(Self::from_url)
+    /// Construct the local top level Context.
+    pub fn document_root() -> Context {
+        Self::new(Source::from_url("pundoc://document/".parse().unwrap()))
     }
 
     fn as_url(&self) -> &Url {
-        match &self.inner {
-            InnerSource::Implementation(url) => url,
-            InnerSource::Local(url) => url,
-            InnerSource::Remote(url) => url,
-        }
+        self.source.as_url()
     }
 
     /// Test if the source is allowed to request the target document.
@@ -165,73 +118,59 @@ impl Source {
     /// Some origins are not allowed to read all documents or only after explicit clearance by the
     /// invoking user.  Even more restrictive, the target handler could terminate the request at a
     /// later time. For example when requesting a remote document make a CORS check.
-    fn check_access(&self, target: &Source, grants: &Grants) -> io::Result<()> {
-        match (&self.inner, &target.inner) {
-            | (InnerSource::Implementation(_), InnerSource::Implementation(_)) 
-            | (InnerSource::Implementation(_), InnerSource::Remote(_)) 
+    fn check_access(&self, target: &Source, _grants: &Grants) -> io::Result<()> {
+        match (&self.source.inner, &target.inner) {
+            | (InnerSource::Implementation(_), InnerSource::Implementation(_))
+            | (InnerSource::Implementation(_), InnerSource::Remote(_))
             | (InnerSource::Remote(_), InnerSource::Remote(_))
                 => Ok(()),
             | (InnerSource::Local(_), _) // Local may not access but itself
             | (InnerSource::Remote(_), _) // Remote sites may not access local
                 => Err(io::ErrorKind::PermissionDenied.into()),
-            | (InnerSource::Implementation(_), InnerSource::Local(ref target))
+            | (InnerSource::Implementation(_), InnerSource::Local(_target))
                 => unimplemented!("Local access should be configurable"),
         }
     }
 }
 
-impl Default for Resolver {
-    fn default() -> Self {
-        let mut base = Self::new();
-        base.add_documents(".");
-        base
+impl Source {
+    pub fn as_url(&self) -> &Url {
+        match &self.inner {
+            InnerSource::Implementation(url) => url,
+            InnerSource::Local(url) => url,
+            InnerSource::Remote(url) => url,
+        }
+    }
+
+    pub fn from_url(url: Url) -> Self {
+        Self::from(url)
+    }
+
+    pub fn into_url(self) -> Url {
+        self.into()
     }
 }
 
-impl Default for Grants {
-    fn default() -> Grants {
-        Grants { }
+impl From<Url> for Source {
+    fn from(url: Url) -> Self {
+        let inner = match url.scheme() {
+            "pundoc" => InnerSource::Implementation(url),
+            "file" => InnerSource::Local(url),
+            _ => InnerSource::Remote(url),
+        };
+        Source {
+            inner,
+        }
     }
 }
 
-impl DocumentProvider for Documents {
-    fn build(&self, mut target: Url, builder: DocumentBuilder) -> io::Result<Document> {
-        // Normalize the url to interpret the serialization as a relative path.
-
-        // Host can not be cleared from some special schemes, so normalize the scheme first.
-        target.set_scheme("pundoc").unwrap();
-        // Clear the host
-        target.set_host(None).unwrap();
-        target.set_query(None);
-        target.set_fragment(None);
-        
-        // Url is now: `pundoc:<absolute path>`, e.g. `pundoc:/main.md`
-        let path = target.into_string();
-        assert_eq!(&path[..8], "pundoc:/");
-        let path = Path::new(&path[8..]);
-
-        let downwards = path.components()
-            .filter_map(|component| match component {
-                Component::Normal(os) => Some(os),
-                _ => None,
-            });
-        let mut output_path = self.0.clone();
-        output_path.extend(downwards);
-
-        Ok(builder.with_path(output_path))
-    }
-}
-
-impl DocumentProvider for Locals {
-    fn build(&self, target: Url, builder: DocumentBuilder) -> io::Result<Document> {
-        let path = target.to_file_path().unwrap();
-        Ok(builder.with_path(path))
-    }
-}
-
-impl DocumentProvider for Remotes {
-    fn build(&self, _target: Url, _builder: DocumentBuilder) -> io::Result<Document> {
-        unimplemented!("Remote urls can not yet be used inside documents")
+impl Into<Url> for Source {
+    fn into(self) -> Url {
+        match self.inner {
+            InnerSource::Implementation(url) => url,
+            InnerSource::Local(url) => url,
+            InnerSource::Remote(url) => url,
+        }
     }
 }
 
@@ -242,7 +181,7 @@ mod tests {
     #[test]
     fn standard_resolves() {
         let resolver = Resolver::default();
-        let top = Source::document_root();
+        let top = Context::document_root();
 
         let main_doc = resolver.request(&top, "main.md")
             .expect("Failed to resolve direct path");
@@ -257,8 +196,8 @@ mod tests {
     fn domain_resolves() {
         struct Toc;
 
-        impl DocumentProvider for Toc {
-            fn build(&self, _target: Url, builder: DocumentBuilder) -> io::Result<Document> {
+        impl ResourceProvider for Toc {
+            fn build(&self, _target: Url, builder: ResourceBuilder) -> io::Result<Resource> {
                 Ok(builder.build(Include::Command(Command::Toc)))
             }
         }
