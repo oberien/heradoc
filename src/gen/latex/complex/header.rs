@@ -33,7 +33,7 @@ impl<'a> State<'a> for Header {
     }
 
     fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
-        writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label)?;
+        writeln!(gen.get_out(), "}}\\label{{sec:{}}}\n", self.label)?;
         Ok(())
     }
 }

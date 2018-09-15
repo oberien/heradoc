@@ -40,14 +40,14 @@ foo()
 
 ## Fun with References
 
-Link to non-existent reference without text [Nonexistent].
-Link to non-existent reference with text [Text][Nonexistent].
-Inline link without title [Text](Link).
-Inline link with title [Text](Link "Title").
-Link to existing reference without title without text [Existing-no-title].
-Link to existing reference with title without text [Existing].
-Link to existing reference without title with text [Text][Existing-no-title]
-Link to existing reference with title with text [Text][Existing]
+Link to non-existent reference without text [Nonexistent].  
+Link to non-existent reference with text [Text][Nonexistent].  
+Inline link without title [Text](Link).  
+Inline link with title [Text](Link "Title").  
+Link to existing reference without title without text [Existing-no-title].  
+Link to existing reference with title without text [Existing].  
+Link to existing reference without title with text [Text][Existing-no-title]  
+Link to existing reference with title with text [Text][Existing]  
 
 [existing-no-title]: Link
 [eXisting]: Link "Title"

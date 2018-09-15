@@ -119,10 +119,6 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
 }
 
 fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
-    println!("Unk: {:?} {:?}", a, b);
-    if a.starts_with('@') {
-        Some(("biblatex-link-dst".to_string(), "title".to_string()))
-    } else {
-        Some((a.to_string(), b.to_string()))
-    }
+    // pass everything, it's handled in the respective link implementation
+    Some((a.to_string(), b.to_string()))
 }

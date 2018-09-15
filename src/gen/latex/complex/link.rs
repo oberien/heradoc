@@ -33,50 +33,76 @@ impl<'a> State<'a> for Link<'a> {
 
     fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
-        // TODO: handle all links properly
-        // Markdown Types of links: https://github.com/google/pulldown-cmark/issues/141
-
-        // * [@foo]: biber reference (transformed in main.rs:refsolve)
-        // * [#foo]: \cref (reference to section)
-        //     * dst="#foo", title="#foo", text="#foo"
-        // * [#Foo]: \Cref (capital reference to section)
-        //     * dst="#foo", title="#Foo", text="#Foo"
-        // * [img/fig/tbl/fnote:bar]: \cref (reference to images / figures / footnotes)
-        //     * dst="img/fig/fnote:bar", title="img/fig/fnote:bar", text="img/fig/tbl/fnote:bar"
-        // * [Img/Fig/Tbl/Fnote:bar]: \cref (capital reference to images / figures / footnotes)
-        //     * dst="img/fig/fnote:bar", title="Img/Fig/Fnote:bar", text="Img/Fig/Tbl/Fnote:bar"
-        // * [bar] (with bar defined): Handle link as above
-        //     * dst="link", title="title", text="bar"
-        // * [text](link "title"): handle link as in previous examples, but use hyperref
-        //     * dst="link", title="title", text="text"
-        // * [text][ref]: same as [text](link "title")
-        //     * dst="link", title="title", text="text"
-        // TODO: use title
         let text = String::from_utf8(self.text).expect("invalid UTF8");
+        // TODO: use title
 
-        let uppercase = self.dst.chars().nth(0).unwrap().is_ascii_uppercase();
-        let dst = self.dst.to_ascii_lowercase();
-        let dst_eq_text = dst == text.to_ascii_lowercase();
+        // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original
+        // case in title
+        let dst = match self.typ {
+            LinkType::ShortcutUnknown | LinkType::ReferenceUnknown => &self.title,
+            _ => &self.dst,
+        };
+        let dstlower = dst.to_ascii_lowercase();
 
-        if dst.starts_with('#') || dst.starts_with("img:") || dst.starts_with("fig:") {
-            let dst = if dst.starts_with('#') { &dst[1..] } else { dst.as_str() };
-            let text = if text.starts_with('#') { &text[1..] } else { text.as_str() };
+        // biber
+        println!("{}: {:?}", dst, self.typ);
+        if dst.starts_with('@') && self.typ == LinkType::ShortcutUnknown {
+            // TODO: parse biber file and warn on unknown references
+            let spacepos = dst.find(' ');
+            let reference = &dst[1..spacepos.unwrap_or(dst.len())];
+            let rest = spacepos.map(|pos| &dst[(pos + 1)..]);
 
-            if text.is_empty() || dst_eq_text {
-                if uppercase {
-                    write!(out, "\\Cref{{{}}}", dst)?;
-                } else {
-                    write!(out, "\\cref{{{}}}", dst)?;
-                }
+            // TODO: make space before cite nobreakspace (`~`)
+            if let Some(rest) = rest {
+                write!(out, "\\cite[{}]{{{}}}", rest, reference)?;
             } else {
-                write!(out, "\\hyperref[{}]{{{}}}", dst, text)?;
+                write!(out, "\\cite{{{}}}", reference)?;
             }
+            return Ok(());
+        }
+
+        // cref / Cref / hyperlink
+        let (label, uppercase): (Cow<'_, str>, _) = if dst.starts_with('#') {
+            // section
+            (format!("sec:{}", &dstlower[1..]).into(), dst[1..].chars().next().unwrap().is_uppercase())
+        } else if dstlower.starts_with("sec:")
+            || dstlower.starts_with("img:")
+            || dstlower.starts_with("fig:")
+            || dstlower.starts_with("fnote:")
+        {
+            (dstlower.into(), dst.chars().next().unwrap().is_uppercase())
         } else {
-            if text.is_empty() || dst_eq_text {
-                write!(out, "\\url{{{}}}", dst)?;
-            } else {
-                write!(out, "\\href{{{}}}{{{}}}", dst, text)?;
+            // nothing special, handle as url / href
+            match self.typ {
+                LinkType::ShortcutUnknown
+                | LinkType::CollapsedUnknown => {
+                    // TODO: warn for unknown reference and hint to proper syntax `\[foo\]`
+                    write!(out, "[{}]", text)?;
+                }
+                LinkType::ReferenceUnknown => {
+                    // TODO: warn for unknown reference and hint to proper syntax `\[foo\]`
+                    write!(out, "[{}][{}]", text, self.dst)?;
+                }
+                LinkType::Shortcut | LinkType::Collapsed | LinkType::Autolink =>
+                    write!(out, "\\url{{{}}}", self.dst)?,
+                LinkType::Reference | LinkType::Inline =>
+                    write!(out, "\\href{{{}}}{{{}}}", self.dst, text)?,
             }
+            return Ok(());
+        };
+
+        match self.typ {
+            LinkType::ShortcutUnknown
+            | LinkType::CollapsedUnknown
+            | LinkType::ReferenceUnknown
+            | LinkType::Shortcut
+            | LinkType::Collapsed => if uppercase {
+                write!(out, "\\Cref{{{}}}", label)?;
+            } else {
+                write!(out, "\\cref{{{}}}", label)?;
+            }
+            LinkType::Reference | LinkType::Autolink | LinkType::Inline =>
+                write!(out, "\\hyperref[{}]{{{}}}", label, text)?,
         }
         Ok(())
     }
