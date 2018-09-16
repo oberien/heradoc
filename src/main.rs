@@ -1,5 +1,3 @@
-#![feature(rust_2018_preview)]
-
 extern crate pulldown_cmark;
 extern crate str_concat;
 extern crate structopt;
@@ -13,7 +11,8 @@ extern crate serde;
 extern crate serde_derive;
 extern crate toml;
 
-use std::fs::File;
+use std::fs::{self, File};
+use std::path::Path;
 use std::process::Command;
 use std::io::{self, Write};
 
@@ -31,20 +30,43 @@ use crate::gen::latex::Article;
 
 fn main() {
     let mut args = CliArgs::from_args();
-    // TODO: get proper infile and file config
-    let cfg = Config::new(args, FileConfig::default(), FileConfig::default());
-    println!("{:?}", cfg);
 
     let mut markdown = String::new();
-    cfg.input.to_read().read_to_string(&mut markdown).unwrap();
+    args.input.to_read().read_to_string(&mut markdown).unwrap();
+
+    let infile = if markdown.starts_with("```pundoc") || markdown.starts_with("```config") {
+        let start = markdown.find('\n')
+            .expect("unclosed preamble (not even a newline in the whole document)");
+        let end = markdown.find("\n```").expect("unclosed preamble");
+        let content = &markdown[(start + 1)..(end + 1)];
+        let res = toml::from_str(content).expect("invalid config");
+        markdown.replace_range(..(end + 4), "");
+        res
+    } else {
+        FileConfig::default()
+    };
+
+    let cfgfile = args.configfile.as_ref().map(|p| p.as_path()).unwrap_or_else(|| Path::new("Config.toml"));
+    let file = if cfgfile.is_file() {
+        let content = fs::read_to_string(cfgfile)
+            .expect("error reading existing config file");
+        toml::from_str(&content).expect("invalid config")
+    } else {
+        FileConfig::default()
+    };
+
+    let cfg = Config::new(args, infile, file);
+    println!("{:#?}", cfg);
+
+    // TODO bibliography
     match cfg.output_type {
-        OutType::Latex => gen::generate(Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
+        OutType::Latex => gen::generate(&cfg, Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
             let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
             let tex_path = tmpdir.path().join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
-            gen::generate(Article, &Arena::new(), markdown, tex_file).unwrap();
+            gen::generate(&cfg, Article, &Arena::new(), markdown, tex_file).unwrap();
             let mut pdflatex = Command::new("pdflatex");
             pdflatex.arg("-halt-on-error")
                 .args(&["-interaction", "nonstopmode"])

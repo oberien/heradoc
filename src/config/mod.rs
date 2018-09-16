@@ -17,33 +17,47 @@ use self::geometry::{Geometry, Papersize, Orientation};
 #[derive(StructOpt, Debug)]
 #[structopt(name = "pundoc", about = "Convert Markdown to LaTeX / PDF")]
 pub struct CliArgs {
+    /// Output file. Use `-` for stdout.
     #[structopt(short = "o", long = "out", long = "output")]
     pub output: Option<FileOrStdio>,
+    /// Input markdown file. Use `-` for stdin.
     #[structopt()]
     pub input: FileOrStdio,
+    /// Config file with additional configuration. Defaults to `Config.toml` if it exists.
+    #[structopt(long = "config", long = "cfg", parse(from_os_str))]
+    pub configfile: Option<PathBuf>,
     #[structopt(flatten)]
     pub fileconfig: FileConfig,
 }
 
 #[derive(Debug, Default, Deserialize, StructOpt)]
 pub struct FileConfig {
-    #[structopt(short = "t", long = "to", long = "type", parse(try_from_str = "OutType::from_str"))]
+    /// Output type (tex / pdf). If left blank, it's derived from the output file ending.
+    /// Defaults to tex for stdout.
+    #[structopt(short = "t", long = "to", long = "type")]
     pub output_type: Option<OutType>,
 
+    /// Bibliography file in biblatex format.
     #[structopt(long = "bibliography")]
     pub bibliography: Option<String>,
 
+    /// Latex documentclass. Defaults to `scrartcl`.
     #[structopt(long = "documentclass")]
     pub documentclass: Option<String>,
+    /// Fontsize of the document.
     #[structopt(long = "fontsize")]
     pub fontsize: Option<String>,
+    /// If true, the titlepage will be its own page. Otherwise text will start on the first page.
     #[structopt(long = "titlepage")]
     pub titlepage: Option<bool>,
+    /// Other options passed to `\documentclass`.
     #[structopt(long = "classoptions")]
+    #[serde(default)]
     pub classoptions: Vec<String>,
 
     // geometry
     #[structopt(flatten)]
+    #[serde(default)]
     pub geometry: Geometry,
 }
 
@@ -158,6 +172,15 @@ impl<T: FromStr> FromStr for MaybeUnknown<T> {
         Ok(T::from_str(s)
             .map(MaybeUnknown::Known)
             .unwrap_or_else(|_| MaybeUnknown::Unknown(s.to_string())))
+    }
+}
+
+impl<T: fmt::Display> fmt::Display for MaybeUnknown<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MaybeUnknown::Known(t) => t.fmt(f),
+            MaybeUnknown::Unknown(s) => s.fmt(f),
+        }
     }
 }
 

@@ -1,3 +1,7 @@
+```pundoc
+geometry.margin = "2cm"
+```
+
 # Test
 
 ## Simple Paragraphs

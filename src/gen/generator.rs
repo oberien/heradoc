@@ -6,10 +6,12 @@ use std::iter::Peekable;
 use pulldown_cmark::{Tag, Event, Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use typed_arena::Arena;
 
-use gen::{Document, Stack, State, States, Simple};
-use gen::concat::Concat;
+use crate::gen::{Document, Stack, State, States, Simple};
+use crate::gen::concat::Concat;
+use crate::config::Config;
 
 pub struct Generator<'a, D: Document<'a>, W: Write> {
+    cfg: &'a Config,
     arena: &'a Arena<String>,
     doc: D,
     default_out: W,
@@ -17,8 +19,9 @@ pub struct Generator<'a, D: Document<'a>, W: Write> {
 }
 
 impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
-    pub fn new(doc: D, default_out: W, arena: &'a Arena<String>) -> Self {
+    pub fn new(cfg: &'a Config, doc: D, default_out: W, arena: &'a Arena<String>) -> Self {
         Generator {
+            cfg,
             arena,
             doc,
             default_out,
@@ -35,14 +38,14 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
         );
         // TODO: don't print events
         let events: Vec<_> = Concat(parser.peekable()).collect();
-        println!("{:#?}", events);
+//        println!("{:#?}", events);
         events.into_iter().peekable()
     }
 
     pub fn generate(&mut self, events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
-        self.doc.gen_preamble(&mut self.default_out)?;
+        self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
         self.generate_body(events);
-        self.doc.gen_epilogue(&mut self.default_out)?;
+        self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
         Ok(())
     }
 

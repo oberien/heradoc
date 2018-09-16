@@ -1,11 +1,12 @@
 use std::str::FromStr;
 use std::fmt;
 use std::collections::HashMap;
+use std::io;
 
 use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
 use structopt::StructOpt;
 
-use config::MaybeUnknown;
+use crate::config::MaybeUnknown;
 
 // https://www.sharelatex.com/learn/Page_size_and_margins#Fine_tuning_your_LaTeX_page_dimensions
 #[derive(Debug, Clone, Default, Deserialize, StructOpt)]
@@ -105,6 +106,39 @@ impl Geometry {
             others,
         }
     }
+
+    pub fn write_latex_options<W: io::Write>(&self, mut out: W) -> io::Result<()> {
+        let Geometry {
+            papersize, orientation,
+            margin, textwidth, textheight, total, left, lmargin, inner, right,
+            rmargin, outer, top, tmargin, bottom, bmargin, headheight, footsep,
+            footskip, marginparwidth, marginpar, others,
+        } = self;
+        if let Some(papersize) = papersize {
+            write!(out, "{},", papersize)?;
+        }
+        if let Some(orientation) = orientation {
+            write!(out, "{},", orientation)?;
+        }
+        macro_rules! options {
+            ($($name:ident,)+) => {$(
+                if let Some($name) = $name {
+                    write!(out, "{}={},", stringify!($name), $name)?;
+                }
+            )+}
+        }
+        options! {
+            margin, textwidth, textheight, total, left, lmargin, inner, right,
+            rmargin, outer, top, tmargin, bottom, bmargin, headheight, footsep,
+            footskip, marginparwidth, marginpar,
+        }
+        if let Some(others) = others {
+            for (k,v) in others {
+                write!(out, "{}={},", k, v)?;
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -132,7 +166,7 @@ impl FromStr for Papersize {
             "a4" | "a4paper" => Papersize::A4paper,
             "a5" | "a5paper" => Papersize::A5paper,
             "a6" | "a6paper" => Papersize::A6paper,
-            "b0" | "b0paper" => Papersize::A0paper,
+            "b0" | "b0paper" => Papersize::B0paper,
             "b1" | "b1paper" => Papersize::B1paper,
             "b2" | "b2paper" => Papersize::B2paper,
             "b3" | "b3paper" => Papersize::B3paper,
@@ -172,6 +206,50 @@ impl FromStr for Papersize {
     }
 }
 
+impl fmt::Display for Papersize {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Papersize::A0paper => write!(f, "a0paper"),
+            Papersize::A1paper => write!(f, "a1paper"),
+            Papersize::A2paper => write!(f, "a2paper"),
+            Papersize::A3paper => write!(f, "a3paper"),
+            Papersize::A4paper => write!(f, "a4paper"),
+            Papersize::A5paper => write!(f, "a5paper"),
+            Papersize::A6paper => write!(f, "a6paper"),
+            Papersize::B0paper => write!(f, "b0paper"),
+            Papersize::B1paper => write!(f, "b1paper"),
+            Papersize::B2paper => write!(f, "b2paper"),
+            Papersize::B3paper => write!(f, "b3paper"),
+            Papersize::B4paper => write!(f, "b4paper"),
+            Papersize::B5paper => write!(f, "b5paper"),
+            Papersize::B6paper => write!(f, "b6paper"),
+            Papersize::C0paper => write!(f, "c0paper"),
+            Papersize::C1paper => write!(f, "c1paper"),
+            Papersize::C2paper => write!(f, "c2paper"),
+            Papersize::C3paper => write!(f, "c3paper"),
+            Papersize::C4paper => write!(f, "c4paper"),
+            Papersize::C5paper => write!(f, "c5paper"),
+            Papersize::C6paper => write!(f, "c6paper"),
+            Papersize::B0j => write!(f, "b0j"),
+            Papersize::B1j => write!(f, "b1j"),
+            Papersize::B2j => write!(f, "b2j"),
+            Papersize::B3j => write!(f, "b3j"),
+            Papersize::B4j => write!(f, "b4j"),
+            Papersize::B5j => write!(f, "b5j"),
+            Papersize::B6j => write!(f, "b6j"),
+            Papersize::AnsiAPaper => write!(f, "ansiapaper"),
+            Papersize::AnsiBPaper => write!(f, "ansibpaper"),
+            Papersize::AnsiCPaper => write!(f, "ansicpaper"),
+            Papersize::AnsiDPaper => write!(f, "ansidpaper"),
+            Papersize::AnsiEPaper => write!(f, "ansiepaper"),
+            Papersize::Letterpaper => write!(f, "letterpaper"),
+            Papersize::Executivepaper => write!(f, "executivepaper"),
+            Papersize::Legalpaper => write!(f, "legalpaper"),
+            Papersize::Custom(width, height) => write!(f, "papersize={{{},{}}}", width, height),
+        }
+    }
+}
+
 impl<'de> Deserialize<'de> for Papersize {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let s = String::deserialize(deserializer)?;
@@ -208,6 +286,15 @@ impl FromStr for Orientation {
             Ok(Orientation::Landscape)
         } else {
             Err(format!("unknown orientation {:?}", s))
+        }
+    }
+}
+
+impl fmt::Display for Orientation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Orientation::Portrait => write!(f, "portrait"),
+            Orientation::Landscape => write!(f, "landscape"),
         }
     }
 }

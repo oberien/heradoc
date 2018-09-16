@@ -2,6 +2,7 @@
 name = "pundoc"
 version = "0.1.0"
 authors = ["oberien <jaro.fietz@gmx.de>"]
+edition = "2018"
 
 [dependencies]
 #pulldown-cmark = "0.1.2"
@@ -15,4 +16,5 @@ typed-arena = "1.4.1"
 url = "1.7.1"
 serde = "1.0.79"
 serde_derive = "1.0.79"
-toml = "0.4.6"
+# toml 0.5 isn't released yet but adds support for dotted keys
+toml = { git = "https://github.com/alexcrichton/toml-rs", rev = "8181a7e645064426b43891b0f4c7fa86c2a2d154" }

@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 
 use pulldown_cmark::{Tag, Event};
 
-use gen::{Document, Generator, Stack, State, List};
+use crate::gen::{Document, Generator, Stack, State, List};
 
 #[derive(Debug)]
 pub enum States<'a, D: Document<'a>> {
