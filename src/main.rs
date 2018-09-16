@@ -8,6 +8,10 @@ extern crate boolinator;
 extern crate tempdir;
 extern crate typed_arena;
 extern crate url;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate toml;
 
 use std::fs::File;
 use std::process::Command;
@@ -22,17 +26,18 @@ mod gen;
 mod config;
 mod resolve;
 
-use crate::config::{Config, OutType};
+use crate::config::{Config, CliArgs, FileConfig, OutType};
 use crate::gen::latex::Article;
 
 fn main() {
-    let mut cfg = Config::from_args();
-    cfg.normalize();
+    let mut args = CliArgs::from_args();
+    // TODO: get proper infile and file config
+    let cfg = Config::new(args, FileConfig::default(), FileConfig::default());
     println!("{:?}", cfg);
 
     let mut markdown = String::new();
     cfg.input.to_read().read_to_string(&mut markdown).unwrap();
-    match cfg.output_type.unwrap() {
+    match cfg.output_type {
         OutType::Latex => gen::generate(Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
             let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");

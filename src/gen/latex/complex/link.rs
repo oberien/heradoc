@@ -45,7 +45,7 @@ impl<'a> State<'a> for Link<'a> {
         let dstlower = dst.to_ascii_lowercase();
 
         // biber
-        println!("{}: {:?}", dst, self.typ);
+        // TODO: only check for biber references if there is actually a biber file
         if dst.starts_with('@') && self.typ == LinkType::ShortcutUnknown {
             // TODO: parse biber file and warn on unknown references
             let spacepos = dst.find(' ');
