@@ -67,6 +67,8 @@ impl<'a> Document<'a> for Article {
         // TODO: graphicspath
         writeln!(out, "\\usepackage{{graphicx}}")?;
         writeln!(out, "\\usepackage{{hyperref}}")?;
+        // TODO: fix this?!
+        writeln!(out, "\\usepackage[all]{{hypcap}}")?;
         // TODO: cleveref options
         writeln!(out, "\\usepackage{{cleveref}}")?;
         writeln!(out, "\\usepackage{{refcount}}")?;

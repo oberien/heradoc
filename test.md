@@ -52,6 +52,9 @@ Link to existing reference without title without text [Existing-no-title].
 Link to existing reference with title without text [Existing].  
 Link to existing reference without title with text [Text][Existing-no-title]  
 Link to existing reference with title with text [Text][Existing]  
+Link to [#Fun-with-references].  
+Link to [a section with custom tex][#fun-with-references].  
+Inline Link to [a section with custom tex](#fun-with-references).  
 
 [existing-no-title]: Link
 [eXisting]: Link "Title"

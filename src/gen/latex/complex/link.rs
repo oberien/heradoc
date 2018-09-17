@@ -94,14 +94,16 @@ impl<'a> State<'a> for Link<'a> {
         match self.typ {
             LinkType::ShortcutUnknown
             | LinkType::CollapsedUnknown
-            | LinkType::ReferenceUnknown
             | LinkType::Shortcut
             | LinkType::Collapsed => if uppercase {
                 write!(out, "\\Cref{{{}}}", label)?;
             } else {
                 write!(out, "\\cref{{{}}}", label)?;
             }
-            LinkType::Reference | LinkType::Autolink | LinkType::Inline =>
+            LinkType::Reference
+            | LinkType::ReferenceUnknown
+            | LinkType::Autolink
+            | LinkType::Inline =>
                 write!(out, "\\hyperref[{}]{{{}}}", label, text)?,
         }
         Ok(())
