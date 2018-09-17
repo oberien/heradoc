@@ -75,7 +75,7 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
             None => (),
             Some(Event::End(_)) => unreachable!(),
             Some(Event::Start(tag)) => {
-                let state = States::new(tag, self)?;
+                let state = States::new(self.cfg, tag, self)?;
                 self.stack.push(state);
             },
             Some(Event::Text(text)) => if !self.handle_include(&text)? {

@@ -1,5 +1,6 @@
 ```pundoc
 geometry.margin = "2cm"
+citationstyle = "ieee"
 ```
 
 # Test
@@ -125,7 +126,7 @@ This is the second line without indentation.
 > Multi-line block quote with new tick in the beginning.
 > This is the second line.
 > **Bold text** *italic*
-> -- [@Author]
+> -- [@bar]
 
 ## Tables
 

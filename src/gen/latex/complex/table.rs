@@ -3,12 +3,13 @@ use std::io::{Result, Write};
 use pulldown_cmark::{Tag, Event, Alignment};
 
 use crate::gen::{State, States, Generator, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct Table;
 
 impl<'a> State<'a> for Table {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let out = gen.get_out();
         let align = match tag {
             Tag::Table(align) => align,
@@ -42,7 +43,7 @@ impl<'a> State<'a> for Table {
 pub struct TableHead;
 
 impl<'a> State<'a> for TableHead {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(TableHead)
     }
 
@@ -56,7 +57,7 @@ impl<'a> State<'a> for TableHead {
 pub struct TableRow;
 
 impl<'a> State<'a> for TableRow {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(TableRow)
     }
 
@@ -70,7 +71,7 @@ impl<'a> State<'a> for TableRow {
 pub struct TableCell;
 
 impl<'a> State<'a> for TableCell {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(TableCell)
     }
 

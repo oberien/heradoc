@@ -1,4 +1,4 @@
-use std::path::{PathBuf};
+use std::path::{PathBuf, Path};
 use std::fs::File;
 use std::str::FromStr;
 use std::io::{self, Read, Write};
@@ -8,11 +8,13 @@ use std::collections::{HashMap, HashSet};
 use void::Void;
 use boolinator::Boolinator;
 use structopt::StructOpt;
-use serde::{Deserialize, Deserializer, de};
+use serde::{Deserialize, Deserializer, de, de::IntoDeserializer};
 
 mod geometry;
 
 use self::geometry::{Geometry, Papersize, Orientation};
+
+// TODO: VecOrSingle to allow `foo = "bar"` instead of `foo = ["bar"]` for single values
 
 #[derive(StructOpt, Debug)]
 #[structopt(name = "pundoc", about = "Convert Markdown to LaTeX / PDF")]
@@ -37,9 +39,14 @@ pub struct FileConfig {
     #[structopt(short = "t", long = "to", long = "type")]
     pub output_type: Option<OutType>,
 
-    /// Bibliography file in biblatex format.
+    // TODO: multiple files (VecOrSingle)
+    /// Bibliography file in biblatex format. Defaults to references.bib (if it exists).
     #[structopt(long = "bibliography")]
     pub bibliography: Option<String>,
+    /// Citation style. Defaults to `ieee`.
+    #[structopt(long = "citationstyle")]
+    #[serde(default)]
+    pub citationstyle: Option<MaybeUnknown<CitationStyle>>,
 
     /// Latex documentclass. Defaults to `scrartcl`.
     #[structopt(long = "documentclass")]
@@ -70,6 +77,7 @@ pub struct Config {
     pub output_type: OutType,
 
     pub bibliography: Option<PathBuf>,
+    pub citationstyle: MaybeUnknown<CitationStyle>,
 
     // document
     pub documentclass: String,
@@ -119,6 +127,20 @@ impl Config {
             }
         };
 
+
+        let bibliography = args.fileconfig.bibliography
+            .or(infile.bibliography)
+            .or(file.bibliography)
+            .map(|bib| PathBuf::from(bib));
+        let bibliography = match bibliography {
+            Some(path) => Some(path),
+            None => if Path::new("references.bib").is_file() {
+                Some(PathBuf::from("references.bib"))
+            } else {
+                None
+            }
+        };
+
         let mut classoptions = HashSet::new();
         classoptions.extend(args.fileconfig.classoptions);
         classoptions.extend(infile.classoptions);
@@ -128,10 +150,11 @@ impl Config {
             output,
             input: args.input,
             output_type,
-            bibliography: args.fileconfig.bibliography
-                .or(infile.bibliography)
-                .or(file.bibliography)
-                .map(|bib| PathBuf::from(bib)),
+            bibliography,
+            citationstyle: args.fileconfig.citationstyle
+                .or(infile.citationstyle)
+                .or(file.citationstyle)
+                .unwrap_or_default(),
             documentclass: args.fileconfig.documentclass
                 .or(infile.documentclass)
                 .or(file.documentclass)
@@ -241,5 +264,65 @@ impl FromStr for OutType {
         } else {
             Err(format!("unknown output type {:?}", s))
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CitationStyle {
+    Numeric,
+    NumericComp,
+    NumericVerb,
+    Alphabetic,
+    AlphabeticVerb,
+    Authoryear,
+    AuthoryearComp,
+    AuthoryearIbid,
+    AuthoryearIcomp,
+    Authortitle,
+    AuthortitleComp,
+    AuthortitleIbid,
+    AuthortitleIcomp,
+    AuthortitleTerse,
+    AuthortitleTcomp,
+    AuthortitleTicomp,
+    Verbose,
+    VerboseIbid,
+    VerboseNote,
+    VerboseInode,
+    VerboseTrad1,
+    VerboseTrad2,
+    VerboseTrad3,
+    Reading,
+    Draft,
+    Debug,
+    // non-standard
+    ChemAcs,
+    Phys,
+    Nature,
+    Science,
+    Ieee,
+    ChicagoAuthordate,
+    Mla,
+    Apa,
+}
+
+impl Default for CitationStyle {
+    fn default() -> Self {
+        CitationStyle::Ieee
+    }
+}
+
+impl FromStr for CitationStyle {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        CitationStyle::deserialize(s.into_deserializer()).map_err(|_: de::value::Error| ())
+    }
+}
+
+impl fmt::Display for CitationStyle {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", toml::to_string(self).map_err(|_| fmt::Error)?)
     }
 }

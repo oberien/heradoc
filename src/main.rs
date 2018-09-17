@@ -67,22 +67,13 @@ fn main() {
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
             gen::generate(&cfg, Article, &Arena::new(), markdown, tex_file).unwrap();
-            let mut pdflatex = Command::new("pdflatex");
-            pdflatex.arg("-halt-on-error")
-                .args(&["-interaction", "nonstopmode"])
-                .arg("-output-directory").arg(tmpdir.path())
-                .arg(&tex_path);
-            for _ in 0..3 {
-                let out = pdflatex.output().expect("can't execute pdflatex");
-                if !out.status.success() {
-                    let _ = File::create("pdflatex_stdout.log")
-                        .map(|mut f| f.write_all(&out.stdout));
-                    let _ = File::create("pdflatex_stderr.log")
-                        .map(|mut f| f.write_all(&out.stderr));
-                    // TODO: provide better info about signals
-                    panic!("Pdflatex returned error code {:?}. Logs written to pdflatex_stdout.log and pdflatex_stderr.log", out.status.code());
-                }
+
+            pdflatex(tmpdir.path());
+            if cfg.bibliography.is_some() {
+                biber(tmpdir.path());
+                pdflatex(tmpdir.path());
             }
+            pdflatex(tmpdir.path());
             let mut pdf = File::open(tmpdir.path().join("document.pdf"))
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
@@ -90,3 +81,36 @@ fn main() {
     }
 }
 
+fn pdflatex<P: AsRef<Path>>(tmpdir: P) {
+    let tmpdir = tmpdir.as_ref();
+    let mut pdflatex = Command::new("pdflatex");
+    pdflatex.arg("-halt-on-error")
+        .args(&["-interaction", "nonstopmode"])
+        .arg("-output-directory").arg(tmpdir)
+        .arg(tmpdir.join("document.tex"));
+    let out = pdflatex.output().expect("can't execute pdflatex");
+    if !out.status.success() {
+        let _ = File::create("pdflatex_stdout.log")
+            .map(|mut f| f.write_all(&out.stdout));
+        let _ = File::create("pdflatex_stderr.log")
+            .map(|mut f| f.write_all(&out.stderr));
+        // TODO: provide better info about signals
+        panic!("Pdflatex returned error code {:?}. Logs written to pdflatex_stdout.log and pdflatex_stderr.log", out.status.code());
+    }
+}
+
+fn biber<P: AsRef<Path>>(tmpdir: P) {
+    let tmpdir = tmpdir.as_ref();
+    let mut biber = Command::new("biber");
+    biber.arg("--output-directory").arg(tmpdir)
+        .arg("document.bcf");
+    let out = biber.output().expect("can't execute biber");
+    if !out.status.success() {
+        let _ = File::create("biber_stdout.log")
+            .map(|mut f| f.write_all(&out.stdout));
+        let _ = File::create("biber_stderr.log")
+            .map(|mut f| f.write_all(&out.stderr));
+        // TODO: provide better info about signals
+        panic!("Biber returned error code {:?}. Logs written to biber_stdout.log and biber_stderr.log", out.status.code());
+    }
+}

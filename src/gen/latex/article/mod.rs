@@ -35,6 +35,7 @@ impl<'a> Document<'a> for Article {
     }
 
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
+        // TODO: language / locale
         // TODO: itemizespacing
         // documentclass
         write!(out, "\\documentclass[")?;
@@ -55,7 +56,11 @@ impl<'a> Document<'a> for Article {
         writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
         writeln!(out)?;
 
-        // TODO: bibliography
+        // TODO: biblatex options (natbib?)
+        if let Some(bibliography) = &cfg.bibliography {
+            write!(out, "\\usepackage[backend=biber,style={}]{{biblatex}}", cfg.citationstyle)?;
+            writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
+        }
 
         // TODO: use minted instead of lstlistings?
         writeln!(out, "\\usepackage{{listings}}")?;
@@ -83,6 +88,10 @@ impl<'a> Document<'a> for Article {
     }
 
     fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
+        // TODO: [bibliography]
+        if cfg.bibliography.is_some() {
+            writeln!(out, "\\printbibliography")?;
+        }
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

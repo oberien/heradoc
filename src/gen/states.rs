@@ -3,6 +3,7 @@ use std::io::{Write, Result};
 use pulldown_cmark::{Tag, Event};
 
 use crate::gen::{Document, Generator, Stack, State, List};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub enum States<'a, D: Document<'a>> {
@@ -26,25 +27,25 @@ pub enum States<'a, D: Document<'a>> {
 }
 
 impl<'a, D: Document<'a>> States<'a, D> {
-    pub fn new(tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
         match &tag {
-            Tag::Paragraph => Ok(States::Paragraph(D::Paragraph::new(tag, gen)?)),
-            Tag::Rule => Ok(States::Rule(D::Rule::new(tag, gen)?)),
-            Tag::Header(_) => Ok(States::Header(D::Header::new(tag, gen)?)),
-            Tag::BlockQuote => Ok(States::BlockQuote(D::BlockQuote::new(tag, gen)?)),
-            Tag::CodeBlock(_) => Ok(States::CodeBlock(D::CodeBlock::new(tag, gen)?)),
-            Tag::List(_) => Ok(States::List(D::List::new(tag, gen)?)),
-            Tag::Item => Ok(States::Item(D::Item::new(tag, gen)?)),
-            Tag::FootnoteDefinition(_) => Ok(States::FootnoteDefinition(D::FootnoteDefinition::new(tag, gen)?)),
-            Tag::Table(_) => Ok(States::Table(D::Table::new(tag, gen)?)),
-            Tag::TableHead => Ok(States::TableHead(D::TableHead::new(tag, gen)?)),
-            Tag::TableRow => Ok(States::TableRow(D::TableRow::new(tag, gen)?)),
-            Tag::TableCell => Ok(States::TableCell(D::TableCell::new(tag, gen)?)),
-            Tag::Emphasis => Ok(States::InlineEmphasis(D::InlineEmphasis::new(tag, gen)?)),
-            Tag::Strong => Ok(States::InlineStrong(D::InlineStrong::new(tag, gen)?)),
-            Tag::Code => Ok(States::InlineCode(D::InlineCode::new(tag, gen)?)),
-            Tag::Link(..) => Ok(States::Link(D::Link::new(tag, gen)?)),
-            Tag::Image(..) => Ok(States::Image(D::Image::new(tag, gen)?)),
+            Tag::Paragraph => Ok(States::Paragraph(D::Paragraph::new(cfg, tag, gen)?)),
+            Tag::Rule => Ok(States::Rule(D::Rule::new(cfg, tag, gen)?)),
+            Tag::Header(_) => Ok(States::Header(D::Header::new(cfg, tag, gen)?)),
+            Tag::BlockQuote => Ok(States::BlockQuote(D::BlockQuote::new(cfg, tag, gen)?)),
+            Tag::CodeBlock(_) => Ok(States::CodeBlock(D::CodeBlock::new(cfg, tag, gen)?)),
+            Tag::List(_) => Ok(States::List(D::List::new(cfg, tag, gen)?)),
+            Tag::Item => Ok(States::Item(D::Item::new(cfg, tag, gen)?)),
+            Tag::FootnoteDefinition(_) => Ok(States::FootnoteDefinition(D::FootnoteDefinition::new(cfg, tag, gen)?)),
+            Tag::Table(_) => Ok(States::Table(D::Table::new(cfg, tag, gen)?)),
+            Tag::TableHead => Ok(States::TableHead(D::TableHead::new(cfg, tag, gen)?)),
+            Tag::TableRow => Ok(States::TableRow(D::TableRow::new(cfg, tag, gen)?)),
+            Tag::TableCell => Ok(States::TableCell(D::TableCell::new(cfg, tag, gen)?)),
+            Tag::Emphasis => Ok(States::InlineEmphasis(D::InlineEmphasis::new(cfg, tag, gen)?)),
+            Tag::Strong => Ok(States::InlineStrong(D::InlineStrong::new(cfg, tag, gen)?)),
+            Tag::Code => Ok(States::InlineCode(D::InlineCode::new(cfg, tag, gen)?)),
+            Tag::Link(..) => Ok(States::Link(D::Link::new(cfg, tag, gen)?)),
+            Tag::Image(..) => Ok(States::Image(D::Image::new(cfg, tag, gen)?)),
         }
     }
 

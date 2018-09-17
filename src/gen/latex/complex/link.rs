@@ -4,9 +4,11 @@ use std::borrow::Cow;
 use pulldown_cmark::{Tag, Event, LinkType};
 
 use crate::gen::{State, States, Generator, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct Link<'a> {
+    cfg: &'a Config,
     typ: LinkType,
     dst: Cow<'a, str>,
     title: Cow<'a, str>,
@@ -14,12 +16,13 @@ pub struct Link<'a> {
 }
 
 impl<'a> State<'a> for Link<'a> {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let (typ, dst, title) = match tag {
             Tag::Link(typ, dst, title) => (typ, dst, title),
             _ => unreachable!(),
         };
         Ok(Link {
+            cfg,
             typ,
             dst,
             title,
@@ -46,7 +49,10 @@ impl<'a> State<'a> for Link<'a> {
 
         // biber
         // TODO: only check for biber references if there is actually a biber file
-        if dst.starts_with('@') && self.typ == LinkType::ShortcutUnknown {
+        if self.cfg.bibliography.is_some()
+            && dst.starts_with('@')
+            && self.typ == LinkType::ShortcutUnknown
+        {
             // TODO: parse biber file and warn on unknown references
             let spacepos = dst.find(' ');
             let reference = &dst[1..spacepos.unwrap_or(dst.len())];

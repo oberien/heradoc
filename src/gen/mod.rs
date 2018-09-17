@@ -49,7 +49,7 @@ pub trait Document<'a>: Debug {
 }
 
 pub trait State<'a>: Sized + Debug {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self>;
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }

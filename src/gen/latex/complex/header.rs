@@ -3,6 +3,7 @@ use std::io::{Result, Write};
 use pulldown_cmark::{Tag, Event};
 
 use crate::gen::{State, States, Generator, Stack, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct Header {
@@ -10,7 +11,7 @@ pub struct Header {
 }
 
 impl<'a> State<'a> for Header {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let level = match tag {
             Tag::Header(level) => level,
             _ => unreachable!(),
