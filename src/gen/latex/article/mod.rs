@@ -58,7 +58,7 @@ impl<'a> Document<'a> for Article {
 
         // TODO: biblatex options (natbib?)
         if let Some(bibliography) = &cfg.bibliography {
-            write!(out, "\\usepackage[backend=biber,style={}]{{biblatex}}", cfg.citationstyle)?;
+            write!(out, "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}", cfg.citestyle, cfg.bibstyle)?;
             writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
         }
 

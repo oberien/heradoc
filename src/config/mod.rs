@@ -43,10 +43,15 @@ pub struct FileConfig {
     /// Bibliography file in biblatex format. Defaults to references.bib (if it exists).
     #[structopt(long = "bibliography")]
     pub bibliography: Option<String>,
-    /// Citation style. Defaults to `ieee`.
+    /// Citation style. Used for both `citestyle` and `bibstyle`.
     #[structopt(long = "citationstyle")]
-    #[serde(default)]
     pub citationstyle: Option<MaybeUnknown<CitationStyle>>,
+    /// Style used for citation labels. Takes precedence over `citationstyle`.
+    #[structopt(long = "citestyle")]
+    pub citestyle: Option<MaybeUnknown<CitationStyle>>,
+    /// Style used for generating the bibliography index. Takes precedence over `citationstyle`.
+    #[structopt(long = "bibstyle")]
+    pub bibstyle: Option<MaybeUnknown<CitationStyle>>,
 
     /// Latex documentclass. Defaults to `scrartcl`.
     #[structopt(long = "documentclass")]
@@ -77,7 +82,8 @@ pub struct Config {
     pub output_type: OutType,
 
     pub bibliography: Option<PathBuf>,
-    pub citationstyle: MaybeUnknown<CitationStyle>,
+    pub citestyle: MaybeUnknown<CitationStyle>,
+    pub bibstyle: MaybeUnknown<CitationStyle>,
 
     // document
     pub documentclass: String,
@@ -146,15 +152,25 @@ impl Config {
         classoptions.extend(infile.classoptions);
         classoptions.extend(file.classoptions);
 
+        let citationstyle = args.fileconfig.citationstyle
+            .or(infile.citationstyle)
+            .or(file.citationstyle);
+
         Config {
             output,
             input: args.input,
             output_type,
             bibliography,
-            citationstyle: args.fileconfig.citationstyle
-                .or(infile.citationstyle)
-                .or(file.citationstyle)
-                .unwrap_or_default(),
+            citestyle: args.fileconfig.citestyle
+                .or(infile.citestyle)
+                .or(file.citestyle)
+                .or_else(|| citationstyle.as_ref().cloned())
+                .unwrap_or(MaybeUnknown::Known(CitationStyle::NumericComp)),
+            bibstyle: args.fileconfig.bibstyle
+                .or(infile.bibstyle)
+                .or(file.bibstyle)
+                .or(citationstyle)
+                .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
             documentclass: args.fileconfig.documentclass
                 .or(infile.documentclass)
                 .or(file.documentclass)
@@ -305,12 +321,6 @@ pub enum CitationStyle {
     ChicagoAuthordate,
     Mla,
     Apa,
-}
-
-impl Default for CitationStyle {
-    fn default() -> Self {
-        CitationStyle::Ieee
-    }
 }
 
 impl FromStr for CitationStyle {

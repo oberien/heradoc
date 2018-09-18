@@ -48,21 +48,26 @@ impl<'a> State<'a> for Link<'a> {
         let dstlower = dst.to_ascii_lowercase();
 
         // biber
-        // TODO: only check for biber references if there is actually a biber file
         if self.cfg.bibliography.is_some()
             && dst.starts_with('@')
             && self.typ == LinkType::ShortcutUnknown
         {
             // TODO: parse biber file and warn on unknown references
-            let spacepos = dst.find(' ');
-            let reference = &dst[1..spacepos.unwrap_or(dst.len())];
-            let rest = spacepos.map(|pos| &dst[(pos + 1)..]);
-
             // TODO: make space before cite nobreakspace (`~`)
-            if let Some(rest) = rest {
-                write!(out, "\\cite[{}]{{{}}}", rest, reference)?;
+            if iter_multiple_biber(&dst).nth(1).is_some() {
+                write!(out, "\\cites")?;
+                for (reference, rest) in iter_multiple_biber(&dst) {
+                    match rest {
+                        Some(rest) => write!(out, "[{}]{{{}}}", rest, reference)?,
+                        None => write!(out, "{{{}}}", reference)?,
+                    }
+                }
             } else {
-                write!(out, "\\cite{{{}}}", reference)?;
+                let (reference, rest) = parse_single_biber(&dst);
+                match rest {
+                    Some(rest) => write!(out, "\\cite[{}]{{{}}}", rest, reference)?,
+                    None => write!(out, "\\cite{{{}}}", reference)?,
+                }
             }
             return Ok(());
         }
@@ -114,4 +119,55 @@ impl<'a> State<'a> for Link<'a> {
         }
         Ok(())
     }
+}
+
+fn iter_multiple_biber(s: &str) -> impl Iterator<Item = (&str, Option<&str>)> {
+    struct Iter<'a> {
+        s: &'a str,
+        /// index before the next @
+        next_at: usize,
+    }
+
+    impl<'a> Iterator for Iter<'a> {
+        type Item = (&'a str, Option<&'a str>);
+
+        fn next(&mut self) -> Option<<Self as Iterator>::Item> {
+            if self.next_at >= self.s.len() {
+                return None;
+            }
+
+            // skip leading whitespace at first reference (`[ @foo...`)
+            let leading_whitespace = (&self.s[self.next_at..]).chars()
+                .take_while(|c| c.is_whitespace())
+                .count();
+            self.next_at += leading_whitespace;
+            assert_eq!(&self.s[self.next_at..self.next_at+1], "@");
+
+            let rest = &self.s[self.next_at..];
+
+            let next_at = rest[1..].find('@')
+                .map(|i| i + 1)
+                .unwrap_or(rest.len());
+            let next_comma = rest[..next_at].rfind(',').unwrap_or(rest.len());
+            let single = &rest[..next_comma];
+            self.next_at += next_at;
+            Some(parse_single_biber(single))
+        }
+    }
+
+    Iter {
+        s,
+        next_at: 0,
+    }
+}
+
+/// Returns (reference, Option<options>)
+fn parse_single_biber(s: &str) -> (&str, Option<&str>) {
+    let s = s.trim();
+    assert_eq!(&s[..1], "@");
+
+    let spacepos = s.find(' ');
+    let reference = &s[1..spacepos.unwrap_or(s.len())];
+    let rest = spacepos.map(|pos| &s[(pos + 1)..]);
+    (reference, rest)
 }
