@@ -14,9 +14,10 @@ pub use self::states::States;
 pub use self::generator::Generator;
 
 use self::concat::Concat;
+use crate::config::Config;
 
-pub fn generate<'a>(mut doc: impl Document<'a>, arena: &'a Arena<String>, markdown: String, mut out: impl Write) -> Result<()> {
-    let mut gen = Generator::new(doc, out, arena);
+pub fn generate<'a>(cfg: &'a Config, mut doc: impl Document<'a>, arena: &'a Arena<String>, markdown: String, mut out: impl Write) -> Result<()> {
+    let mut gen = Generator::new(cfg, doc, out, arena);
     let events = gen.get_events(markdown);
     gen.generate(events)?;
     Ok(())
@@ -43,12 +44,12 @@ pub trait Document<'a>: Debug {
     type Image: State<'a>;
 
     fn new() -> Self;
-    fn gen_preamble(&mut self, out: &mut impl Write) -> Result<()>;
-    fn gen_epilogue(&mut self, out: &mut impl Write) -> Result<()>;
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;
 }
 
 pub trait State<'a>: Sized + Debug {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self>;
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }

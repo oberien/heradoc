@@ -3,6 +3,7 @@ use std::io::{Write, Result};
 use pulldown_cmark::{Event, Tag};
 
 use crate::gen::Document;
+use crate::config::Config;
 
 mod preamble;
 
@@ -33,15 +34,35 @@ impl<'a> Document<'a> for Article {
         Article
     }
 
-    fn gen_preamble(&mut self, out: &mut impl Write) -> Result<()> {
-        // TODO: papersize, documentclass, geometry
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
+        // TODO: language / locale
         // TODO: itemizespacing
-        writeln!(out, "\\documentclass[a4paper]{{scrartcl}}")?;
+        // documentclass
+        write!(out, "\\documentclass[")?;
+        write!(out, "{},", cfg.fontsize)?;
+        match cfg.titlepage {
+            true => write!(out, "titlepage,")?,
+            false => write!(out, "notitlepage,")?,
+        }
+        for other in &cfg.classoptions {
+            write!(out, "{},", other)?;
+        }
+        writeln!(out, "]{{{}}}", cfg.documentclass)?;
+        // geometry
+        write!(out, "\\usepackage[")?;
+        cfg.geometry.write_latex_options(&mut *out)?;
+        writeln!(out, "]{{geometry}}")?;
+
         writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
         writeln!(out)?;
-        // TODO: include rust highlighting
+
+        // TODO: biblatex options (natbib?)
+        if let Some(bibliography) = &cfg.bibliography {
+            write!(out, "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}", cfg.citestyle, cfg.bibstyle)?;
+            writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
+        }
+
         // TODO: use minted instead of lstlistings?
-        // TODO: lstset
         writeln!(out, "\\usepackage{{listings}}")?;
         writeln!(out, "\\usepackage[usenames, dvipsnames]{{color}}")?;
         writeln!(out, "\\usepackage{{xcolor}}")?;
@@ -51,6 +72,8 @@ impl<'a> Document<'a> for Article {
         // TODO: graphicspath
         writeln!(out, "\\usepackage{{graphicx}}")?;
         writeln!(out, "\\usepackage{{hyperref}}")?;
+        // TODO: fix this?!
+        writeln!(out, "\\usepackage[all]{{hypcap}}")?;
         // TODO: cleveref options
         writeln!(out, "\\usepackage{{cleveref}}")?;
         writeln!(out, "\\usepackage{{refcount}}")?;
@@ -64,7 +87,11 @@ impl<'a> Document<'a> for Article {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, out: &mut impl Write) -> Result<()> {
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
+        // TODO: [bibliography]
+        if cfg.bibliography.is_some() {
+            writeln!(out, "\\printbibliography")?;
+        }
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

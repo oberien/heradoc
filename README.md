@@ -11,6 +11,10 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
     + worst case: fall back to latex if pundoc fails
 - [x] generate links for sections (non-alphanumerics replaced with `-`, all lowercase)
 - [x] Footnotes (currently the footnote is on the page where the footnote definition is placed, not its first reference)
+- [x] biber support: `[@foo]` references biber (maybe not if HTML backend?)
+- [x] inline latex
+    + still render markdown between `\begin` and `\end` etc, which pandoc doesn't
+    + not if HTML as backend
 - [ ] hrule (currently buggy indentation after)
 - [ ] tables: merge columns
 - [ ] tables: merge rows
@@ -22,15 +26,11 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] ```` ```gnuplot````
 - [ ] ```` ```mermaid````
 - [ ] ```` ```abc````
-- [ ] biber support: `[@foo]` references biber (maybe not if HTML backend?)
 - [ ] `[TOC]`
 - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [ ] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] auto-detect unicode in listing and enable mathescape
-- [ ] inline latex
-    + still render markdown between `\begin` and `\end` etc, which pandoc doesn't
-    + not if HTML as backend
 - [ ] citation style (.cs)
 - [ ] todolist (enumitem): `- [ ] foo`
 - [ ] label: ``* `label`: Description`` (escape hatch with double-space after list item dot)
@@ -46,12 +46,12 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 
 # Config Options
 
-- [ ] output (file / stdout)
-- [ ] out-type (tex, pdf, …)
+- [x] output (file / stdout)
+- [x] out-type (tex, pdf, …)
+- [x] papersize
+- [x] documentclass
+- [x] geometry
 - [ ] pdf metadata (examine which)
-- [ ] papersize
-- [ ] documentclass
-- [ ] geometry
 - [ ] itemizespacing
 - [ ] use minted instead of lstlistings
 - [ ] lstset
@@ -64,13 +64,13 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 # Cli
 
 - [x] `pundoc -o bar.pdf bar.md`
-- [ ] configuration file (allows `pundoc build`)?
-- [ ] configuration directly in .md file like pandoc, but in better
+- [x] configuration file
+- [x] configuration directly in .md file similar to pandoc, but better :)
     - pandoc header renders bad in other markdown renderers
-    - ```` ```header```` or ```` ```preamble````
-- [ ] `pundoc bar.md` (short for `pundoc -o bar.pdf bar.md`)?
-- [ ] every cli option must be configurable in the header (except `-o` and similar?; maybe `-o` allowed but only in subfolders)
-- [ ] cli overrides header overrides config-file overrides defaults
+    - ```` ```pundoc````
+- [x] `pundoc bar.md` (short for `pundoc -o bar.pdf bar.md`)
+- [x] every cli option must be configurable in the header (except `-o` and similar)
+- [x] cli overrides header overrides config-file overrides defaults
 
 # Backend
 

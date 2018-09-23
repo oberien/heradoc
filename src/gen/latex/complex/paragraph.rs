@@ -3,12 +3,13 @@ use std::io::{Result, Write};
 use pulldown_cmark::{Event, Tag};
 
 use crate::gen::{State, States, Generator, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct Paragraph;
 
 impl<'a> State<'a> for Paragraph {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         Ok(Paragraph)
     }
 

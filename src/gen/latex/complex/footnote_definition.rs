@@ -3,12 +3,13 @@ use std::io::{Result, Write};
 use pulldown_cmark::{Tag, Event};
 
 use crate::gen::{State, States, Generator, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct FootnoteDefinition;
 
 impl<'a> State<'a> for FootnoteDefinition {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let fnote = match tag {
             Tag::FootnoteDefinition(fnote) => fnote,
             _ => unreachable!(),

@@ -3,6 +3,7 @@ use std::io::{Result, Write};
 use pulldown_cmark::{Tag, Event};
 
 use crate::gen::{self, State, States, Generator, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct List {
@@ -10,7 +11,7 @@ pub struct List {
 }
 
 impl<'a> State<'a> for List {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let start = match tag {
             Tag::List(start) => start,
             _ => unreachable!("List::new must be called with Tag::List"),
@@ -50,7 +51,7 @@ impl<'a> gen::List<'a> for List {
 pub struct Item;
 
 impl<'a> State<'a> for Item {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
         Ok(Item)
     }

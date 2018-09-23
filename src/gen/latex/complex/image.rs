@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use pulldown_cmark::{Tag, Event, LinkType};
 
 use crate::gen::{State, States, Generator, Document};
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct Image<'a> {
@@ -14,7 +15,7 @@ pub struct Image<'a> {
 }
 
 impl<'a> State<'a> for Image<'a> {
-    fn new(tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
         let out = gen.get_out();
         let (typ, dst, title) = match tag {
             Tag::Image(typ, dst, title) => (typ, dst, title),
