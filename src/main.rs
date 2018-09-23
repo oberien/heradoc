@@ -1,4 +1,5 @@
 #![feature(rust_2018_preview)]
+#![feature(nll)]
 
 extern crate pulldown_cmark;
 extern crate str_concat;
