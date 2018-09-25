@@ -1,6 +1,6 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
+use crate::gen::{CodeGenUnit, Generator, Backend};
 use crate::config::Config;
 use crate::parser::{Event, Tag};
 
@@ -8,7 +8,7 @@ use crate::parser::{Event, Tag};
 pub struct ParagraphGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
-    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, (): (), _gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(ParagraphGen)
     }
 

@@ -1,14 +1,13 @@
 use std::io::{Read, Write, Result};
-use std::path::Path;
 use std::fs::File;
 use std::iter::Peekable;
 
 use pulldown_cmark::{Parser as CmarkParser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use typed_arena::Arena;
 
-use crate::gen::{Backend, Stack, CodeGenUnit, CodeGenUnits, SimpleCodeGenUnit};
+use crate::gen::{Backend, Stack, CodeGenUnits, SimpleCodeGenUnit};
 use crate::gen::concat::Concat;
-use crate::parser::{Parser, Event, Tag};
+use crate::parser::{Parser, Event};
 use crate::config::Config;
 
 pub struct Generator<'a, D: Backend<'a>, W: Write> {
@@ -45,7 +44,7 @@ impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
 
     pub fn generate(&mut self, events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
         self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
-        self.generate_body(events);
+        self.generate_body(events)?;
         self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
         Ok(())
     }
@@ -82,8 +81,8 @@ impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
             Some(Event::Text(text)) => if !self.handle_include(&text)? {
                 D::Text::gen(text, &mut self.get_out())?
             },
-            Some(Event::Html(html)) => unimplemented!(),
-            Some(Event::InlineHtml(html)) => unimplemented!(),
+            Some(Event::Html(_)) => unimplemented!(),
+            Some(Event::InlineHtml(_)) => unimplemented!(),
             Some(Event::FootnoteReference(fnote)) => D::FootnoteReference::gen(fnote, &mut self.get_out())?,
             Some(Event::SoftBreak) => D::SoftBreak::gen((), &mut self.get_out())?,
             Some(Event::HardBreak) => D::HardBreak::gen((), &mut self.get_out())?,

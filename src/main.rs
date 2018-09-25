@@ -16,7 +16,6 @@ use std::path::Path;
 use std::process::Command;
 use std::io::{self, Write};
 
-use pulldown_cmark::{Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use structopt::StructOpt;
 use tempdir::TempDir;
 use typed_arena::Arena;
@@ -30,7 +29,7 @@ use crate::config::{Config, CliArgs, FileConfig, OutType};
 use crate::gen::latex::Article;
 
 fn main() {
-    let mut args = CliArgs::from_args();
+    let args = CliArgs::from_args();
 
     let mut markdown = String::new();
     args.input.to_read().read_to_string(&mut markdown).unwrap();

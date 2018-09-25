@@ -3,7 +3,7 @@ use std::borrow::Cow;
 
 use pulldown_cmark::LinkType;
 
-use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
+use crate::gen::{CodeGenUnit, Generator, Backend};
 use crate::config::Config;
 use crate::parser::{Event, Link};
 
@@ -17,7 +17,7 @@ pub struct LinkGen<'a> {
 }
 
 impl<'a> CodeGenUnit<'a, Link<'a>> for LinkGen<'a> {
-    fn new(cfg: &'a Config, link: Link<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, link: Link<'a>, _gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Link { typ, dst, title } = link;
         Ok(LinkGen {
             cfg,
@@ -32,7 +32,7 @@ impl<'a> CodeGenUnit<'a, Link<'a>> for LinkGen<'a> {
         Some(&mut self.text)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         let text = String::from_utf8(self.text).expect("invalid UTF8");
         // TODO: use title

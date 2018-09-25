@@ -3,7 +3,7 @@ use std::fmt;
 use std::collections::HashMap;
 use std::io;
 
-use serde::de::{self, Deserialize, Deserializer, Visitor, MapAccess};
+use serde::de::{self, Deserialize, Deserializer};
 use structopt::StructOpt;
 
 use crate::config::MaybeUnknown;

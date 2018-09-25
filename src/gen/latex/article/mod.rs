@@ -1,7 +1,5 @@
 use std::io::{Write, Result};
 
-use pulldown_cmark::{Event, Tag};
-
 use crate::gen::Backend;
 use crate::config::Config;
 

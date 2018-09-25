@@ -1,12 +1,10 @@
-use std::io::{Write, Result, Read};
-use std::iter::Peekable;
+use std::io::{Write, Result};
 use std::fmt::Debug;
 use std::borrow::Cow;
 
-use pulldown_cmark::{Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use typed_arena::Arena;
 
-use crate::parser::{Event, Tag, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Link};
+use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Link};
 
 pub mod latex;
 mod code_gen_units;
@@ -16,10 +14,9 @@ mod concat;
 pub use self::code_gen_units::CodeGenUnits;
 pub use self::generator::Generator;
 
-use self::concat::Concat;
 use crate::config::Config;
 
-pub fn generate<'a>(cfg: &'a Config, mut doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, mut out: impl Write) -> Result<()> {
+pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, out: impl Write) -> Result<()> {
     let mut gen = Generator::new(cfg, doc, out, arena);
     let events = gen.get_events(markdown);
     gen.generate(events)?;
@@ -61,7 +58,7 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }
-    fn intercept_event<'b>(&mut self, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
+    fn intercept_event<'b>(&mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
         Ok(Some(e))
     }
     fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
@@ -88,6 +85,8 @@ impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
         self.stack.iter()
     }
 
+    // TODO
+    #[allow(dead_code)]
     pub fn get_out(&mut self) -> &mut dyn Write {
         self.stack.iter_mut().rev()
             .filter_map(|state| state.output_redirect()).next()

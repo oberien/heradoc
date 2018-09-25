@@ -3,7 +3,7 @@ use std::fs::File;
 use std::str::FromStr;
 use std::io::{self, Read, Write};
 use std::fmt;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use void::Void;
 use boolinator::Boolinator;
@@ -12,7 +12,7 @@ use serde::{Deserialize, Deserializer, de, de::IntoDeserializer};
 
 mod geometry;
 
-use self::geometry::{Geometry, Papersize, Orientation};
+use self::geometry::Geometry;
 
 // TODO: VecOrSingle to allow `foo = "bar"` instead of `foo = ["bar"]` for single values
 

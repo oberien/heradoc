@@ -127,6 +127,8 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
         }
     }
 
+    // TODO
+    #[allow(dead_code)]
     pub fn is_list(&self) -> bool {
         match self {
             CodeGenUnits::List(_) => true,
