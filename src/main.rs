@@ -24,6 +24,7 @@ use typed_arena::Arena;
 mod gen;
 mod config;
 mod resolve;
+mod parser;
 
 use crate::config::{Config, CliArgs, FileConfig, OutType};
 use crate::gen::latex::Article;

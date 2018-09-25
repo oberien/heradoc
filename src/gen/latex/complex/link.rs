@@ -1,13 +1,14 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
-use pulldown_cmark::{Tag, Event, LinkType};
+use pulldown_cmark::LinkType;
 
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
+use crate::parser::{Event, Link};
 
 #[derive(Debug)]
-pub struct Link<'a> {
+pub struct LinkGen<'a> {
     cfg: &'a Config,
     typ: LinkType,
     dst: Cow<'a, str>,
@@ -15,13 +16,10 @@ pub struct Link<'a> {
     text: Vec<u8>,
 }
 
-impl<'a> State<'a> for Link<'a> {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
-        let (typ, dst, title) = match tag {
-            Tag::Link(typ, dst, title) => (typ, dst, title),
-            _ => unreachable!(),
-        };
-        Ok(Link {
+impl<'a> CodeGenUnit<'a, Link<'a>> for LinkGen<'a> {
+    fn new(cfg: &'a Config, link: Link<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        let Link { typ, dst, title } = link;
+        Ok(LinkGen {
             cfg,
             typ,
             dst,
@@ -34,7 +32,7 @@ impl<'a> State<'a> for Link<'a> {
         Some(&mut self.text)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         let text = String::from_utf8(self.text).expect("invalid UTF8");
         // TODO: use title

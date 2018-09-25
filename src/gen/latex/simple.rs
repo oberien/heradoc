@@ -1,29 +1,47 @@
 use std::io::{Result, Write};
+use std::borrow::Cow;
 
-use crate::gen::Simple;
+use crate::gen::SimpleCodeGenUnit;
+use crate::parser::FootnoteReference;
 
 #[derive(Debug)]
-pub struct SimpleGen;
+pub struct TextGen;
 
-impl Simple for SimpleGen {
-    fn gen_text(text: &str, out: &mut impl Write) -> Result<()> {
+impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for TextGen {
+    fn gen(text: Cow<'a, str>, out: &mut impl Write) -> Result<()> {
         write!(out, "{}", text)?;
         Ok(())
     }
 
-    fn gen_footnote_reference(fnote: &str, out: &mut impl Write) -> Result<()> {
-        write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", fnote)?;
+}
+
+#[derive(Debug)]
+pub struct FootnoteReferenceGen;
+
+impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
+    fn gen(fnote: FootnoteReference, out: &mut impl Write) -> Result<()> {
+        write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", fnote.label)?;
         Ok(())
     }
+}
 
-    fn gen_soft_break(out: &mut impl Write) -> Result<()> {
+#[derive(Debug)]
+pub struct SoftBreakGen;
+
+impl SimpleCodeGenUnit<()> for SoftBreakGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
         // soft breaks are only used to split up text in lines in the source file
         // so it's nothing we should translate, but for better readability keep them
         writeln!(out)?;
         Ok(())
     }
+}
 
-    fn gen_hard_break(out: &mut impl Write) -> Result<()> {
+#[derive(Debug)]
+pub struct HardBreakGen;
+
+impl SimpleCodeGenUnit<()> for HardBreakGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\par")?;
         Ok(())
     }

@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 
 use pulldown_cmark::{Event, Tag};
 
-use crate::gen::Document;
+use crate::gen::Backend;
 use crate::config::Config;
 
 mod preamble;
@@ -10,25 +10,30 @@ mod preamble;
 #[derive(Debug)]
 pub struct Article;
 
-impl<'a> Document<'a> for Article {
-    type Simple = super::SimpleGen;
-    type Paragraph = super::Paragraph;
-    type Rule = super::Rule;
-    type Header = super::Header;
-    type BlockQuote = super::BlockQuote;
-    type CodeBlock = super::CodeBlock;
-    type List = super::List;
-    type Item = super::Item;
-    type FootnoteDefinition = super::FootnoteDefinition;
-    type Table = super::Table;
-    type TableHead = super::TableHead;
-    type TableRow = super::TableRow;
-    type TableCell = super::TableCell;
-    type InlineEmphasis = super::InlineEmphasis;
-    type InlineStrong = super::InlineStrong;
-    type InlineCode = super::InlineCode;
-    type Link = super::Link<'a>;
-    type Image = super::Image<'a>;
+impl<'a> Backend<'a> for Article {
+    type Text = super::TextGen;
+    type FootnoteReference = super::FootnoteReferenceGen;
+    type SoftBreak = super::SoftBreakGen;
+    type HardBreak = super::HardBreakGen;
+
+    type Paragraph = super::ParagraphGen;
+    type Rule = super::RuleGen;
+    type Header = super::HeaderGen;
+    type BlockQuote = super::BlockQuoteGen;
+    type CodeBlock = super::CodeBlockGen;
+    type List = super::ListGen;
+    type Enumerate = super::EnumerateGen;
+    type Item = super::ItemGen;
+    type FootnoteDefinition = super::FootnoteDefinitionGen;
+    type Table = super::TableGen;
+    type TableHead = super::TableHeadGen;
+    type TableRow = super::TableRowGen;
+    type TableCell = super::TableCellGen;
+    type InlineEmphasis = super::InlineEmphasisGen;
+    type InlineStrong = super::InlineStrongGen;
+    type InlineCode = super::InlineCodeGen;
+    type Link = super::LinkGen<'a>;
+    type Image = super::ImageGen<'a>;
 
     fn new() -> Self {
         Article

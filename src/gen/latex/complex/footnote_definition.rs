@@ -1,25 +1,21 @@
 use std::io::{Result, Write};
 
-use pulldown_cmark::{Tag, Event};
-
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
 
-#[derive(Debug)]
-pub struct FootnoteDefinition;
+use crate::parser::{Event, FootnoteDefinition};
 
-impl<'a> State<'a> for FootnoteDefinition {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
-        let fnote = match tag {
-            Tag::FootnoteDefinition(fnote) => fnote,
-            _ => unreachable!(),
-        };
+#[derive(Debug)]
+pub struct FootnoteDefinitionGen;
+
+impl<'a> CodeGenUnit<'a, FootnoteDefinition<'a>> for FootnoteDefinitionGen {
+    fn new(cfg: &'a Config, fnote: FootnoteDefinition<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         // TODO: Add pass to get all definitions to put definition on the same site as the first reference
-        write!(gen.get_out(), "\\footnotetext{{\\label{{fnote:{}}}", fnote)?;
-        Ok(FootnoteDefinition)
+        write!(gen.get_out(), "\\footnotetext{{\\label{{fnote:{}}}", fnote.label)?;
+        Ok(FootnoteDefinitionGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out(), "}}")?;
         Ok(())
     }

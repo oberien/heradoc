@@ -1,62 +1,50 @@
 use std::io::{Result, Write};
 
-use pulldown_cmark::{Tag, Event};
-
-use crate::gen::{self, State, States, Generator, Document};
+use crate::gen::{self, CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
+use crate::parser::{Event, Enumerate};
 
 #[derive(Debug)]
-pub struct List {
-    start: Option<usize>,
-}
+pub struct ListGen;
 
-impl<'a> State<'a> for List {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
-        let start = match tag {
-            Tag::List(start) => start,
-            _ => unreachable!("List::new must be called with Tag::List"),
-        };
-
-        if let Some(start) = start {
-            let start = start as i32 - 1;
-            let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate_list()).count();
-            writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
-            writeln!(gen.get_out(), "\\setcounter{{enum{}}}{{{}}}", "i".repeat(enumerate_depth), start)?;
-        } else {
-            writeln!(gen.get_out(), "\\begin{{itemize}}")?;
-        }
-
-        Ok(List {
-            start,
-        })
+impl<'a> CodeGenUnit<'a, ()> for ListGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        writeln!(gen.get_out(), "\\begin{{itemize}}")?;
+        Ok(ListGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
-        if self.start.is_some() {
-            writeln!(gen.get_out(), "\\end{{enumerate}}")?;
-        } else {
-            writeln!(gen.get_out(), "\\end{{itemize}}")?;
-        }
-        Ok(())
-    }
-}
-
-impl<'a> gen::List<'a> for List {
-    fn is_enumerate(&self) -> bool {
-        self.start.is_some()
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        writeln!(gen.get_out(), "\\end{{itemize}}")
     }
 }
 
 #[derive(Debug)]
-pub struct Item;
+pub struct EnumerateGen;
 
-impl<'a> State<'a> for Item {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
+    fn new(cfg: &'a Config, enumerate: Enumerate, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        let start = enumerate.start_number as i32 - 1;
+        let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate()).count();
+        writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
+        writeln!(gen.get_out(), "\\setcounter{{enum{}}}{{{}}}", "i".repeat(enumerate_depth), start)?;
+        Ok(EnumerateGen)
+    }
+
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+        writeln!(gen.get_out(), "\\end{{enumerate}}")
+    }
+}
+
+#[derive(Debug)]
+pub struct ItemGen;
+
+impl<'a> CodeGenUnit<'a, ()> for ItemGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
-        Ok(Item)
+        Ok(ItemGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out())?;
         Ok(())
     }

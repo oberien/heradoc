@@ -1,32 +1,27 @@
 use std::io::{Result, Write};
 
-use pulldown_cmark::{Tag, Event};
-
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
+use crate::parser::{CodeBlock, Event};
 
 #[derive(Debug)]
-pub struct CodeBlock;
+pub struct CodeBlockGen;
 
-impl<'a> State<'a> for CodeBlock {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
+    fn new(cfg: &'a Config, code_block: CodeBlock<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let out = gen.get_out();
-        let lang = match tag {
-            Tag::CodeBlock(lang) => lang,
-            _ => unreachable!("CodeBlock::new must be called with Tag::CodeBlock"),
-        };
         write!(out, "\\begin{{lstlisting}}")?;
-        if !lang.is_empty() {
+        if !code_block.language.is_empty() {
             write!(out, "[")?;
-            let parts = lang.split(",");
+            let parts = code_block.language.split(",");
             for (i, part) in parts.enumerate() {
                 if i == 0 {
                     if !part.contains("=") {
                         // TODO: language translation (use correct language, e.g. `Rust` instead of `rust` if that matters)
-                        match &*lang {
+                        match &*code_block.language {
                             // TODO: sequence and stuff generation
                             "sequence" => (),
-                            lang => write!(out, "language={}", lang)?,
+                            lang => write!(out, "language={}", code_block.language)?,
                         }
                         continue;
                     }
@@ -40,10 +35,10 @@ impl<'a> State<'a> for CodeBlock {
             write!(out, "]")?;
         }
         writeln!(out)?;
-        Ok(CodeBlock)
+        Ok(CodeBlockGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{lstlisting}}")?;
         Ok(())
     }

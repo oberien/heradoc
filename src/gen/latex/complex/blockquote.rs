@@ -1,18 +1,18 @@
 use std::io::{Result, Write};
 
-use pulldown_cmark::{Tag, Event};
-
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
 
+use crate::parser::Event;
+
 #[derive(Debug)]
-pub struct BlockQuote {
+pub struct BlockQuoteGen {
     quote: Vec<u8>
 }
 
-impl<'a> State<'a> for BlockQuote {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
-        Ok(BlockQuote {
+impl<'a> CodeGenUnit<'a, ()> for BlockQuoteGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        Ok(BlockQuoteGen {
             quote: Vec::new(),
         })
     }
@@ -21,7 +21,7 @@ impl<'a> State<'a> for BlockQuote {
         Some(&mut self.quote)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         let quote = String::from_utf8(self.quote).expect("invalid UTF8");
         let mut quote = quote.as_str();

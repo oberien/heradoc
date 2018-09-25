@@ -1,31 +1,29 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
-use pulldown_cmark::{Tag, Event, LinkType};
+use pulldown_cmark::LinkType;
 
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
+use crate::parser::{Event, Link};
 
 #[derive(Debug)]
-pub struct Image<'a> {
+pub struct ImageGen<'a> {
     typ: LinkType,
     dst: Cow<'a, str>,
     title: Cow<'a, str>,
     caption: Vec<u8>,
 }
 
-impl<'a> State<'a> for Image<'a> {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, Link<'a>> for ImageGen<'a> {
+    fn new(cfg: &'a Config, link: Link<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let out = gen.get_out();
-        let (typ, dst, title) = match tag {
-            Tag::Image(typ, dst, title) => (typ, dst, title),
-            _ => unreachable!(),
-        };
+        let Link { typ, dst, title } = link;
 
         writeln!(out, "\\begin{{figure}}")?;
         writeln!(out, "\\includegraphics{{{}}}", dst)?;
 
-        Ok(Image {
+        Ok(ImageGen {
             typ,
             dst,
             title,
@@ -37,7 +35,7 @@ impl<'a> State<'a> for Image<'a> {
         Some(&mut self.caption)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         let caption = String::from_utf8(self.caption).expect("inavlid UTF8");
 

@@ -3,22 +3,23 @@ use std::path::Path;
 use std::fs::File;
 use std::iter::Peekable;
 
-use pulldown_cmark::{Tag, Event, Parser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
+use pulldown_cmark::{Parser as CmarkParser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use typed_arena::Arena;
 
-use crate::gen::{Document, Stack, State, States, Simple};
+use crate::gen::{Backend, Stack, CodeGenUnit, CodeGenUnits, SimpleCodeGenUnit};
 use crate::gen::concat::Concat;
+use crate::parser::{Parser, Event, Tag};
 use crate::config::Config;
 
-pub struct Generator<'a, D: Document<'a>, W: Write> {
+pub struct Generator<'a, D: Backend<'a>, W: Write> {
     cfg: &'a Config,
     arena: &'a Arena<String>,
     doc: D,
     default_out: W,
-    stack: Vec<States<'a, D>>,
+    stack: Vec<CodeGenUnits<'a, D>>,
 }
 
-impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
+impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
     pub fn new(cfg: &'a Config, doc: D, default_out: W, arena: &'a Arena<String>) -> Self {
         Generator {
             cfg,
@@ -31,11 +32,11 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
 
     pub fn get_events(&mut self, markdown: String) -> Peekable<impl Iterator<Item = Event<'a>>> {
         let markdown = self.arena.alloc(markdown);
-        let parser = Parser::new_with_broken_link_callback(
+        let parser = Parser::new(CmarkParser::new_with_broken_link_callback(
             markdown,
             OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
             Some(&refsolve)
-        );
+        ));
         // TODO: don't print events
         let events: Vec<_> = Concat(parser.peekable()).collect();
 //        println!("{:#?}", events);
@@ -75,23 +76,23 @@ impl<'a, D: Document<'a>, W: Write> Generator<'a, D, W> {
             None => (),
             Some(Event::End(_)) => unreachable!(),
             Some(Event::Start(tag)) => {
-                let state = States::new(self.cfg, tag, self)?;
+                let state = CodeGenUnits::new(self.cfg, tag, self)?;
                 self.stack.push(state);
             },
             Some(Event::Text(text)) => if !self.handle_include(&text)? {
-                D::Simple::gen_text(&text, &mut self.get_out())?
+                D::Text::gen(text, &mut self.get_out())?
             },
             Some(Event::Html(html)) => unimplemented!(),
             Some(Event::InlineHtml(html)) => unimplemented!(),
-            Some(Event::FootnoteReference(fnote)) => D::Simple::gen_footnote_reference(&fnote, &mut self.get_out())?,
-            Some(Event::SoftBreak) => D::Simple::gen_soft_break(&mut self.get_out())?,
-            Some(Event::HardBreak) => D::Simple::gen_hard_break(&mut self.get_out())?,
+            Some(Event::FootnoteReference(fnote)) => D::FootnoteReference::gen(fnote, &mut self.get_out())?,
+            Some(Event::SoftBreak) => D::SoftBreak::gen((), &mut self.get_out())?,
+            Some(Event::HardBreak) => D::HardBreak::gen((), &mut self.get_out())?,
         }
 
         Ok(())
     }
 
-    pub fn iter_stack(&self) -> impl Iterator<Item = &States<'a, D>> {
+    pub fn iter_stack(&self) -> impl Iterator<Item = &CodeGenUnits<'a, D>> {
         self.stack.iter()
     }
 

@@ -4,26 +4,27 @@ mod complex;
 
 pub use self::article::Article;
 
-use self::simple::SimpleGen;
+use self::simple::{TextGen, FootnoteReferenceGen, SoftBreakGen, HardBreakGen};
 
 use self::complex::{
-    Paragraph,
-    Rule,
-    Header,
-    BlockQuote,
-    CodeBlock,
-    List,
-    Item,
-    FootnoteDefinition,
-    Table,
-    TableHead,
-    TableRow,
-    TableCell,
-    InlineEmphasis,
-    InlineStrong,
-    InlineCode,
-    Link,
-    Image,
+    ParagraphGen,
+    RuleGen,
+    HeaderGen,
+    BlockQuoteGen,
+    CodeBlockGen,
+    ListGen,
+    EnumerateGen,
+    ItemGen,
+    FootnoteDefinitionGen,
+    TableGen,
+    TableHeadGen,
+    TableRowGen,
+    TableCellGen,
+    InlineEmphasisGen,
+    InlineStrongGen,
+    InlineCodeGen,
+    LinkGen,
+    ImageGen,
 };
 
 

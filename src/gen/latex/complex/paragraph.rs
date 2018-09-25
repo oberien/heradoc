@@ -1,19 +1,18 @@
 use std::io::{Result, Write};
 
-use pulldown_cmark::{Event, Tag};
-
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
+use crate::parser::{Event, Tag};
 
 #[derive(Debug)]
-pub struct Paragraph;
+pub struct ParagraphGen;
 
-impl<'a> State<'a> for Paragraph {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
-        Ok(Paragraph)
+impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        Ok(ParagraphGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         // TODO: improve latex readability (e.g. no newline between list items)
         // TODO: fix too many linebreaks (e.g. after placeholditimage)
         match peek {

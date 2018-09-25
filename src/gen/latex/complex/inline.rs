@@ -1,50 +1,49 @@
 use std::io::{Result, Write};
 
-use pulldown_cmark::{Tag, Event};
-
-use crate::gen::{State, States, Generator, Document};
+use crate::gen::{CodeGenUnit, CodeGenUnits, Generator, Backend};
 use crate::config::Config;
+use crate::parser::Event;
 
 #[derive(Debug)]
-pub struct InlineEmphasis;
+pub struct InlineEmphasisGen;
 
-impl<'a> State<'a> for InlineEmphasis {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, ()> for InlineEmphasisGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\emph{{")?;
-        Ok(InlineEmphasis)
+        Ok(InlineEmphasisGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct InlineStrong;
+pub struct InlineStrongGen;
 
-impl<'a> State<'a> for InlineStrong {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, ()> for InlineStrongGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\textbf{{")?;
-        Ok(InlineStrong)
+        Ok(InlineStrongGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct InlineCode;
+pub struct InlineCodeGen;
 
-impl<'a> State<'a> for InlineCode {
-    fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, impl Document<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, ()> for InlineCodeGen {
+    fn new(cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\texttt{{")?;
-        Ok(InlineCode)
+        Ok(InlineCodeGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Document<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
     }
