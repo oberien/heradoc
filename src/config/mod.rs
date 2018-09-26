@@ -71,6 +71,11 @@ pub struct FileConfig {
     #[serde(default)]
     pub classoptions: Vec<String>,
 
+    /// Custom header includes
+    #[structopt(long="header-includes")]
+    #[serde(default)]
+    pub header_includes: Vec<String>,
+
     // geometry
     #[structopt(flatten)]
     #[serde(default)]
@@ -95,6 +100,8 @@ pub struct Config {
     pub fontsize: String,
     pub titlepage: bool,
     pub classoptions: HashSet<String>,
+
+    pub header_includes: Vec<String>,
 
     // geometry
     pub geometry: Geometry,
@@ -158,6 +165,10 @@ impl Config {
         classoptions.extend(infile.classoptions);
         classoptions.extend(file.classoptions);
 
+        let mut header_includes = args.fileconfig.header_includes;
+        header_includes.extend(infile.header_includes);
+        header_includes.extend(file.header_includes);
+
         let citationstyle = args.fileconfig.citationstyle
             .or(infile.citationstyle)
             .or(file.citationstyle);
@@ -191,6 +202,7 @@ impl Config {
                 .or(file.titlepage)
                 .unwrap_or(true),
             classoptions,
+            header_includes,
             geometry: args.fileconfig.geometry
                 .merge(infile.geometry)
                 .merge(file.geometry),

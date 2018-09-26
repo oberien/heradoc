@@ -91,6 +91,10 @@ impl<'a> Backend<'a> for Article {
         writeln!(out)?;
         writeln!(out, "{}", preamble::aquote)?;
         writeln!(out)?;
+        for include in &cfg.header_includes {
+            writeln!(out, "{}", include)?;
+        }
+        writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
         Ok(())
