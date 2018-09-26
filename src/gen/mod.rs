@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Link};
+use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Link, Graphviz};
 
 pub mod latex;
 mod code_gen_units;
@@ -38,15 +38,23 @@ pub trait Backend<'a>: Debug {
     type Enumerate: CodeGenUnit<'a, Enumerate>;
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
+
     type Table: CodeGenUnit<'a, Table>;
     type TableHead: CodeGenUnit<'a, ()>;
     type TableRow: CodeGenUnit<'a, ()>;
     type TableCell: CodeGenUnit<'a, ()>;
+
     type InlineEmphasis: CodeGenUnit<'a, ()>;
     type InlineStrong: CodeGenUnit<'a, ()>;
     type InlineCode: CodeGenUnit<'a, ()>;
+    type InlineMath: CodeGenUnit<'a, ()>;
+
     type Link: CodeGenUnit<'a, Link<'a>>;
     type Image: CodeGenUnit<'a, Link<'a>>;
+
+    type Equation: CodeGenUnit<'a, ()>;
+    type NumberedEquation: CodeGenUnit<'a, ()>;
+    type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
 
     fn new() -> Self;
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;

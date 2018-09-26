@@ -26,6 +26,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] ```` ```gnuplot````
 - [ ] ```` ```mermaid````
 - [ ] ```` ```abc````
+- [ ] labels for code blocks / equations / numbered equations
 - [ ] `[TOC]`
 - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [ ] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )

@@ -21,9 +21,9 @@ impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
             | Some(Event::InlineHtml(_))
             | Some(Event::Start(Tag::Paragraph))
             // those shouldn't occur after a par, but better safe than sorry
-            | Some(Event::Start(Tag::Emphasis))
-            | Some(Event::Start(Tag::Strong))
-            | Some(Event::Start(Tag::Code))
+            | Some(Event::Start(Tag::InlineEmphasis))
+            | Some(Event::Start(Tag::InlineStrong))
+            | Some(Event::Start(Tag::InlineCode))
             | Some(Event::Start(Tag::Link(..)))
             | Some(Event::Start(Tag::Image(..))) => writeln!(gen.get_out(), "\\mbox{{}}\\\\\n\\mbox{{}}\\\\"),
             _ => writeln!(gen.get_out()),

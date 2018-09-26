@@ -22,8 +22,12 @@ pub enum CodeGenUnits<'a, D: Backend<'a>> {
     InlineEmphasis(D::InlineEmphasis),
     InlineStrong(D::InlineStrong),
     InlineCode(D::InlineCode),
+    InlineMath(D::InlineMath),
     Link(D::Link),
     Image(D::Image),
+    Equation(D::Equation),
+    NumberedEquation(D::NumberedEquation),
+    Graphviz(D::Graphviz),
 }
 
 impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
@@ -42,11 +46,15 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             Tag::TableHead => Ok(CodeGenUnits::TableHead(D::TableHead::new(cfg, (), gen)?)),
             Tag::TableRow => Ok(CodeGenUnits::TableRow(D::TableRow::new(cfg, (), gen)?)),
             Tag::TableCell => Ok(CodeGenUnits::TableCell(D::TableCell::new(cfg, (), gen)?)),
-            Tag::Emphasis => Ok(CodeGenUnits::InlineEmphasis(D::InlineEmphasis::new(cfg, (), gen)?)),
-            Tag::Strong => Ok(CodeGenUnits::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
-            Tag::Code => Ok(CodeGenUnits::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
+            Tag::InlineEmphasis => Ok(CodeGenUnits::InlineEmphasis(D::InlineEmphasis::new(cfg, (), gen)?)),
+            Tag::InlineStrong => Ok(CodeGenUnits::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
+            Tag::InlineCode => Ok(CodeGenUnits::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
+            Tag::InlineMath => Ok(CodeGenUnits::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
             Tag::Link(link) => Ok(CodeGenUnits::Link(D::Link::new(cfg, link, gen)?)),
             Tag::Image(link) => Ok(CodeGenUnits::Image(D::Image::new(cfg, link, gen)?)),
+            Tag::Equation => Ok(CodeGenUnits::Equation(D::Equation::new(cfg, (), gen)?)),
+            Tag::NumberedEquation => Ok(CodeGenUnits::NumberedEquation(D::NumberedEquation::new(cfg, (), gen)?)),
+            Tag::Graphviz(graphviz) => Ok(CodeGenUnits::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
         }
     }
 
@@ -68,8 +76,12 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             CodeGenUnits::InlineEmphasis(s) => s.output_redirect(),
             CodeGenUnits::InlineStrong(s) => s.output_redirect(),
             CodeGenUnits::InlineCode(s) => s.output_redirect(),
+            CodeGenUnits::InlineMath(s) => s.output_redirect(),
             CodeGenUnits::Link(s) => s.output_redirect(),
             CodeGenUnits::Image(s) => s.output_redirect(),
+            CodeGenUnits::Equation(s) => s.output_redirect(),
+            CodeGenUnits::NumberedEquation(s) => s.output_redirect(),
+            CodeGenUnits::Graphviz(s) => s.output_redirect(),
         }
     }
 
@@ -91,8 +103,12 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             CodeGenUnits::InlineEmphasis(s) => s.intercept_event(stack, e),
             CodeGenUnits::InlineStrong(s) => s.intercept_event(stack, e),
             CodeGenUnits::InlineCode(s) => s.intercept_event(stack, e),
+            CodeGenUnits::InlineMath(s) => s.intercept_event(stack, e),
             CodeGenUnits::Link(s) => s.intercept_event(stack, e),
             CodeGenUnits::Image(s) => s.intercept_event(stack, e),
+            CodeGenUnits::Equation(s) => s.intercept_event(stack, e),
+            CodeGenUnits::NumberedEquation(s) => s.intercept_event(stack, e),
+            CodeGenUnits::Graphviz(s) => s.intercept_event(stack, e),
         }
     }
 
@@ -111,11 +127,15 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             (CodeGenUnits::TableHead(s), Tag::TableHead) => s.finish(gen, peek),
             (CodeGenUnits::TableRow(s), Tag::TableRow) => s.finish(gen, peek),
             (CodeGenUnits::TableCell(s), Tag::TableCell) => s.finish(gen, peek),
-            (CodeGenUnits::InlineEmphasis(s), Tag::Emphasis) => s.finish(gen, peek),
-            (CodeGenUnits::InlineStrong(s), Tag::Strong) => s.finish(gen, peek),
-            (CodeGenUnits::InlineCode(s), Tag::Code) => s.finish(gen, peek),
-            (CodeGenUnits::Link(s), Tag::Link(..)) => s.finish(gen, peek),
-            (CodeGenUnits::Image(s), Tag::Image(..)) => s.finish(gen, peek),
+            (CodeGenUnits::InlineEmphasis(s), Tag::InlineEmphasis) => s.finish(gen, peek),
+            (CodeGenUnits::InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
+            (CodeGenUnits::InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
+            (CodeGenUnits::InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
+            (CodeGenUnits::Link(s), Tag::Link(_)) => s.finish(gen, peek),
+            (CodeGenUnits::Image(s), Tag::Image(_)) => s.finish(gen, peek),
+            (CodeGenUnits::Equation(s), Tag::Equation) => s.finish(gen, peek),
+            (CodeGenUnits::NumberedEquation(s), Tag::NumberedEquation) => s.finish(gen, peek),
+            (CodeGenUnits::Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
             (state, tag) => unreachable!("invalid end tag {:?}, expected {:?}", tag, state),
         }
     }

@@ -25,6 +25,10 @@ use self::complex::{
     InlineCodeGen,
     LinkGen,
     ImageGen,
+    InlineMathGen,
+    EquationGen,
+    NumberedEquationGen,
+    GraphvizGen,
 };
 
 

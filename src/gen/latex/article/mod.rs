@@ -30,8 +30,12 @@ impl<'a> Backend<'a> for Article {
     type InlineEmphasis = super::InlineEmphasisGen;
     type InlineStrong = super::InlineStrongGen;
     type InlineCode = super::InlineCodeGen;
+    type InlineMath = super::InlineMathGen;
     type Link = super::LinkGen<'a>;
     type Image = super::ImageGen<'a>;
+    type Equation = super::EquationGen;
+    type NumberedEquation = super::NumberedEquationGen;
+    type Graphviz = super::GraphvizGen<'a>;
 
     fn new() -> Self {
         Article
@@ -69,14 +73,16 @@ impl<'a> Backend<'a> for Article {
         writeln!(out, "\\usepackage{{listings}}")?;
         writeln!(out, "\\usepackage[usenames, dvipsnames]{{color}}")?;
         writeln!(out, "\\usepackage{{xcolor}}")?;
+        writeln!(out, "\\usepackage{{pdfpages}}")?;
+        writeln!(out, "\\usepackage{{amssymb}}")?;
+        writeln!(out, "\\usepackage{{amsmath}}")?;
         writeln!(out, "{}", preamble::lstset)?;
         writeln!(out, "{}", preamble::lstdefineasm)?;
         writeln!(out, "{}", preamble::lstdefinerust)?;
         // TODO: graphicspath
         writeln!(out, "\\usepackage{{graphicx}}")?;
         writeln!(out, "\\usepackage{{hyperref}}")?;
-        // TODO: fix this?!
-        writeln!(out, "\\usepackage[all]{{hypcap}}")?;
+        writeln!(out, "\\usepackage{{caption}}")?;
         // TODO: cleveref options
         writeln!(out, "\\usepackage{{cleveref}}")?;
         writeln!(out, "\\usepackage{{refcount}}")?;

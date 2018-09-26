@@ -9,6 +9,7 @@ use void::Void;
 use boolinator::Boolinator;
 use structopt::StructOpt;
 use serde::{Deserialize, Deserializer, de, de::IntoDeserializer};
+use tempdir::TempDir;
 
 mod geometry;
 
@@ -22,6 +23,9 @@ pub struct CliArgs {
     /// Output file. Use `-` for stdout.
     #[structopt(short = "o", long = "out", long = "output")]
     pub output: Option<FileOrStdio>,
+    /// Output directory for itermediate files. Defaults to a tempdir.
+    #[structopt(long="outdir", parse(from_os_str))]
+    pub out_dir: Option<PathBuf>,
     /// Input markdown file. Use `-` for stdin.
     #[structopt()]
     pub input: FileOrStdio,
@@ -78,6 +82,7 @@ pub struct FileConfig {
 pub struct Config {
     // IO
     pub output: FileOrStdio,
+    pub out_dir: PathBuf,
     pub input: FileOrStdio,
     pub output_type: OutType,
 
@@ -96,7 +101,8 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig) -> Config {
+    /// tempdir must live as long as Config
+    pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, tempdir: &TempDir) -> Config {
         // verify input file
         match &args.input {
             FileOrStdio::StdIo => (),
@@ -158,6 +164,7 @@ impl Config {
 
         Config {
             output,
+            out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
             input: args.input,
             output_type,
             bibliography,

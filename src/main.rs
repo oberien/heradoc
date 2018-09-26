@@ -14,7 +14,7 @@ extern crate toml;
 use std::fs::{self, File};
 use std::path::Path;
 use std::process::Command;
-use std::io::{self, Write};
+use std::io::{self, Write, Result};
 
 use structopt::StructOpt;
 use tempdir::TempDir;
@@ -40,7 +40,7 @@ fn main() {
         let end = markdown.find("\n```").expect("unclosed preamble");
         let content = &markdown[(start + 1)..(end + 1)];
         let res = toml::from_str(content).expect("invalid config");
-        markdown.replace_range(..(end + 4), "");
+        markdown.drain(..(end + 4));
         res
     } else {
         FileConfig::default()
@@ -55,14 +55,15 @@ fn main() {
         FileConfig::default()
     };
 
-    let cfg = Config::new(args, infile, file);
+    let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
+    let cfg = Config::new(args, infile, file, &tmpdir);
+    clear_dir(&cfg.out_dir);
     println!("{:#?}", cfg);
 
     // TODO bibliography
     match cfg.output_type {
         OutType::Latex => gen::generate(&cfg, Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
-            let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
             let tex_path = tmpdir.path().join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
@@ -113,4 +114,16 @@ fn biber<P: AsRef<Path>>(tmpdir: P) {
         // TODO: provide better info about signals
         panic!("Biber returned error code {:?}. Logs written to biber_stdout.log and biber_stderr.log", out.status.code());
     }
+}
+
+fn clear_dir<P: AsRef<Path>>(dir: P) -> Result<()> {
+    for e in fs::read_dir(dir)? {
+        let e = e?;
+        if e.file_type()?.is_dir() {
+            fs::remove_dir_all(e.path())?;
+        } else {
+            fs::remove_file(e.path())?;
+        }
+    }
+    Ok(())
 }

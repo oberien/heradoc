@@ -9,6 +9,8 @@ mod table;
 mod inline;
 mod link;
 mod image;
+mod math;
+mod graphviz;
 
 pub use self::paragraph::ParagraphGen;
 pub use self::rule::RuleGen;
@@ -21,3 +23,5 @@ pub use self::table::{TableGen, TableHeadGen, TableRowGen, TableCellGen};
 pub use self::inline::{InlineEmphasisGen, InlineStrongGen, InlineCodeGen};
 pub use self::link::LinkGen;
 pub use self::image::ImageGen;
+pub use self::math::{InlineMathGen, EquationGen, NumberedEquationGen};
+pub use self::graphviz::GraphvizGen;
