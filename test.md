@@ -187,7 +187,7 @@ Inline math `$ \forall x \in \mathbb{N} : \exists y \in \mathbb{N} : y > x`.
 Equation without number:
 
 ```$$
-\sqrt{i}\quad 2^3&\quad \sum\quad \pi\\
+\sqrt{-i}\quad 2^3&\quad \sum\quad \pi\\
 \ldots\; and\; it&\; was\; delicious
 ```
 

@@ -81,8 +81,8 @@ impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
             Some(Event::Text(text)) => if !self.handle_include(&text)? {
                 D::Text::gen(text, &mut self.get_out())?
             },
-            Some(Event::Html(_)) => unimplemented!(),
-            Some(Event::InlineHtml(_)) => unimplemented!(),
+            Some(Event::Html(html)) => D::Text::gen(html, &mut self.get_out())?,
+            Some(Event::InlineHtml(html)) => D::Text::gen(html, &mut self.get_out())?,
             Some(Event::FootnoteReference(fnote)) => D::FootnoteReference::gen(fnote, &mut self.get_out())?,
             Some(Event::SoftBreak) => D::SoftBreak::gen((), &mut self.get_out())?,
             Some(Event::HardBreak) => D::HardBreak::gen((), &mut self.get_out())?,

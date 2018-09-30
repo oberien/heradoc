@@ -1,5 +1,3 @@
-#![feature(nll)]
-
 extern crate pulldown_cmark;
 extern crate str_concat;
 extern crate structopt;
