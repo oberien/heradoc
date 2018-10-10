@@ -2,9 +2,11 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::env;
 
+use reqwest::Client;
 use url::Url;
 
 use crate::resolve::{Context, Include, Command, Markdown, Image, Pdf};
+use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 
 /// Differentiate between sources based on their access right characteristics.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -71,7 +73,7 @@ impl Source {
         })
     }
 
-    pub fn into_include(self) -> io::Result<Include> {
+    pub fn into_include(self, remote: &Remote) -> io::Result<Include> {
         let Source { url, group } = self;
         match group {
             SourceGroup::Implementation => if let Some(domain) = url.domain() {
@@ -103,7 +105,32 @@ impl Source {
             SourceGroup::LocalAbsolute(path) => {
                 to_include(path.clone(), Context::LocalRelative(path.parent().unwrap().to_owned()))
             }
-            SourceGroup::Remote => unimplemented!(),
+            SourceGroup::Remote => {
+                let downloaded = match remote.http(url) {
+                    Ok(downloaded) => downloaded,
+                    Err(RemoteError::Io(io)) => return Err(io),
+                    Err(RemoteError::Request(req)) => return Err(io::ErrorKind::ConnectionAborted.into()),
+                };
+
+                let path = downloaded.path().to_owned();
+                let context = Context::Remote;
+
+                match downloaded.content_type() {
+                    Some(ContentType::Image) => Ok(Include::Image(Image {
+                        path,
+                        width: None,
+                        height: None,
+                    })),
+                    Some(ContentType::Markdown) => Ok(Include::Markdown(Markdown {
+                        path,
+                        context,
+                    })),
+                    Some(ContentType::Pdf) => Ok(Include::Pdf(Pdf {
+                        path,
+                    })),
+                    None => to_include(path, context),
+                }
+            },
         }
     }
 }

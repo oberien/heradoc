@@ -15,14 +15,17 @@ use std::env;
 use url::Url;
 
 mod include;
+mod remote;
 mod source;
 
 pub use self::include::*;
+use self::remote::Remote;
 use self::source::{Source, SourceGroup};
 
 pub struct Resolver {
     base: Url,
     permissions: Permissions,
+    remote: Remote,
 }
 
 /// Manages permissions if includes as allowed explicitly from the Cli.
@@ -31,12 +34,13 @@ struct Permissions {
 }
 
 impl Resolver {
-    pub fn new(workdir: PathBuf) -> Self {
+    pub fn new(workdir: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
             base: Url::parse("pundoc://document/").unwrap(),
             permissions: Permissions {
                 allowed_absolute_folders: vec![workdir],
             },
+            remote: Remote::new(tempdir).unwrap(),
         }
     }
 
@@ -52,7 +56,7 @@ impl Resolver {
         // check if context is allowed to access target
         self.check_access(context, &target)?;
 
-        target.into_include()
+        target.into_include(&self.remote)
     }
 
     /// Test if the source is allowed to request the target document.
@@ -129,7 +133,7 @@ mod tests {
     #[test]
     fn standard_resolves() {
         let dir = prepare();
-        let resolver = Resolver::new(PathBuf::from("."));
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
         let main = resolver.request(&top, "main.md")
@@ -145,7 +149,7 @@ mod tests {
     #[test]
     fn domain_resolves() {
         let dir = prepare();
-        let mut resolver = Resolver::new(PathBuf::from("."));
+        let mut resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
         let main = resolver.request(&top, "main.md")
             .expect("Failed to resolve direct path");
@@ -154,6 +158,26 @@ mod tests {
             .expect("Failed to resolve path in different domain");
 
         assert_eq!(toc, Include::Command(Command::Toc));
+        drop(dir);
+    }
+
+    #[test]
+    fn http_resolves_needs_internet() {
+        let dir = prepare();
+        let mut resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let main = resolver.request(&top, "main.md")
+            .expect("Failed to resolve direct path");
+
+        let external = resolver.request(main.context().unwrap(), 
+                "https://raw.githubusercontent.com/oberien/pundoc/master/README.md")
+            .expect("Failed to download external document");
+
+        match external {
+            Include::Markdown(_) => (),
+            els => panic!("Expected markdown document, found {:?}", els),
+        }
+
         drop(dir);
     }
 }
