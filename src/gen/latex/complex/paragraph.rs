@@ -1,6 +1,6 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, Generator, Backend};
+use crate::gen::{CodeGenUnit, PrimitiveGenerator, Backend};
 use crate::config::Config;
 use crate::parser::{Event, Tag};
 
@@ -8,11 +8,11 @@ use crate::parser::{Event, Tag};
 pub struct ParagraphGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
-    fn new(_cfg: &'a Config, (): (), _gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, (): (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(ParagraphGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         // TODO: improve latex readability (e.g. no newline between list items)
         // TODO: fix too many linebreaks (e.g. after placeholditimage)
         match peek {
@@ -24,7 +24,6 @@ impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
             | Some(Event::Start(Tag::InlineEmphasis))
             | Some(Event::Start(Tag::InlineStrong))
             | Some(Event::Start(Tag::InlineCode))
-            | Some(Event::Start(Tag::Link(..)))
             | Some(Event::Start(Tag::Image(..))) => writeln!(gen.get_out(), "\\mbox{{}}\\\\\n\\mbox{{}}\\\\"),
             _ => writeln!(gen.get_out()),
         }

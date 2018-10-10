@@ -1,6 +1,6 @@
 use std::io::{Write, Result};
 
-use crate::gen::{Backend, Generator, Stack, CodeGenUnit};
+use crate::gen::{Backend, PrimitiveGenerator, Stack, CodeGenUnit};
 use crate::config::Config;
 use crate::parser::{Event, Tag};
 
@@ -23,7 +23,6 @@ pub enum CodeGenUnits<'a, D: Backend<'a>> {
     InlineStrong(D::InlineStrong),
     InlineCode(D::InlineCode),
     InlineMath(D::InlineMath),
-    Link(D::Link),
     Image(D::Image),
     Equation(D::Equation),
     NumberedEquation(D::NumberedEquation),
@@ -31,7 +30,7 @@ pub enum CodeGenUnits<'a, D: Backend<'a>> {
 }
 
 impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
-    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, D, impl Write>) -> Result<Self> {
         match tag {
             Tag::Paragraph => Ok(CodeGenUnits::Paragraph(D::Paragraph::new(cfg, (), gen)?)),
             Tag::Rule => Ok(CodeGenUnits::Rule(D::Rule::new(cfg, (), gen)?)),
@@ -50,8 +49,7 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             Tag::InlineStrong => Ok(CodeGenUnits::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
             Tag::InlineCode => Ok(CodeGenUnits::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
             Tag::InlineMath => Ok(CodeGenUnits::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
-            Tag::Link(link) => Ok(CodeGenUnits::Link(D::Link::new(cfg, link, gen)?)),
-            Tag::Image(link) => Ok(CodeGenUnits::Image(D::Image::new(cfg, link, gen)?)),
+            Tag::Image(image) => Ok(CodeGenUnits::Image(D::Image::new(cfg, image, gen)?)),
             Tag::Equation => Ok(CodeGenUnits::Equation(D::Equation::new(cfg, (), gen)?)),
             Tag::NumberedEquation => Ok(CodeGenUnits::NumberedEquation(D::NumberedEquation::new(cfg, (), gen)?)),
             Tag::Graphviz(graphviz) => Ok(CodeGenUnits::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
@@ -77,7 +75,6 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             CodeGenUnits::InlineStrong(s) => s.output_redirect(),
             CodeGenUnits::InlineCode(s) => s.output_redirect(),
             CodeGenUnits::InlineMath(s) => s.output_redirect(),
-            CodeGenUnits::Link(s) => s.output_redirect(),
             CodeGenUnits::Image(s) => s.output_redirect(),
             CodeGenUnits::Equation(s) => s.output_redirect(),
             CodeGenUnits::NumberedEquation(s) => s.output_redirect(),
@@ -104,7 +101,6 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             CodeGenUnits::InlineStrong(s) => s.intercept_event(stack, e),
             CodeGenUnits::InlineCode(s) => s.intercept_event(stack, e),
             CodeGenUnits::InlineMath(s) => s.intercept_event(stack, e),
-            CodeGenUnits::Link(s) => s.intercept_event(stack, e),
             CodeGenUnits::Image(s) => s.intercept_event(stack, e),
             CodeGenUnits::Equation(s) => s.intercept_event(stack, e),
             CodeGenUnits::NumberedEquation(s) => s.intercept_event(stack, e),
@@ -112,7 +108,7 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         match (self, tag) {
             (CodeGenUnits::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (CodeGenUnits::Rule(s), Tag::Rule) => s.finish(gen, peek),
@@ -131,7 +127,6 @@ impl<'a, D: Backend<'a>> CodeGenUnits<'a, D> {
             (CodeGenUnits::InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
             (CodeGenUnits::InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
             (CodeGenUnits::InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
-            (CodeGenUnits::Link(s), Tag::Link(_)) => s.finish(gen, peek),
             (CodeGenUnits::Image(s), Tag::Image(_)) => s.finish(gen, peek),
             (CodeGenUnits::Equation(s), Tag::Equation) => s.finish(gen, peek),
             (CodeGenUnits::NumberedEquation(s), Tag::NumberedEquation) => s.finish(gen, peek),

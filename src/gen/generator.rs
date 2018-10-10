@@ -10,50 +10,25 @@ use crate::gen::concat::Concat;
 use crate::parser::{Parser, Event};
 use crate::config::Config;
 
-pub struct Generator<'a, D: Backend<'a>, W: Write> {
-    cfg: &'a Config,
+pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
-    doc: D,
-    default_out: W,
-    stack: Vec<CodeGenUnits<'a, D>>,
+    doc: B,
+    prim: PrimitiveGenerator<'a, B, W>,
 }
 
-impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
-    pub fn new(cfg: &'a Config, doc: D, default_out: W, arena: &'a Arena<String>) -> Self {
-        Generator {
+pub struct PrimitiveGenerator<'a, B: Backend<'a>, W: Write> {
+    cfg: &'a Config,
+    default_out: W,
+    stack: Vec<CodeGenUnits<'a, B>>,
+}
+
+impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
+    pub fn new(cfg: &'a Config, default_out: W) -> Self {
+        PrimitiveGenerator {
             cfg,
-            arena,
-            doc,
             default_out,
             stack: Vec::new(),
         }
-    }
-
-    pub fn get_events(&mut self, markdown: String) -> Peekable<impl Iterator<Item = Event<'a>>> {
-        let markdown = self.arena.alloc(markdown);
-        let parser = Parser::new(CmarkParser::new_with_broken_link_callback(
-            markdown,
-            OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
-            Some(&refsolve)
-        ));
-        // TODO: don't print events
-        let events: Vec<_> = Concat(parser.peekable()).collect();
-//        println!("{:#?}", events);
-        events.into_iter().peekable()
-    }
-
-    pub fn generate(&mut self, events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
-        self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
-        self.generate_body(events)?;
-        self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
-        Ok(())
-    }
-
-    pub fn generate_body(&mut self, mut events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
-        while let Some(event) = events.next() {
-            self.visit_event(event, events.peek())?;
-        }
-        Ok(())
     }
 
     pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
@@ -78,20 +53,19 @@ impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
                 let state = CodeGenUnits::new(self.cfg, tag, self)?;
                 self.stack.push(state);
             },
-            Some(Event::Text(text)) => if !self.handle_include(&text)? {
-                D::Text::gen(text, &mut self.get_out())?
-            },
-            Some(Event::Html(html)) => D::Text::gen(html, &mut self.get_out())?,
-            Some(Event::InlineHtml(html)) => D::Text::gen(html, &mut self.get_out())?,
-            Some(Event::FootnoteReference(fnote)) => D::FootnoteReference::gen(fnote, &mut self.get_out())?,
-            Some(Event::SoftBreak) => D::SoftBreak::gen((), &mut self.get_out())?,
-            Some(Event::HardBreak) => D::HardBreak::gen((), &mut self.get_out())?,
+            Some(Event::Text(text)) => B::Text::gen(text, &mut self.get_out())?,
+            Some(Event::Html(html)) => B::Text::gen(html, &mut self.get_out())?,
+            Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut self.get_out())?,
+            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut self.get_out())?,
+            Some(Event::Link(link)) => B::Link::gen(link, &mut self.get_out())?,
+            Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut self.get_out())?,
+            Some(Event::HardBreak) => B::HardBreak::gen((), &mut self.get_out())?,
         }
 
         Ok(())
     }
 
-    pub fn iter_stack(&self) -> impl Iterator<Item = &CodeGenUnits<'a, D>> {
+    pub fn iter_stack(&self) -> impl Iterator<Item=&CodeGenUnits<'a, B>> {
         self.stack.iter()
     }
 
@@ -100,6 +74,61 @@ impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
             .filter_map(|state| state.output_redirect()).next()
             .unwrap_or(&mut self.default_out)
     }
+}
+
+impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
+    pub fn new(cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>) -> Self {
+        Generator {
+            arena,
+            doc,
+            prim: PrimitiveGenerator {
+                cfg,
+                default_out,
+                stack: Vec::new(),
+            }
+        }
+    }
+
+    pub fn get_events(&mut self, markdown: String) -> Peekable<impl Iterator<Item = Event<'a>>> {
+        let markdown = self.arena.alloc(markdown);
+        let parser: Parser<'_, B> = Parser::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
+            markdown,
+            OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
+            Some(&refsolve)
+        ));
+        // TODO: don't print events
+        let events: Vec<_> = Concat(parser.peekable()).collect();
+//        println!("{:#?}", events);
+        events.into_iter().peekable()
+    }
+
+    pub fn generate_body(&mut self, mut events: Peekable<impl Iterator<Item=Event<'a>>>) -> Result<()> {
+        while let Some(event) = events.next() {
+            self.visit_event(event, events.peek())?;
+        }
+        Ok(())
+    }
+
+    pub fn generate(&mut self, events: Peekable<impl Iterator<Item = Event<'a>>>) -> Result<()> {
+        self.doc.gen_preamble(self.prim.cfg, &mut self.prim.default_out)?;
+        self.generate_body(events)?;
+        self.doc.gen_epilogue(self.prim.cfg, &mut self.prim.default_out)?;
+        Ok(())
+    }
+
+    pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
+        // intercept event and test for commands etc before the PrimitiveGenerator gets it and
+        // forwards it to the backend
+
+        match event {
+            Event::Text(text) => if !self.handle_include(&text)? {
+                self.prim.visit_event(Event::Text(text), peek)?;
+            },
+            evt => self.prim.visit_event(evt, peek)?,
+        }
+
+        Ok(())
+    }
 
     /// Checks if the passed text is an include and handles it if it is.
     ///
@@ -107,7 +136,7 @@ impl<'a, D: Backend<'a>, W: Write> Generator<'a, D, W> {
     fn handle_include(&mut self, text: &str) -> Result<bool> {
         let text = text.trim();
         let should_include = text.starts_with("!!include{") && text.ends_with("}")
-            && !self.iter_stack().any(|state| state.is_inline() || state.is_code_block());
+            && !self.prim.iter_stack().any(|state| state.is_inline() || state.is_code_block());
 
         if !should_include {
             return Ok(false);

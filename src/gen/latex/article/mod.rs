@@ -11,6 +11,7 @@ pub struct Article;
 impl<'a> Backend<'a> for Article {
     type Text = super::TextGen;
     type FootnoteReference = super::FootnoteReferenceGen;
+    type Link = super::LinkGen;
     type SoftBreak = super::SoftBreakGen;
     type HardBreak = super::HardBreakGen;
 
@@ -31,7 +32,6 @@ impl<'a> Backend<'a> for Article {
     type InlineStrong = super::InlineStrongGen;
     type InlineCode = super::InlineCodeGen;
     type InlineMath = super::InlineMathGen;
-    type Link = super::LinkGen<'a>;
     type Image = super::ImageGen<'a>;
     type Equation = super::EquationGen;
     type NumberedEquation = super::NumberedEquationGen;

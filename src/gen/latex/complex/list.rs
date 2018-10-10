@@ -1,6 +1,6 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, Generator, Backend};
+use crate::gen::{CodeGenUnit, PrimitiveGenerator, Backend};
 use crate::config::Config;
 use crate::parser::{Event, Enumerate};
 
@@ -8,12 +8,12 @@ use crate::parser::{Event, Enumerate};
 pub struct ListGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ListGen {
-    fn new(_cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, (): (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{itemize}}")?;
         Ok(ListGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{itemize}}")
     }
 }
@@ -22,7 +22,7 @@ impl<'a> CodeGenUnit<'a, ()> for ListGen {
 pub struct EnumerateGen;
 
 impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
-    fn new(_cfg: &'a Config, enumerate: Enumerate, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, enumerate: Enumerate, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let start = enumerate.start_number as i32 - 1;
         let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate()).count();
         writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
@@ -30,7 +30,7 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
         Ok(EnumerateGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{enumerate}}")
     }
 }
@@ -39,12 +39,12 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
 pub struct ItemGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ItemGen {
-    fn new(_cfg: &'a Config, (): (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, (): (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
         Ok(ItemGen)
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out())?;
         Ok(())
     }

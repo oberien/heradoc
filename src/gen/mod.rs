@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Link, Graphviz};
+use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Image, Graphviz, Link};
 
 pub mod latex;
 mod code_gen_units;
@@ -12,7 +12,7 @@ mod generator;
 mod concat;
 
 pub use self::code_gen_units::CodeGenUnits;
-pub use self::generator::Generator;
+pub use self::generator::{Generator, PrimitiveGenerator};
 
 use crate::config::Config;
 
@@ -26,6 +26,7 @@ pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<Str
 pub trait Backend<'a>: Debug {
     type Text: SimpleCodeGenUnit<Cow<'a, str>>;
     type FootnoteReference: SimpleCodeGenUnit<FootnoteReference<'a>>;
+    type Link: SimpleCodeGenUnit<Link<'a>>;
     type SoftBreak: SimpleCodeGenUnit<()>;
     type HardBreak: SimpleCodeGenUnit<()>;
 
@@ -49,8 +50,7 @@ pub trait Backend<'a>: Debug {
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
 
-    type Link: CodeGenUnit<'a, Link<'a>>;
-    type Image: CodeGenUnit<'a, Link<'a>>;
+    type Image: CodeGenUnit<'a, Image<'a>>;
 
     type Equation: CodeGenUnit<'a, ()>;
     type NumberedEquation: CodeGenUnit<'a, ()>;
@@ -62,14 +62,14 @@ pub trait Backend<'a>: Debug {
 }
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
-    fn new(cfg: &'a Config, tag: T, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self>;
+    fn new(cfg: &'a Config, tag: T, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }
     fn intercept_event<'b>(&mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
         Ok(Some(e))
     }
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
 }
 
 pub trait SimpleCodeGenUnit<T> {

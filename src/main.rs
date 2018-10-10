@@ -20,6 +20,7 @@ use structopt::StructOpt;
 use tempdir::TempDir;
 use typed_arena::Arena;
 
+mod cow_ext;
 mod gen;
 mod config;
 mod resolve;

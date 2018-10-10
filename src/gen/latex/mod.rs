@@ -4,7 +4,7 @@ mod complex;
 
 pub use self::article::Article;
 
-use self::simple::{TextGen, FootnoteReferenceGen, SoftBreakGen, HardBreakGen};
+use self::simple::{TextGen, FootnoteReferenceGen, LinkGen, SoftBreakGen, HardBreakGen};
 
 use self::complex::{
     ParagraphGen,
@@ -23,7 +23,6 @@ use self::complex::{
     InlineEmphasisGen,
     InlineStrongGen,
     InlineCodeGen,
-    LinkGen,
     ImageGen,
     InlineMathGen,
     EquationGen,
