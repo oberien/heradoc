@@ -1,8 +1,9 @@
 use std::io::{Write, Result};
 
-use crate::gen::{Backend, PrimitiveGenerator, Stack, CodeGenUnit};
+use crate::backend::{Backend, CodeGenUnit};
+use crate::generator::{PrimitiveGenerator, Stack};
 use crate::config::Config;
-use crate::parser::{Event, Tag};
+use crate::frontend::{Event, Tag};
 
 #[derive(Debug)]
 pub enum CodeGenUnits<'a, D: Backend<'a>> {

@@ -1,8 +1,9 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, PrimitiveGenerator, Stack, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::generator::{PrimitiveGenerator, Stack};
 use crate::config::Config;
-use crate::parser::{Event, Header};
+use crate::frontend::{Event, Header};
 
 #[derive(Debug)]
 pub struct HeaderGen {

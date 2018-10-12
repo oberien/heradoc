@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt;
 
-use pulldown_cmark::LinkType;
+pub use pulldown_cmark::LinkType;
 
 use crate::config::Config;
 use crate::cow_ext::CowExt;

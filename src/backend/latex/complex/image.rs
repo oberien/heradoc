@@ -3,9 +3,10 @@ use std::borrow::Cow;
 
 use pulldown_cmark::LinkType;
 
-use crate::gen::{CodeGenUnit, PrimitiveGenerator, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
-use crate::parser::{Event, Image};
+use crate::frontend::{Event, Image};
 
 #[derive(Debug)]
 pub struct ImageGen<'a> {

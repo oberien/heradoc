@@ -4,15 +4,18 @@ use std::mem;
 use std::marker::PhantomData;
 use std::iter::Peekable;
 
-use pulldown_cmark::{Alignment, LinkType, Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser};
+use pulldown_cmark::{Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser};
 
 mod refs;
+mod event;
 
-pub use self::refs::{Link, Label, LabelReference, LabelType};
+pub use self::refs::*;
+pub use self::event::*;
 
 use self::refs::LinkOrText;
 use crate::config::Config;
-use crate::gen::{PrimitiveGenerator, Backend};
+use crate::backend::{Backend};
+use crate::generator::PrimitiveGenerator;
 
 #[derive(Debug, Clone)]
 enum State<'a> {
@@ -24,7 +27,7 @@ enum State<'a> {
     Graphviz(Graphviz<'a>),
 }
 
-pub struct Parser<'a, B: Backend<'a>> {
+pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
     parser: Peekable<CmarkParser<'a>>,
     buffer: VecDeque<Event<'a>>,
@@ -32,7 +35,7 @@ pub struct Parser<'a, B: Backend<'a>> {
     marker: PhantomData<B>,
 }
 
-impl<'a, B: Backend<'a>> Iterator for Parser<'a, B> {
+impl<'a, B: Backend<'a>> Iterator for Frontend<'a, B> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Event<'a>> {
@@ -53,9 +56,9 @@ impl<'a, B: Backend<'a>> Iterator for Parser<'a, B> {
 }
 
 
-impl<'a, B: Backend<'a>> Parser<'a, B> {
-    pub fn new(cfg: &'a Config, parser: CmarkParser<'a>) -> Parser<'a, B> {
-        Parser {
+impl<'a, B: Backend<'a>> Frontend<'a, B> {
+    pub fn new(cfg: &'a Config, parser: CmarkParser<'a>) -> Frontend<'a, B> {
+        Frontend {
             cfg,
             parser: parser.peekable(),
             buffer: VecDeque::new(),
@@ -246,96 +249,5 @@ fn parse_attributes(s: &str) -> (Vec<&str>, HashMap<&str, &str>) {
         }
     }
     (single, double)
-}
-
-
-// extension of pulldown_cmark::Event with custom types
-#[derive(Debug)]
-pub enum Event<'a> {
-    Start(Tag<'a>),
-    End(Tag<'a>),
-    Text(Cow<'a, str>),
-    Html(Cow<'a, str>),
-    InlineHtml(Cow<'a, str>),
-    FootnoteReference(FootnoteReference<'a>),
-    Link(Link<'a>),
-    SoftBreak,
-    HardBreak,
-}
-
-#[derive(Debug)]
-pub struct FootnoteReference<'a> {
-    pub label: Cow<'a, str>,
-}
-
-// extension of pulldown_cmark::Tag with custom types
-#[derive(Debug)]
-pub enum Tag<'a> {
-    Paragraph,
-    Rule,
-    Header(Header),
-    BlockQuote,
-    CodeBlock(CodeBlock<'a>),
-    List,
-    Enumerate(Enumerate),
-    Item,
-    FootnoteDefinition(FootnoteDefinition<'a>),
-
-    Table(Table),
-    TableHead,
-    TableRow,
-    TableCell,
-
-    InlineEmphasis,
-    InlineStrong,
-    InlineCode,
-    InlineMath,
-
-    Image(Image<'a>),
-
-    Equation,
-    NumberedEquation,
-    Graphviz(Graphviz<'a>),
-}
-
-#[derive(Debug)]
-pub struct Header {
-    pub level: i32,
-}
-
-#[derive(Debug)]
-pub struct CodeBlock<'a> {
-    pub language: Cow<'a, str>,
-}
-
-#[derive(Debug)]
-pub struct Enumerate {
-    pub start_number: usize,
-}
-
-#[derive(Debug)]
-pub struct FootnoteDefinition<'a> {
-    pub label: Cow<'a, str>,
-}
-
-#[derive(Debug)]
-pub struct Table {
-    pub alignment: Vec<Alignment>,
-}
-
-#[derive(Debug)]
-pub struct Image<'a> {
-    pub typ: LinkType,
-    pub dst: Cow<'a, str>,
-    pub title: Cow<'a, str>,
-}
-
-#[derive(Debug, Clone)]
-pub struct Graphviz<'a> {
-    pub scale: Option<&'a str>,
-    pub width: Option<&'a str>,
-    pub height: Option<&'a str>,
-    pub caption: Option<&'a str>,
-    pub label: Option<&'a str>,
 }
 

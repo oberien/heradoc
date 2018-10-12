@@ -21,13 +21,14 @@ use tempdir::TempDir;
 use typed_arena::Arena;
 
 mod cow_ext;
-mod gen;
 mod config;
 mod resolve;
-mod parser;
+mod frontend;
+mod generator;
+mod backend;
 
 use crate::config::{Config, CliArgs, FileConfig, OutType};
-use crate::gen::latex::Article;
+use crate::backend::latex::Article;
 
 fn main() {
     let args = CliArgs::from_args();
@@ -63,12 +64,12 @@ fn main() {
 
     // TODO bibliography
     match cfg.output_type {
-        OutType::Latex => gen::generate(&cfg, Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
+        OutType::Latex => backend::generate(&cfg, Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
             let tex_path = tmpdir.path().join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
-            gen::generate(&cfg, Article, &Arena::new(), markdown, tex_file).unwrap();
+            backend::generate(&cfg, Article, &Arena::new(), markdown, tex_file).unwrap();
 
             pdflatex(tmpdir.path());
             if cfg.bibliography.is_some() {

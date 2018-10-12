@@ -1,9 +1,10 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, PrimitiveGenerator, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
 
-use crate::parser::{Event, FootnoteDefinition};
+use crate::frontend::{Event, FootnoteDefinition};
 
 #[derive(Debug)]
 pub struct FootnoteDefinitionGen;

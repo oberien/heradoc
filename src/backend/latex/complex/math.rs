@@ -1,8 +1,9 @@
 use std::io::{Result, Write};
 
 use crate::config::Config;
-use crate::gen::{PrimitiveGenerator, Backend, CodeGenUnit};
-use crate::parser::Event;
+use crate::backend::{Backend, CodeGenUnit};
+use crate::generator::PrimitiveGenerator;
+use crate::frontend::Event;
 
 #[derive(Debug)]
 pub struct InlineMathGen;

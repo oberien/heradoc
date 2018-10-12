@@ -1,8 +1,8 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
-use crate::gen::SimpleCodeGenUnit;
-use crate::parser::{FootnoteReference, Link, LabelReference};
+use crate::backend::SimpleCodeGenUnit;
+use crate::frontend::{FootnoteReference, Link, LabelReference};
 
 #[derive(Debug)]
 pub struct TextGen;

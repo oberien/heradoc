@@ -2,9 +2,10 @@ use std::io::{Result, Write};
 
 use pulldown_cmark::Alignment;
 
-use crate::gen::{CodeGenUnit, PrimitiveGenerator, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
-use crate::parser::{Event, Tag, Table};
+use crate::frontend::{Event, Tag, Table};
 
 #[derive(Debug)]
 pub struct TableGen;

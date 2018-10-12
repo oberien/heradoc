@@ -1,8 +1,9 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, PrimitiveGenerator, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
-use crate::parser::{Event, Enumerate};
+use crate::frontend::{Event, Enumerate};
 
 #[derive(Debug)]
 pub struct ListGen;

@@ -3,7 +3,7 @@ use std::borrow::Cow;
 
 use str_concat;
 
-use crate::parser::Event;
+use crate::frontend::Event;
 
 pub struct Concat<'a, I: Iterator<Item = Event<'a>>>(pub Peekable<I>);
 

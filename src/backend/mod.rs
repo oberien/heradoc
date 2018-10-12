@@ -4,15 +4,13 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Image, Graphviz, Link};
+use crate::frontend::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Image, Graphviz, Link};
+use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
 mod code_gen_units;
-mod generator;
-mod concat;
 
 pub use self::code_gen_units::CodeGenUnits;
-pub use self::generator::{Generator, PrimitiveGenerator};
 
 use crate::config::Config;
 
@@ -76,28 +74,3 @@ pub trait SimpleCodeGenUnit<T> {
     fn gen(data: T, out: &mut impl Write) -> Result<()>;
 }
 
-pub struct Stack<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write + 'b> {
-    default_out: &'b mut W,
-    stack: &'b mut [CodeGenUnits<'a, D>],
-}
-
-impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
-    fn new(default_out: &'b mut W, stack: &'b mut [CodeGenUnits<'a, D>]) -> Self {
-        Stack {
-            default_out,
-            stack,
-        }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &CodeGenUnits<'a, D>> {
-        self.stack.iter()
-    }
-
-    // TODO
-    #[allow(dead_code)]
-    pub fn get_out(&mut self) -> &mut dyn Write {
-        self.stack.iter_mut().rev()
-            .filter_map(|state| state.output_redirect()).next()
-            .unwrap_or(self.default_out)
-    }
-}

@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::config::Config;
-use crate::gen::{PrimitiveGenerator, Backend, CodeGenUnit};
-use crate::parser::{Event, Graphviz};
+use crate::backend::{Backend, CodeGenUnit};
+use crate::generator::PrimitiveGenerator;
+use crate::frontend::{Event, Graphviz};
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {

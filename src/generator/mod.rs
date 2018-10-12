@@ -5,10 +5,18 @@ use std::iter::Peekable;
 use pulldown_cmark::{Parser as CmarkParser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use typed_arena::Arena;
 
-use crate::gen::{Backend, Stack, CodeGenUnits, SimpleCodeGenUnit};
-use crate::gen::concat::Concat;
-use crate::parser::{Parser, Event};
+use crate::backend::{Backend, CodeGenUnits, SimpleCodeGenUnit};
+use crate::frontend::{Frontend, Event};
 use crate::config::Config;
+
+mod concat;
+mod stack;
+mod primitive;
+
+pub use self::stack::Stack;
+pub use self::primitive::PrimitiveGenerator;
+
+use self::concat::Concat;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
@@ -16,82 +24,18 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     prim: PrimitiveGenerator<'a, B, W>,
 }
 
-pub struct PrimitiveGenerator<'a, B: Backend<'a>, W: Write> {
-    cfg: &'a Config,
-    default_out: W,
-    stack: Vec<CodeGenUnits<'a, B>>,
-}
-
-impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
-    pub fn new(cfg: &'a Config, default_out: W) -> Self {
-        PrimitiveGenerator {
-            cfg,
-            default_out,
-            stack: Vec::new(),
-        }
-    }
-
-    pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
-        if let Event::End(tag) = event {
-            let state = self.stack.pop().unwrap();
-            state.finish(tag, self, peek)?;
-            return Ok(());
-        }
-
-        let event = if !self.stack.is_empty() {
-            let index = self.stack.len() - 1;
-            let (stack, last) = self.stack.split_at_mut(index);
-            last[0].intercept_event(&mut Stack::new(&mut self.default_out, stack), event)?
-        } else {
-            Some(event)
-        };
-
-        match event {
-            None => (),
-            Some(Event::End(_)) => unreachable!(),
-            Some(Event::Start(tag)) => {
-                let state = CodeGenUnits::new(self.cfg, tag, self)?;
-                self.stack.push(state);
-            },
-            Some(Event::Text(text)) => B::Text::gen(text, &mut self.get_out())?,
-            Some(Event::Html(html)) => B::Text::gen(html, &mut self.get_out())?,
-            Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut self.get_out())?,
-            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut self.get_out())?,
-            Some(Event::Link(link)) => B::Link::gen(link, &mut self.get_out())?,
-            Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut self.get_out())?,
-            Some(Event::HardBreak) => B::HardBreak::gen((), &mut self.get_out())?,
-        }
-
-        Ok(())
-    }
-
-    pub fn iter_stack(&self) -> impl Iterator<Item=&CodeGenUnits<'a, B>> {
-        self.stack.iter()
-    }
-
-    pub fn get_out<'s: 'b, 'b>(&'s mut self) -> &'b mut dyn Write {
-        self.stack.iter_mut().rev()
-            .filter_map(|state| state.output_redirect()).next()
-            .unwrap_or(&mut self.default_out)
-    }
-}
-
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     pub fn new(cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>) -> Self {
         Generator {
             arena,
             doc,
-            prim: PrimitiveGenerator {
-                cfg,
-                default_out,
-                stack: Vec::new(),
-            }
+            prim: PrimitiveGenerator::new(cfg, default_out),
         }
     }
 
     pub fn get_events(&mut self, markdown: String) -> Peekable<impl Iterator<Item = Event<'a>>> {
         let markdown = self.arena.alloc(markdown);
-        let parser: Parser<'_, B> = Parser::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
+        let parser: Frontend<'_, B> = Frontend::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
             markdown,
             OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
             Some(&refsolve)
@@ -151,6 +95,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 }
 
 fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
-    // pass everything, it's handled in the respective link implementation
+    // pass everything, it's handled in the frontend::refs implementation
     Some((a.to_string(), b.to_string()))
 }
+
