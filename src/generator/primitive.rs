@@ -1,14 +1,14 @@
 use std::io::{Write, Result};
 
-use crate::backend::{Backend, CodeGenUnits, SimpleCodeGenUnit};
+use crate::backend::{Backend, SimpleCodeGenUnit};
 use crate::config::Config;
 use crate::frontend::Event;
-use super::Stack;
+use super::{Stack, StackElement};
 
 pub struct PrimitiveGenerator<'a, B: Backend<'a>, W: Write> {
     pub(super) cfg: &'a Config,
     pub(super) default_out: W,
-    stack: Vec<CodeGenUnits<'a, B>>,
+    stack: Vec<StackElement<'a, B>>,
 }
 
 impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
@@ -39,7 +39,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             None => (),
             Some(Event::End(_)) => unreachable!(),
             Some(Event::Start(tag)) => {
-                let state = CodeGenUnits::new(self.cfg, tag, self)?;
+                let state = StackElement::new(self.cfg, tag, self)?;
                 self.stack.push(state);
             },
             Some(Event::Text(text)) => B::Text::gen(text, &mut self.get_out())?,
@@ -54,8 +54,16 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
         Ok(())
     }
 
-    pub fn iter_stack(&self) -> impl Iterator<Item=&CodeGenUnits<'a, B>> {
+    pub fn iter_stack(&self) -> impl Iterator<Item=&StackElement<'a, B>> {
         self.stack.iter()
+    }
+
+    pub(super) fn push(&mut self, unit: StackElement<'a, B>) {
+        self.stack.push(unit);
+    }
+
+    pub(super) fn pop(&mut self) -> Option<StackElement<'a, B>> {
+        self.stack.pop()
     }
 
     pub fn get_out<'s: 'b, 'b>(&'s mut self) -> &'b mut dyn Write {

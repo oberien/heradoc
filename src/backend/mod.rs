@@ -8,9 +8,6 @@ use crate::frontend::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, F
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
-mod code_gen_units;
-
-pub use self::code_gen_units::CodeGenUnits;
 
 use crate::config::Config;
 

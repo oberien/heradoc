@@ -1,21 +1,22 @@
 use std::io::Write;
 
-use crate::backend::{Backend, CodeGenUnits};
+use crate::backend::Backend;
+use super::StackElement;
 
 pub struct Stack<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write + 'b> {
     default_out: &'b mut W,
-    stack: &'b mut [CodeGenUnits<'a, D>],
+    stack: &'b mut [StackElement<'a, D>],
 }
 
 impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
-    pub(super) fn new(default_out: &'b mut W, stack: &'b mut [CodeGenUnits<'a, D>]) -> Self {
+    pub(super) fn new(default_out: &'b mut W, stack: &'b mut [StackElement<'a, D>]) -> Self {
         Stack {
             default_out,
             stack,
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &CodeGenUnits<'a, D>> {
+    pub fn iter(&self) -> impl Iterator<Item = &StackElement<'a, D>> {
         self.stack.iter()
     }
 

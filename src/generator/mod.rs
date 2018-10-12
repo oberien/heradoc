@@ -12,11 +12,13 @@ use crate::config::Config;
 mod concat;
 mod stack;
 mod primitive;
+mod code_gen_units;
 
 pub use self::stack::Stack;
 pub use self::primitive::PrimitiveGenerator;
 
 use self::concat::Concat;
+use self::code_gen_units::StackElement;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
