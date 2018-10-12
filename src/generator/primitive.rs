@@ -1,6 +1,6 @@
 use std::io::{Write, Result};
 
-use crate::backend::{Backend, CodeGenUnits, CodeGenUnit, SimpleCodeGenUnit};
+use crate::backend::{Backend, CodeGenUnits, SimpleCodeGenUnit};
 use crate::config::Config;
 use crate::frontend::Event;
 use super::Stack;

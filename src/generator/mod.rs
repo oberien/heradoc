@@ -5,7 +5,7 @@ use std::iter::Peekable;
 use pulldown_cmark::{Parser as CmarkParser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
 use typed_arena::Arena;
 
-use crate::backend::{Backend, CodeGenUnits, SimpleCodeGenUnit};
+use crate::backend::{Backend};
 use crate::frontend::{Frontend, Event};
 use crate::config::Config;
 
