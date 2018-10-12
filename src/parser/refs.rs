@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::io::{Write, Result};
 use std::fmt;
 
 use pulldown_cmark::LinkType;
@@ -89,6 +88,7 @@ impl fmt::Display for LabelType {
     }
 }
 
+// TODO: proper label infrastructure (pass `Label` wherever a label should be generated)
 impl<'a> Label<'a> {
     fn from_cow(s: Cow<'a, str>) -> Either<Label<'a>, Cow<'a, str>> {
         Either::Left(match LabelReference::from_cow(s) {
@@ -243,7 +243,7 @@ fn parse_single_biber<'a>(mut s: Cow<'a, str>) -> (Cow<'a, str>, Option<Cow<'a, 
             let rest = spacepos.map(|pos| Cow::Borrowed(&s[(pos + 1)..]));
             (Cow::Borrowed(reference), rest)
         },
-        |s| {
+        |mut s| {
             let rest = spacepos.map(|pos| Cow::Owned(s.split_off(pos + 1)));
             let mut reference = s;
             if let Some(pos) = spacepos {

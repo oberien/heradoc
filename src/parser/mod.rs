@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 use std::iter::Peekable;
 
 use pulldown_cmark::{Alignment, LinkType, Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser};
-use typed_arena::Arena;
 
 mod refs;
 
@@ -123,7 +122,8 @@ impl<'a, B: Backend<'a>> Parser<'a, B> {
                             CmarkEvent::End(CmarkTag::Link(..)) => None,
                             evt => Some(self.convert_event(evt)),
                         });
-                    gen.visit_event(self.convert_event(evt), peek.as_ref());
+                    gen.visit_event(self.convert_event(evt), peek.as_ref())
+                        .expect("writing to Vec<u8> shouldn't fail");
                 }
                 let content = String::from_utf8(out).expect("invalid utf8");
 
@@ -216,7 +216,10 @@ impl<'a, B: Backend<'a>> Parser<'a, B> {
                 self.state = State::Graphviz(graphviz.clone());
                 Event::Start(Tag::Graphviz(graphviz))
             }
-            _ => Event::Start(Tag::CodeBlock(CodeBlock { language: Cow::Borrowed(lang) }))
+            _ => {
+                self.state = State::CodeBlock;
+                Event::Start(Tag::CodeBlock(CodeBlock { language: Cow::Borrowed(lang) }))
+            }
         };
         for (k, v) in double {
             // TODO: log instead of print

@@ -15,7 +15,7 @@ pub struct GraphvizGen<'a> {
 }
 
 impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
-    fn new(cfg: &Config, graphviz: Graphviz<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &Config, graphviz: Graphviz<'a>, _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let mut i = 0;
         let (file, path) = loop {
             let p = cfg.out_dir.join(format!("graphviz_{}", i));
@@ -36,7 +36,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
     }
 
 
-    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         drop(self.file);
         let out = Command::new("dot").args(&["-T", "pdf", "-O"]).arg(&self.path).output()
             .expect("Error executing `dot` to generate graphviz output");

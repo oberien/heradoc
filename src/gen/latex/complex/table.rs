@@ -40,7 +40,7 @@ impl<'a> CodeGenUnit<'a, Table> for TableGen {
 pub struct TableHeadGen;
 
 impl<'a> CodeGenUnit<'a, ()> for TableHeadGen {
-    fn new(_cfg: &'a Config, (): (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(TableHeadGen)
     }
 
@@ -54,7 +54,7 @@ impl<'a> CodeGenUnit<'a, ()> for TableHeadGen {
 pub struct TableRowGen;
 
 impl<'a> CodeGenUnit<'a, ()> for TableRowGen {
-    fn new(_cfg: &'a Config, (): (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(TableRowGen)
     }
 
@@ -68,7 +68,7 @@ impl<'a> CodeGenUnit<'a, ()> for TableRowGen {
 pub struct TableCellGen;
 
 impl<'a> CodeGenUnit<'a, ()> for TableCellGen {
-    fn new(_cfg: &'a Config, (): (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(TableCellGen)
     }
 

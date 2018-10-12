@@ -58,7 +58,7 @@ fn main() {
 
     let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
     let cfg = Config::new(args, infile, file, &tmpdir);
-    clear_dir(&cfg.out_dir);
+    clear_dir(&cfg.out_dir).expect("can't clear directory");
     println!("{:#?}", cfg);
 
     // TODO bibliography

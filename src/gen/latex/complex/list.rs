@@ -8,7 +8,7 @@ use crate::parser::{Event, Enumerate};
 pub struct ListGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ListGen {
-    fn new(_cfg: &'a Config, (): (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{itemize}}")?;
         Ok(ListGen)
     }
@@ -39,7 +39,7 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
 pub struct ItemGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ItemGen {
-    fn new(_cfg: &'a Config, (): (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
         Ok(ItemGen)
     }

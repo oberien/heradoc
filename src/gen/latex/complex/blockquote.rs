@@ -11,7 +11,7 @@ pub struct BlockQuoteGen {
 }
 
 impl<'a> CodeGenUnit<'a, ()> for BlockQuoteGen {
-    fn new(_cfg: &'a Config, (): (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(BlockQuoteGen {
             quote: Vec::new(),
         })

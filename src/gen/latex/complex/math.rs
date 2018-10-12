@@ -8,12 +8,12 @@ use crate::parser::Event;
 pub struct InlineMathGen;
 
 impl<'a> CodeGenUnit<'a, ()> for InlineMathGen {
-    fn new(cfg: &Config, tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\begin{{math}}")?;
         Ok(InlineMathGen)
     }
 
-    fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         write!(gen.get_out(), "\\end{{math}}")?;
         Ok(())
     }
@@ -23,12 +23,12 @@ impl<'a> CodeGenUnit<'a, ()> for InlineMathGen {
 pub struct EquationGen;
 
 impl<'a> CodeGenUnit<'a, ()> for EquationGen {
-    fn new(cfg: &Config, tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{align*}}")?;
         Ok(EquationGen)
     }
 
-    fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         write!(gen.get_out(), "\\end{{align*}}")?;
         Ok(())
     }
@@ -38,12 +38,12 @@ impl<'a> CodeGenUnit<'a, ()> for EquationGen {
 pub struct NumberedEquationGen;
 
 impl<'a> CodeGenUnit<'a, ()> for NumberedEquationGen {
-    fn new(cfg: &Config, tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\begin{{align}}")?;
         Ok(NumberedEquationGen)
     }
 
-    fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         write!(gen.get_out(), "\\end{{align}}")?;
         Ok(())
     }

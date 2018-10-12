@@ -8,7 +8,7 @@ use crate::parser::Event;
 pub struct RuleGen;
 
 impl<'a> CodeGenUnit<'a, ()> for RuleGen {
-    fn new(_cfg: &'a Config, (): (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         Ok(RuleGen)
     }
 

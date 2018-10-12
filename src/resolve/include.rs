@@ -71,8 +71,8 @@ impl Include {
         match self {
             Include::Command(_) => None,
             Include::Markdown(Markdown { context, .. }) => Some(context),
-            Include::Image(Image { path, .. }) => None,
-            Include::Pdf(Pdf { path, .. }) => None,
+            Include::Image(Image { .. }) => None,
+            Include::Pdf(Pdf { .. }) => None,
         }
     }
 }
