@@ -6,7 +6,7 @@ use std::process::Command;
 use crate::config::Config;
 use crate::backend::{Backend, CodeGenUnit};
 use crate::generator::PrimitiveGenerator;
-use crate::frontend::{Event, Graphviz};
+use crate::generator::event::{Event, Graphviz};
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {

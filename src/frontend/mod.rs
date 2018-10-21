@@ -88,6 +88,31 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             false => Event::End,
         };
 
+        // TODO: don't render content but return Vec<Event> instead (less coupling)
+        let mut get_content = |f: &dyn Fn(&CmarkTag<'a>) -> bool| {
+            let mut out = Vec::new();
+            let mut gen: PrimitiveGenerator<'a, B, _> = PrimitiveGenerator::without_context(self.cfg, &mut out);
+            loop {
+                let evt = self.parser.next().unwrap();
+                // Commonmark doesn't allow nested links, so we can just break on the next one
+                if let CmarkEvent::End(tag) = &evt {
+                    if f(tag) {
+                        break;
+                    }
+                }
+                let peek = self.parser.peek().cloned()
+                    .and_then(|evt| match evt {
+                        // if the end tag would be peeked, use None instead as it isn't transformed
+                        CmarkEvent::End(ref tag) if f(tag) => None,
+                        evt => Some(self.convert_event(evt).into()),
+                    });
+                // assume no Link / Image in alt-text of image
+                gen.visit_event(self.convert_event(evt).into(), peek.as_ref())
+                    .expect("writing to Vec<u8> shouldn't fail");
+            }
+            String::from_utf8(out).expect("invalid utf8")
+        };
+
         f(match tag {
             CmarkTag::Paragraph => Tag::Paragraph,
             CmarkTag::Rule => Tag::Rule,
@@ -111,31 +136,24 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             CmarkTag::Code => Tag::InlineCode,
             CmarkTag::Link(typ, dst, title) => {
                 assert!(start, "Link is consumed fully at start, there shouldn't ever be an end tag");
-                let mut out = Vec::new();
-                let mut gen: PrimitiveGenerator<'a, B, _> = PrimitiveGenerator::new(self.cfg, &mut out);
-                loop {
-                    let evt = self.parser.next().unwrap();
-                    // Commonmark doesn't allow nested links, so we can just break on the next one
-                    if let CmarkEvent::End(CmarkTag::Link(..)) = evt {
-                        break;
-                    }
-                    let peek = self.parser.peek().cloned()
-                        .and_then(|evt| match evt {
-                            // if the link end tag would be peeked, use None instead as it isn't translated
-                            CmarkEvent::End(CmarkTag::Link(..)) => None,
-                            evt => Some(self.convert_event(evt)),
-                        });
-                    gen.visit_event(self.convert_event(evt), peek.as_ref())
-                        .expect("writing to Vec<u8> shouldn't fail");
-                }
-                let content = String::from_utf8(out).expect("invalid utf8");
+                let content = get_content(&|t| if let CmarkTag::Link(..) = t { true } else { false });
 
                 match refs::parse_references(self.cfg, typ, dst, title, content) {
                     LinkOrText::Link(link) => return Event::Link(link),
                     LinkOrText::Text(text) => return Event::Text(text),
                 }
             }
-            CmarkTag::Image(typ, dst, title) => Tag::Image(Image { typ, dst, title }),
+            CmarkTag::Image(typ, dst, title) => {
+                let caption = match typ {
+                    LinkType::Reference | LinkType::ReferenceUnknown =>
+                        Some(get_content(&|t| if let CmarkTag::Image(..) = t { true } else { false })),
+                    LinkType::Collapsed | LinkType::CollapsedUnknown
+                    | LinkType::Shortcut | LinkType::ShortcutUnknown
+                    | LinkType::Inline | LinkType::Autolink => None
+                };
+                // TODO: parse title to extract other information
+                return Event::Image(Image { dst, width: None, height: None, caption })
+            },
         })
     }
 

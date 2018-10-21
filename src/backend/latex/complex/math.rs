@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::config::Config;
 use crate::backend::{Backend, CodeGenUnit};
 use crate::generator::PrimitiveGenerator;
-use crate::frontend::Event;
+use crate::generator::event::Event;
 
 #[derive(Debug)]
 pub struct InlineMathGen;

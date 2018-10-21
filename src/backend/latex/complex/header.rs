@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::backend::{CodeGenUnit, Backend};
 use crate::generator::{PrimitiveGenerator, Stack};
 use crate::config::Config;
-use crate::frontend::{Event, Header};
+use crate::generator::event::{Event, Header};
 
 #[derive(Debug)]
 pub struct HeaderGen {

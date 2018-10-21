@@ -4,7 +4,8 @@ use std::fmt;
 pub use pulldown_cmark::LinkType;
 
 use crate::config::Config;
-use crate::cow_ext::CowExt;
+use crate::ext::CowExt;
+use crate::ext::StrExt;
 
 #[derive(Debug, Clone)]
 pub enum Link<'a> {
@@ -42,20 +43,6 @@ pub enum LabelType {
     Figure,
     Footnote,
     Table,
-}
-
-trait StrExt {
-    fn starts_with_ignore_ascii_case(&self, other: &Self) -> bool;
-}
-
-impl StrExt for str {
-    fn starts_with_ignore_ascii_case(&self, other: &Self) -> bool {
-        // TODO: don't panic if other.len() is not on char boundary of self
-        if other.len() >= self.len() {
-            return false;
-        }
-        self[..other.len()].eq_ignore_ascii_case(other)
-    }
 }
 
 impl LabelType {
@@ -168,16 +155,13 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
             | LinkType::Inline => LinkOrText::Link(Link::InterLinkWithContent(labelref, content)),
         }
         Either::Right(dst) => match typ {
-            LinkType::ShortcutUnknown
-            | LinkType::CollapsedUnknown => {
-                // TODO: warn on unknown reference and hint to proper syntax `\[foo\]`
-                LinkOrText::Text(Cow::Owned(format!("[{}]", content)))
-            }
             LinkType::ReferenceUnknown => {
                 // TODO: warn on unknown reference and hint to proper syntax `\[foo\]`
                 LinkOrText::Text(Cow::Owned(format!("[{}][{}]", content, dst)))
             }
-            LinkType::Shortcut | LinkType::Collapsed | LinkType::Autolink
+            LinkType::Shortcut | LinkType::ShortcutUnknown
+            | LinkType::Collapsed | LinkType::CollapsedUnknown
+            | LinkType::Autolink
                 => LinkOrText::Link(Link::Url(dst)),
             LinkType::Reference | LinkType::Inline
                 => LinkOrText::Link(Link::UrlWithContent(dst, content)),

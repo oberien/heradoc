@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 use std::borrow::Cow;
 
 use crate::backend::SimpleCodeGenUnit;
-use crate::frontend::{FootnoteReference, Link, LabelReference};
+use crate::generator::event::{FootnoteReference, Link, Image, Pdf, LabelReference};
 
 #[derive(Debug)]
 pub struct TextGen;
@@ -57,6 +57,47 @@ impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
 }
 
 #[derive(Debug)]
+pub struct ImageGen;
+
+impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
+    fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
+        let Image { path, caption, width, height } = image;
+
+        writeln!(out, "\\begin{{figure}}")?;
+        write!(out, "\\includegraphics[")?;
+        if let Some(width) = width {
+            write!(out, "width={},", width)?;
+        }
+        if let Some(height) = height {
+            write!(out, "height={},", height)?;
+        }
+        writeln!(out, "]{{{}}}", path.display())?;
+
+        if let Some(caption) = caption {
+            writeln!(out, "\\caption{{{}}}", caption)?;
+        }
+        // TODO: label
+//        if !self.title.is_empty() {
+//            writeln!(out, "\\label{{img:{}}}", self.title)?;
+//        }
+        writeln!(out, "\\end{{figure}}")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct PdfGen;
+
+impl SimpleCodeGenUnit<Pdf> for PdfGen {
+    fn gen(pdf: Pdf, out: &mut impl Write) -> Result<()> {
+        let Pdf { path } = pdf;
+
+        writeln!(out, "\\includepdf[pages=-]{{{}}}", path.display())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct SoftBreakGen;
 
 impl SimpleCodeGenUnit<()> for SoftBreakGen {
@@ -76,6 +117,54 @@ impl SimpleCodeGenUnit<()> for HardBreakGen {
         writeln!(out, "\\par")?;
         Ok(())
     }
-
 }
 
+#[derive(Debug)]
+pub struct TableOfContentsGen;
+
+impl SimpleCodeGenUnit<()> for TableOfContentsGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\tableofcontents")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct BibliographyGen;
+
+impl SimpleCodeGenUnit<()> for BibliographyGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\printbibliography")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct ListOfTablesGen;
+
+impl SimpleCodeGenUnit<()> for ListOfTablesGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\listoftables")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct ListOfFiguresGen;
+
+impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\listoffigures")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct ListOfListingsGen;
+
+impl SimpleCodeGenUnit<()> for ListOfListingsGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\lstlistoflistings")?;
+        Ok(())
+    }
+}

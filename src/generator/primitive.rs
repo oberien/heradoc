@@ -2,8 +2,9 @@ use std::io::{Write, Result};
 
 use crate::backend::{Backend, SimpleCodeGenUnit};
 use crate::config::Config;
-use crate::frontend::Event;
+use crate::generator::event::Event;
 use super::{Stack, StackElement};
+use crate::resolve::Context;
 
 pub struct PrimitiveGenerator<'a, B: Backend<'a>, W: Write> {
     pub(super) cfg: &'a Config,
@@ -12,7 +13,13 @@ pub struct PrimitiveGenerator<'a, B: Backend<'a>, W: Write> {
 }
 
 impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
-    pub fn new(cfg: &'a Config, default_out: W) -> Self {
+    pub fn new(cfg: &'a Config, default_out: W, context: Context) -> Self {
+        let mut gen = PrimitiveGenerator::without_context(cfg, default_out);
+        gen.push(StackElement::Context(context));
+        gen
+    }
+
+    pub fn without_context(cfg: &'a Config, default_out: W) -> Self {
         PrimitiveGenerator {
             cfg,
             default_out,
@@ -47,15 +54,22 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut self.get_out())?,
             Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut self.get_out())?,
             Some(Event::Link(link)) => B::Link::gen(link, &mut self.get_out())?,
+            Some(Event::Image(img)) => B::Image::gen(img, &mut self.get_out())?,
+            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut self.get_out())?,
             Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut self.get_out())?,
             Some(Event::HardBreak) => B::HardBreak::gen((), &mut self.get_out())?,
+            Some(Event::TableOfContents) => B::TableOfContents::gen((), &mut self.get_out())?,
+            Some(Event::Bibliography) => B::Bibliography::gen((), &mut self.get_out())?,
+            Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut self.get_out())?,
+            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), &mut self.get_out())?,
+            Some(Event::ListOfListings) => B::ListOfListings::gen((), &mut self.get_out())?,
         }
 
         Ok(())
     }
 
     pub fn iter_stack(&self) -> impl Iterator<Item=&StackElement<'a, B>> {
-        self.stack.iter()
+        self.stack.iter().rev()
     }
 
     pub(super) fn push(&mut self, unit: StackElement<'a, B>) {

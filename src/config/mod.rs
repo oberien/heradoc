@@ -4,6 +4,7 @@ use std::str::FromStr;
 use std::io::{self, Read, Write};
 use std::fmt;
 use std::collections::HashSet;
+use std::env;
 
 use void::Void;
 use boolinator::Boolinator;
@@ -89,6 +90,7 @@ pub struct Config {
     pub output: FileOrStdio,
     pub out_dir: PathBuf,
     pub input: FileOrStdio,
+    pub input_dir: PathBuf,
     pub output_type: OutType,
 
     pub bibliography: Option<PathBuf>,
@@ -146,6 +148,13 @@ impl Config {
             }
         };
 
+        let input_dir = match &args.input {
+            FileOrStdio::StdIo => env::current_dir()
+                .expect("Can't use stdin without a current working directory"),
+            FileOrStdio::File(file) => file.canonicalize()
+                .expect("error canonicalising input file path")
+                .parent().unwrap().to_owned(),
+        };
 
         let bibliography = args.fileconfig.bibliography
             .or(infile.bibliography)
@@ -177,6 +186,7 @@ impl Config {
             output,
             out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
             input: args.input,
+            input_dir,
             output_type,
             bibliography,
             citestyle: args.fileconfig.citestyle

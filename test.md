@@ -2,6 +2,8 @@
 geometry.margin = "2cm"
 ```
 
+[TOC]
+
 # Test
 
 ## Simple Paragraphs
@@ -170,15 +172,13 @@ Left | Center | Right
 
 # Includes
 
-!!include{test-include.md}
+[include test-include.md]
 
 * List to include into
-  !!include{test-include.md}
+  [include test-include.md]
 
 1. Numbered list to include into (test continuous state)
-  !!include{test-include.md}
-
-[include "foo.md"]
+  [include test-include.md]
 
 # Math
 
@@ -203,3 +203,11 @@ b + b &= b\\
 2b &= b\\
 2 &= 1
 ```
+
+[listoflistings]
+
+[listoftables]
+
+[listoffigures]
+
+[bibliography]

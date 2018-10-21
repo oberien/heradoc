@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::backend::{CodeGenUnit, Backend};
 use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
-use crate::frontend::{Event, Enumerate};
+use crate::generator::event::{Event, Enumerate};
 
 #[derive(Debug)]
 pub struct ListGen;

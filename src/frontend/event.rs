@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 pub use pulldown_cmark::Alignment;
 
-use super::{Link, LinkType};
+use super::Link;
 
 // extension of pulldown_cmark::Event with custom types
 #[derive(Debug)]
@@ -14,6 +14,7 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
     Link(Link<'a>),
+    Image(Image<'a>),
     SoftBreak,
     HardBreak,
 }
@@ -45,8 +46,6 @@ pub enum Tag<'a> {
     InlineStrong,
     InlineCode,
     InlineMath,
-
-    Image(Image<'a>),
 
     Equation,
     NumberedEquation,
@@ -80,9 +79,10 @@ pub struct Table {
 
 #[derive(Debug)]
 pub struct Image<'a> {
-    pub typ: LinkType,
     pub dst: Cow<'a, str>,
-    pub title: Cow<'a, str>,
+    pub width: Option<Cow<'a, str>>,
+    pub height: Option<Cow<'a, str>>,
+    pub caption: Option<String>,
 }
 
 #[derive(Debug, Clone)]

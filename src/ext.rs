@@ -1,5 +1,20 @@
 use std::borrow::Cow;
 
+pub trait StrExt {
+    fn starts_with_ignore_ascii_case(&self, other: &Self) -> bool;
+}
+
+impl StrExt for str {
+    fn starts_with_ignore_ascii_case(&self, other: &Self) -> bool {
+        // TODO: don't panic if other.len() is not on char boundary of self
+        if other.len() >= self.len() {
+            return false;
+        }
+        self[..other.len()].eq_ignore_ascii_case(other)
+    }
+}
+
+
 pub trait CowExt<'a> {
     fn trim_inplace(&mut self);
     fn trim_left_inplace(&mut self);

@@ -10,7 +10,6 @@
 //! a restrictive-by-default filter and error when violating security boundaries.
 use std::io;
 use std::path::{Path, PathBuf};
-use std::env;
 
 use url::Url;
 
@@ -41,14 +40,14 @@ impl Resolver {
     }
 
     /// Make a request to an uri in the context of a document with the specified source.
-    pub fn request(&self, context: &Context, url: &str) -> io::Result<Include> {
+    pub fn resolve<'a>(&self, context: &Context, url: &str) -> io::Result<Include> {
         let url = self.base.join(url)
             .map_err(|err| io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 format!("Malformed reference: {:?}", err),
             ))?;
 
-        let target = Source::from_url(url, context)?;
+        let target = Source::new(url, context)?;
         // check if context is allowed to access target
         self.check_access(context, &target)?;
 

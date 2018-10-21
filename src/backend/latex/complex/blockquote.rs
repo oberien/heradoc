@@ -4,7 +4,7 @@ use crate::backend::{CodeGenUnit, Backend};
 use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
 
-use crate::frontend::Event;
+use crate::generator::event::Event;
 
 #[derive(Debug)]
 pub struct BlockQuoteGen {

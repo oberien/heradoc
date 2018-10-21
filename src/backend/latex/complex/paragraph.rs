@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::backend::{CodeGenUnit, Backend};
 use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
-use crate::frontend::{Event, Tag};
+use crate::generator::event::{Event, Tag};
 
 #[derive(Debug)]
 pub struct ParagraphGen;
@@ -25,7 +25,7 @@ impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
             | Some(Event::Start(Tag::InlineEmphasis))
             | Some(Event::Start(Tag::InlineStrong))
             | Some(Event::Start(Tag::InlineCode))
-            | Some(Event::Start(Tag::Image(..))) => writeln!(gen.get_out(), "\\mbox{{}}\\\\\n\\mbox{{}}\\\\"),
+            | Some(Event::Image(_)) => writeln!(gen.get_out(), "\\mbox{{}}\\\\\n\\mbox{{}}\\\\"),
             _ => writeln!(gen.get_out()),
         }
     }

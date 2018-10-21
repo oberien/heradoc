@@ -5,7 +5,7 @@ use pulldown_cmark::Alignment;
 use crate::backend::{CodeGenUnit, Backend};
 use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
-use crate::frontend::{Event, Tag, Table};
+use crate::generator::event::{Event, Tag, Table};
 
 #[derive(Debug)]
 pub struct TableGen;

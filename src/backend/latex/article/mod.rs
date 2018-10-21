@@ -12,8 +12,15 @@ impl<'a> Backend<'a> for Article {
     type Text = super::TextGen;
     type FootnoteReference = super::FootnoteReferenceGen;
     type Link = super::LinkGen;
+    type Image = super::ImageGen;
+    type Pdf = super::PdfGen;
     type SoftBreak = super::SoftBreakGen;
     type HardBreak = super::HardBreakGen;
+    type TableOfContents = super::TableOfContentsGen;
+    type Bibliography = super::BibliographyGen;
+    type ListOfTables = super::ListOfTablesGen;
+    type ListOfFigures = super::ListOfFiguresGen;
+    type ListOfListings = super::ListOfListingsGen;
 
     type Paragraph = super::ParagraphGen;
     type Rule = super::RuleGen;
@@ -32,7 +39,6 @@ impl<'a> Backend<'a> for Article {
     type InlineStrong = super::InlineStrongGen;
     type InlineCode = super::InlineCodeGen;
     type InlineMath = super::InlineMathGen;
-    type Image = super::ImageGen<'a>;
     type Equation = super::EquationGen;
     type NumberedEquation = super::NumberedEquationGen;
     type Graphviz = super::GraphvizGen<'a>;
@@ -100,11 +106,7 @@ impl<'a> Backend<'a> for Article {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
-        // TODO: [bibliography]
-        if cfg.bibliography.is_some() {
-            writeln!(out, "\\printbibliography")?;
-        }
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

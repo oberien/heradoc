@@ -4,7 +4,8 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::frontend::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Image, Graphviz, Link};
+use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition,
+    FootnoteReference, Table, Image, Graphviz, Link, Pdf};
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
@@ -13,8 +14,7 @@ use crate::config::Config;
 
 pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, out: impl Write) -> Result<()> {
     let mut gen = Generator::new(cfg, doc, out, arena);
-    let events = gen.get_events(markdown);
-    gen.generate(events)?;
+    gen.generate(markdown)?;
     Ok(())
 }
 
@@ -22,8 +22,15 @@ pub trait Backend<'a>: Debug {
     type Text: SimpleCodeGenUnit<Cow<'a, str>>;
     type FootnoteReference: SimpleCodeGenUnit<FootnoteReference<'a>>;
     type Link: SimpleCodeGenUnit<Link<'a>>;
+    type Image: SimpleCodeGenUnit<Image<'a>>;
+    type Pdf: SimpleCodeGenUnit<Pdf>;
     type SoftBreak: SimpleCodeGenUnit<()>;
     type HardBreak: SimpleCodeGenUnit<()>;
+    type TableOfContents: SimpleCodeGenUnit<()>;
+    type Bibliography: SimpleCodeGenUnit<()>;
+    type ListOfTables: SimpleCodeGenUnit<()>;
+    type ListOfFigures: SimpleCodeGenUnit<()>;
+    type ListOfListings: SimpleCodeGenUnit<()>;
 
     type Paragraph: CodeGenUnit<'a, ()>;
     type Rule: CodeGenUnit<'a, ()>;
@@ -44,8 +51,6 @@ pub trait Backend<'a>: Debug {
     type InlineStrong: CodeGenUnit<'a, ()>;
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
-
-    type Image: CodeGenUnit<'a, Image<'a>>;
 
     type Equation: CodeGenUnit<'a, ()>;
     type NumberedEquation: CodeGenUnit<'a, ()>;

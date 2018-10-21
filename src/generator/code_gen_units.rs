@@ -3,7 +3,8 @@ use std::io::{Write, Result};
 use crate::backend::{Backend, CodeGenUnit};
 use crate::generator::{PrimitiveGenerator, Stack};
 use crate::config::Config;
-use crate::frontend::{Event, Tag};
+use crate::generator::event::{Event, Tag};
+use crate::resolve::Context;
 
 #[derive(Debug)]
 pub enum StackElement<'a, D: Backend<'a>> {
@@ -24,10 +25,12 @@ pub enum StackElement<'a, D: Backend<'a>> {
     InlineStrong(D::InlineStrong),
     InlineCode(D::InlineCode),
     InlineMath(D::InlineMath),
-    Image(D::Image),
     Equation(D::Equation),
     NumberedEquation(D::NumberedEquation),
     Graphviz(D::Graphviz),
+
+    // resolve context
+    Context(Context),
 }
 
 impl<'a, D: Backend<'a>> StackElement<'a, D> {
@@ -50,7 +53,6 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             Tag::InlineStrong => Ok(StackElement::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
             Tag::InlineCode => Ok(StackElement::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
             Tag::InlineMath => Ok(StackElement::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
-            Tag::Image(image) => Ok(StackElement::Image(D::Image::new(cfg, image, gen)?)),
             Tag::Equation => Ok(StackElement::Equation(D::Equation::new(cfg, (), gen)?)),
             Tag::NumberedEquation => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, (), gen)?)),
             Tag::Graphviz(graphviz) => Ok(StackElement::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
@@ -76,10 +78,11 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::InlineStrong(s) => s.output_redirect(),
             StackElement::InlineCode(s) => s.output_redirect(),
             StackElement::InlineMath(s) => s.output_redirect(),
-            StackElement::Image(s) => s.output_redirect(),
             StackElement::Equation(s) => s.output_redirect(),
             StackElement::NumberedEquation(s) => s.output_redirect(),
             StackElement::Graphviz(s) => s.output_redirect(),
+
+            StackElement::Context(_) => None,
         }
     }
 
@@ -102,10 +105,11 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::InlineStrong(s) => s.intercept_event(stack, e),
             StackElement::InlineCode(s) => s.intercept_event(stack, e),
             StackElement::InlineMath(s) => s.intercept_event(stack, e),
-            StackElement::Image(s) => s.intercept_event(stack, e),
             StackElement::Equation(s) => s.intercept_event(stack, e),
             StackElement::NumberedEquation(s) => s.intercept_event(stack, e),
             StackElement::Graphviz(s) => s.intercept_event(stack, e),
+
+            StackElement::Context(_) => Ok(Some(e)),
         }
     }
 
@@ -128,7 +132,6 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             (StackElement::InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
             (StackElement::InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
             (StackElement::InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
-            (StackElement::Image(s), Tag::Image(_)) => s.finish(gen, peek),
             (StackElement::Equation(s), Tag::Equation) => s.finish(gen, peek),
             (StackElement::NumberedEquation(s), Tag::NumberedEquation) => s.finish(gen, peek),
             (StackElement::Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
@@ -136,6 +139,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    // TODO: reomve allows
+    #[allow(dead_code)]
     pub fn is_code_block(&self) -> bool {
         match self {
             StackElement::CodeBlock(_) => true,
@@ -143,7 +148,6 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    // TODO
     #[allow(dead_code)]
     pub fn is_list(&self) -> bool {
         match self {
@@ -159,10 +163,12 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_inline(&self) -> bool {
         self.is_inline_emphasis() || self.is_inline_strong() || self.is_inline_code()
     }
 
+    #[allow(dead_code)]
     pub fn is_inline_emphasis(&self) -> bool {
         match self {
             StackElement::InlineEmphasis(_) => true,
@@ -170,6 +176,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_inline_strong(&self) -> bool {
         match self {
             StackElement::InlineStrong(_) => true,
@@ -177,6 +184,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_inline_code(&self) -> bool {
         match self {
             StackElement::InlineCode(_) => true,
