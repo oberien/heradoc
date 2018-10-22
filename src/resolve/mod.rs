@@ -109,6 +109,7 @@ impl Context {
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,4 +181,5 @@ mod tests {
         drop(dir);
     }
 }
+*/
 

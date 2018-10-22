@@ -89,6 +89,7 @@ pub struct Config {
     // IO
     pub output: FileOrStdio,
     pub out_dir: PathBuf,
+    pub temp_dir: PathBuf,
     pub input: FileOrStdio,
     pub input_dir: PathBuf,
     pub output_type: OutType,
@@ -185,6 +186,7 @@ impl Config {
         Config {
             output,
             out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
+            temp_dir: tempdir.path().to_owned(),
             input: args.input,
             input_dir,
             output_type,
