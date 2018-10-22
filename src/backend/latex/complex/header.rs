@@ -1,8 +1,9 @@
 use std::io::{Result, Write};
 
-use crate::gen::{CodeGenUnit, Generator, Stack, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::generator::{PrimitiveGenerator, Stack};
 use crate::config::Config;
-use crate::parser::{Event, Header};
+use crate::generator::event::{Event, Header};
 
 #[derive(Debug)]
 pub struct HeaderGen {
@@ -10,7 +11,7 @@ pub struct HeaderGen {
 }
 
 impl<'a> CodeGenUnit<'a, Header> for HeaderGen {
-    fn new(_cfg: &'a Config, header: Header, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(_cfg: &'a Config, header: Header, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         write!(gen.get_out(), "\\{}section{{", "sub".repeat(header.level as usize - 1))?;
         Ok(HeaderGen {
             label: String::with_capacity(100),
@@ -28,7 +29,7 @@ impl<'a> CodeGenUnit<'a, Header> for HeaderGen {
         Ok(Some(e))
     }
 
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         writeln!(gen.get_out(), "}}\\label{{sec:{}}}\n", self.label)?;
         Ok(())
     }

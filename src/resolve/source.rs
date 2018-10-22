@@ -2,10 +2,9 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::env;
 
-use reqwest::Client;
 use url::Url;
 
-use crate::resolve::{Context, Include, Command, Markdown, Image, Pdf};
+use crate::resolve::{Context, Include, Command};
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 
 /// Differentiate between sources based on their access right characteristics.
@@ -37,11 +36,7 @@ pub enum SourceGroup {
 }
 
 impl Source {
-    pub fn url(&self) -> &Url {
-        &self.url
-    }
-
-    pub fn from_url(url: Url, context: &Context) -> io::Result<Self> {
+    pub fn new(url: Url, context: &Context) -> io::Result<Self> {
         let group = match url.scheme() {
             "pundoc" => match url.domain() {
                 Some("document") => {
@@ -100,10 +95,12 @@ impl Source {
                     "No pundoc implementation domain found"))
             }
             SourceGroup::LocalRelative(path) => {
-                to_include(path.clone(), Context::LocalRelative(path.parent().unwrap().to_owned()))
+                let parent = path.parent().unwrap().to_owned();
+                to_include(path, Context::LocalRelative(parent))
             }
             SourceGroup::LocalAbsolute(path) => {
-                to_include(path.clone(), Context::LocalRelative(path.parent().unwrap().to_owned()))
+                let parent = path.parent().unwrap().to_owned();
+                to_include(path, Context::LocalAbsolute(parent))
             }
             SourceGroup::Remote => {
                 let downloaded = match remote.http(url) {
@@ -116,18 +113,9 @@ impl Source {
                 let context = Context::Remote;
 
                 match downloaded.content_type() {
-                    Some(ContentType::Image) => Ok(Include::Image(Image {
-                        path,
-                        width: None,
-                        height: None,
-                    })),
-                    Some(ContentType::Markdown) => Ok(Include::Markdown(Markdown {
-                        path,
-                        context,
-                    })),
-                    Some(ContentType::Pdf) => Ok(Include::Pdf(Pdf {
-                        path,
-                    })),
+                    Some(ContentType::Image) => Ok(Include::Image(path)),
+                    Some(ContentType::Markdown) => Ok(Include::Markdown(path, context)),
+                    Some(ContentType::Pdf) => Ok(Include::Pdf(path)),
                     None => to_include(path, context),
                 }
             },
@@ -138,18 +126,9 @@ impl Source {
 fn to_include(path: PathBuf, context: Context) -> io::Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
-        Some("md") => Ok(Include::Markdown(Markdown {
-            path,
-            context,
-        })),
-        Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(Image {
-            path,
-            width: None,
-            height: None,
-        })),
-        Some(".pdf") => Ok(Include::Pdf(Pdf {
-            path,
-        })),
+        Some("md") => Ok(Include::Markdown(path, context)),
+        Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
+        Some(".pdf") => Ok(Include::Pdf(path)),
         Some(ext) => Err(io::Error::new(io::ErrorKind::NotFound,
             format!("Unknown file format `{:?}`", ext))),
         None => Err(io::Error::new(io::ErrorKind::NotFound,

@@ -4,30 +4,33 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::parser::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, FootnoteReference, Table, Link, Graphviz};
+use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition,
+    FootnoteReference, Table, Image, Graphviz, Link, Pdf};
+use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
-mod code_gen_units;
-mod generator;
-mod concat;
-
-pub use self::code_gen_units::CodeGenUnits;
-pub use self::generator::Generator;
 
 use crate::config::Config;
 
 pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, out: impl Write) -> Result<()> {
     let mut gen = Generator::new(cfg, doc, out, arena);
-    let events = gen.get_events(markdown);
-    gen.generate(events)?;
+    gen.generate(markdown)?;
     Ok(())
 }
 
 pub trait Backend<'a>: Debug {
     type Text: SimpleCodeGenUnit<Cow<'a, str>>;
     type FootnoteReference: SimpleCodeGenUnit<FootnoteReference<'a>>;
+    type Link: SimpleCodeGenUnit<Link<'a>>;
+    type Image: SimpleCodeGenUnit<Image<'a>>;
+    type Pdf: SimpleCodeGenUnit<Pdf>;
     type SoftBreak: SimpleCodeGenUnit<()>;
     type HardBreak: SimpleCodeGenUnit<()>;
+    type TableOfContents: SimpleCodeGenUnit<()>;
+    type Bibliography: SimpleCodeGenUnit<()>;
+    type ListOfTables: SimpleCodeGenUnit<()>;
+    type ListOfFigures: SimpleCodeGenUnit<()>;
+    type ListOfListings: SimpleCodeGenUnit<()>;
 
     type Paragraph: CodeGenUnit<'a, ()>;
     type Rule: CodeGenUnit<'a, ()>;
@@ -49,9 +52,6 @@ pub trait Backend<'a>: Debug {
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
 
-    type Link: CodeGenUnit<'a, Link<'a>>;
-    type Image: CodeGenUnit<'a, Link<'a>>;
-
     type Equation: CodeGenUnit<'a, ()>;
     type NumberedEquation: CodeGenUnit<'a, ()>;
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
@@ -62,42 +62,17 @@ pub trait Backend<'a>: Debug {
 }
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
-    fn new(cfg: &'a Config, tag: T, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self>;
+    fn new(cfg: &'a Config, tag: T, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }
     fn intercept_event<'b>(&mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
         Ok(Some(e))
     }
-    fn finish(self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
 }
 
 pub trait SimpleCodeGenUnit<T> {
     fn gen(data: T, out: &mut impl Write) -> Result<()>;
 }
 
-pub struct Stack<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write + 'b> {
-    default_out: &'b mut W,
-    stack: &'b mut [CodeGenUnits<'a, D>],
-}
-
-impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
-    fn new(default_out: &'b mut W, stack: &'b mut [CodeGenUnits<'a, D>]) -> Self {
-        Stack {
-            default_out,
-            stack,
-        }
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &CodeGenUnits<'a, D>> {
-        self.stack.iter()
-    }
-
-    // TODO
-    #[allow(dead_code)]
-    pub fn get_out(&mut self) -> &mut dyn Write {
-        self.stack.iter_mut().rev()
-            .filter_map(|state| state.output_redirect()).next()
-            .unwrap_or(self.default_out)
-    }
-}
