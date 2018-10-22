@@ -6,13 +6,15 @@ use typed_arena::Arena;
 
 use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition,
     FootnoteReference, Table, Image, Graphviz, Link, Pdf};
-use crate::generator::{Generator, PrimitiveGenerator, Stack};
+use crate::generator::{Generator, PrimitiveGenerator, Result as GenerationResult, Stack};
 
 pub mod latex;
 
 use crate::config::Config;
 
-pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, out: impl Write) -> Result<()> {
+pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, out: impl Write) 
+    -> GenerationResult<()> 
+{
     let mut gen = Generator::new(cfg, doc, out, arena);
     gen.generate(markdown)?;
     Ok(())

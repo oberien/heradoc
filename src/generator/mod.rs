@@ -1,4 +1,4 @@
-use std::io::{Write, Result};
+use std::io::Write;
 use std::fs;
 
 use pulldown_cmark::{Parser as CmarkParser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
@@ -15,9 +15,11 @@ mod stack;
 mod primitive;
 mod code_gen_units;
 pub mod event;
+mod error;
 
 pub use self::stack::Stack;
 pub use self::primitive::PrimitiveGenerator;
+pub use self::error::{Error, Result};
 
 use self::concat::Concat;
 use self::code_gen_units::StackElement;
@@ -28,6 +30,19 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     doc: B,
     prim: PrimitiveGenerator<'a, B, W>,
     resolver: Resolver,
+}
+
+pub trait Positioned {
+    /// Get a relative position indication, like a simple offset.
+    ///
+    /// The position information is used to enrich any occurring error.
+    fn current_position(&self) -> usize;
+}
+
+impl<'a, B: Backend<'a>> Positioned for Frontend<'a, B> {
+    fn current_position(&self) -> usize {
+        self.inner().get_offset()
+    }
 }
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
@@ -41,22 +56,22 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    fn get_events(&mut self, markdown: String) -> impl Iterator<Item = FeEvent<'a>> {
+    fn get_events(&mut self, markdown: String) -> (impl Iterator<Item = FeEvent<'a>> + Positioned, &'a str) {
         let markdown = self.arena.alloc(markdown);
         let parser: Frontend<'_, B> = Frontend::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
             markdown,
             OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
             Some(&refsolve)
         ));
-        Concat(parser.peekable())
+        (Concat::new(parser), markdown)
     }
 
     pub fn generate(&mut self, markdown: String) -> Result<()> {
-        let events = self.get_events(markdown);
-        self.generate_with_events(events)
+        let (events, markdown) = self.get_events(markdown);
+        self.generate_with_events(events).map_err(|err| err.with_source_span(markdown))
     }
 
-    pub fn generate_with_events(&mut self, events: impl Iterator<Item = FeEvent<'a>>) -> Result<()> {
+    pub fn generate_with_events(&mut self, events: impl Iterator<Item = FeEvent<'a>> + Positioned) -> Result<()> {
         self.doc.gen_preamble(self.prim.cfg, &mut self.prim.default_out)?;
         self.generate_body(events)?;
         assert!(self.prim.pop().is_none());
@@ -93,12 +108,13 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    pub fn generate_body(&mut self, events: impl Iterator<Item = FeEvent<'a>>) -> Result<()> {
-        let mut events = events.fuse();
+    pub fn generate_body(&mut self, mut events: impl Iterator<Item = FeEvent<'a>> + Positioned) -> Result<()> {
+        let mut begin;
         let mut peek = loop {
+            begin = events.current_position();
             match events.next() {
                 None => break None,
-                Some(e) => match self.convert_event(e)? {
+                Some(e) => match self.convert_event(e).map_err(|err| err.with_span(begin..events.current_position()))? {
                     None => continue,
                     Some(e) => break Some(e),
                 }
@@ -106,15 +122,17 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         };
         while let Some(event) = peek {
             peek = loop {
+                begin = events.current_position();
                 match events.next() {
                     None => break None,
-                    Some(e) => match self.convert_event(e)? {
+                    Some(e) => match self.convert_event(e).map_err(|err| err.with_span(begin..events.current_position()))? {
                         None => continue,
                         Some(e) => break Some(e),
                     }
                 }
             };
-            self.prim.visit_event(event, peek.as_ref())?;
+            self.prim.visit_event(event, peek.as_ref())
+                .map_err(|err| Error::from(err).with_span(begin..events.current_position()))?;
         }
         match self.prim.pop() {
             Some(StackElement::Context(_)) => (),
@@ -129,6 +147,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             _ => None,
         }).expect("no Context???");
         self.resolver.resolve(context, url)
+            .map_err(Error::from)
     }
 
     fn handle_include(&mut self, include: Include, image: Option<FeImage<'a>>) -> Result<Option<Event<'a>>> {
@@ -140,8 +159,9 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Include::Command(Command::ListOfListings) => Ok(Some(Event::ListOfListings)),
             Include::Markdown(path, context) => {
                 let markdown = fs::read_to_string(path)?;
-                let events = self.get_events(markdown);
+                let (events, _markdown) = self.get_events(markdown);
                 self.prim.push(StackElement::Context(context));
+                // TODO: change source, we must supply the error information from the other now.
                 self.generate_body(events)?;
                 Ok(None)
             }

@@ -29,7 +29,7 @@ enum State<'a> {
 
 pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
-    parser: Peekable<CmarkParser<'a>>,
+    parser: CmarkParser<'a>,
     buffer: VecDeque<Event<'a>>,
     state: State<'a>,
     marker: PhantomData<B>,
@@ -60,11 +60,15 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     pub fn new(cfg: &'a Config, parser: CmarkParser<'a>) -> Frontend<'a, B> {
         Frontend {
             cfg,
-            parser: parser.peekable(),
+            parser: parser,
             buffer: VecDeque::new(),
             state: State::Nothing,
             marker: PhantomData,
         }
+    }
+
+    pub fn inner(&self) -> &CmarkParser {
+        &self.parser
     }
 
     fn convert_event(&mut self, evt: CmarkEvent<'a>) -> Event<'a> {
@@ -92,24 +96,32 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         let mut get_content = |f: &dyn Fn(&CmarkTag<'a>) -> bool| {
             let mut out = Vec::new();
             let mut gen: PrimitiveGenerator<'a, B, _> = PrimitiveGenerator::without_context(self.cfg, &mut out);
+
+            let mut evt = self.parser.next().unwrap();
             loop {
-                let evt = self.parser.next().unwrap();
                 // Commonmark doesn't allow nested links, so we can just break on the next one
                 if let CmarkEvent::End(tag) = &evt {
                     if f(tag) {
                         break;
                     }
                 }
-                let peek = self.parser.peek().cloned()
+
+                let next_evt = self.parser.next();
+
+                let evt_converted = next_evt.clone()
                     .and_then(|evt| match evt {
                         // if the end tag would be peeked, use None instead as it isn't transformed
                         CmarkEvent::End(ref tag) if f(tag) => None,
                         evt => Some(self.convert_event(evt).into()),
                     });
+
                 // assume no Link / Image in alt-text of image
-                gen.visit_event(self.convert_event(evt).into(), peek.as_ref())
+                gen.visit_event(self.convert_event(evt).into(), evt_converted.as_ref())
                     .expect("writing to Vec<u8> shouldn't fail");
+
+                evt = next_evt.unwrap();
             }
+
             String::from_utf8(out).expect("invalid utf8")
         };
 
