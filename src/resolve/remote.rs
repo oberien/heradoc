@@ -94,9 +94,23 @@ impl Remote {
         // http(s) domains must contain a hostname
         target.push(url.host_str().unwrap());
 
-        // http(s) must not be cannot be base
-        url.path_segments().unwrap()
-            .for_each(|segment| target.push(segment));
+        // http(s) must not be cannot-be-base
+        //
+        // Also, '+' is a reserved character that can not appear unescaped.
+        let path = url.path().replace('/', "+");
+        let path = Path::new(&path);
+
+        // Since pdflatex is picky with file extensions, replace all dots.
+        let stem = path.file_stem()
+            .map(|osstr| osstr.to_str().unwrap())
+            .unwrap_or("no_name")
+            .replace('.', "+");
+
+        target.push(stem);
+
+        if let Some(extension) = path.extension() {
+            target.set_extension(extension);
+        }
 
         target
     }
