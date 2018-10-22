@@ -180,6 +180,12 @@ Left | Center | Right
 1. Numbered list to include into (test continuous state)
   [include test-include.md]
 
+> From web:
+> [include https://raw.githubusercontent.com/oberien/pundoc/download/test-include.md]
+> -- [@foo]
+
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png)
+
 # Math
 
 Inline math `$ \forall x \in \mathbb{N} : \exists y \in \mathbb{N} : y > x`.
