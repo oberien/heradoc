@@ -111,7 +111,7 @@ fn to_include(path: PathBuf, context: Context) -> io::Result<Include> {
     match path.extension().map(|s| s.to_str().unwrap()) {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
-        Some(".pdf") => Ok(Include::Pdf(path)),
+        Some("pdf") => Ok(Include::Pdf(path)),
         Some(ext) => Err(io::Error::new(io::ErrorKind::NotFound,
             format!("Unknown file format `{:?}`", ext))),
         None => Err(io::Error::new(io::ErrorKind::NotFound,
