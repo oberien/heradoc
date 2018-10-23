@@ -127,25 +127,8 @@ macro_rules! assert_match {
             }
         }
     });
-    ($left:expr, $right:pat,) => ({
-        assert_match!($left, $right)
-    });
     ($left:expr, $right:pat) => ({
         assert_match!($left, $right if true)
-    });
-    ($left:expr, $right:pat if $cond:expr, $($arg:tt)+) => ({
-        match &$left {
-            $right => (),
-            _ => {
-                panic!(r#"assertion failed: `match left`
-  left: `{:?}`,
- right: `{:?}`"#, left_val, stringify!($right)
-                           format_args!($($arg)+))
-            }
-        }
-    });
-    ($left:expr, $right:pat, $($arg:tt)+) => ({
-        assert_match!($left, $right if true, $($arg)+)
     });
 }
 
@@ -202,7 +185,7 @@ macro_rules! assert_match {
                 "https://raw.githubusercontent.com/oberien/pundoc/master/README.md")
             .expect("Failed to download external document");
 
-        assert_match!(external, Include::Markdown(_, context) if context.path().is_none());
+        assert_match!(external, Include::Markdown(_, Context::Remote));
         drop(dir);
     }
 }
