@@ -1,4 +1,4 @@
-use std::fs::{File, OpenOptions, create_dir_all, remove_file};
+use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -33,7 +33,7 @@ pub enum ContentType {
 
 impl Remote {
     pub fn new(download_folder: PathBuf) -> Result<Self, Error> {
-        create_dir_all(&download_folder)?;
+        fs::create_dir_all(&download_folder)?;
 
         let client = Client::builder()
             // TODO: how should redirects interact relative references etc. ?
@@ -54,11 +54,14 @@ impl Remote {
 
         let path = self.target_path(&url);
 
-        create_dir_all(path.parent().unwrap())?;
+        fs::create_dir_all(path.parent().unwrap())?;
 
         // Replace whatever file already existed.
+        //
+        // Doing this in two steps instead of create+truncate keeps the file unmodified for
+        // processes that already own the old file handle. The old file is merely unlinked.
         // TODO: proper caching
-        let _ = remove_file(&path);
+        let _ = fs::remove_file(&path);
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -102,8 +105,12 @@ impl Remote {
 
         // Since pdflatex is picky with file extensions, replace all dots.
         let stem = path.file_stem()
+            // `path` already was valid utf-8
             .map(|osstr| osstr.to_str().unwrap())
-            .unwrap_or("no_name")
+            // file_stem is a part of the file_name, which exists if the last component is not `..`
+            // This would not make sense to handle right now.
+            .expect("url path should not be empty")
+            // Replace all preceding dots, since some consumers (`pdflatex`) do not expect that.
             .replace('.', "+");
 
         target.push(stem);
