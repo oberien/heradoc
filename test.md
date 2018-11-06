@@ -159,8 +159,8 @@ This is the second line without indentation.
   This is the second line with indentation.
 
 > Multi-line block quote with new tick in the beginning.
-> This is the second line.
-> **Bold text** *italic*
+> This is the second line.  
+> **Bold text** *italic* in separate line
 > -- [@bar]
 
 ## Tables
@@ -178,7 +178,7 @@ Left | Center | Right
   [include test-include.md]
 
 1. Numbered list to include into (test continuous state)
-  [include test-include.md]
+  ![][test-include.md]
 
 # Math
 
