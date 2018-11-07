@@ -24,7 +24,8 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] inline latex math mode (`` `$ foo``)
 - [x] equation without number (```` ```$$\nfoo\n``` ````)
 - [x] equation with number (```` ```$$$\nfoo\n``` ````)
-- [ ] hrule (currently buggy indentation after)
+- [x] hrule
+    - [ ] fix currently buggy indentation after hrule
 - [ ] labels for code blocks / equations / numbered equations (currently not unified)
 - [ ] tables: merge columns
 - [ ] tables: merge rows
@@ -56,7 +57,8 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] documentclass
 - [x] geometry
 - [x] header includes
-- [ ] pdf metadata (examine which)
+- [x] pdf metadata
+    - [ ] compare with pandoc
 - [ ] itemizespacing
 - [ ] use minted instead of lstlistings
 - [ ] lstset
@@ -80,6 +82,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 
 - latex backend
     - [x] scrartcl
+    - [ ] scrbook
     - [ ] beamer
 - HTML backend
     + get rid of latex altogether
