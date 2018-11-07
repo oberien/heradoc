@@ -64,13 +64,36 @@ pub struct FileConfig {
     /// Fontsize of the document.
     #[structopt(long = "fontsize")]
     pub fontsize: Option<String>,
-    /// If true, the titlepage will be its own page. Otherwise text will start on the first page.
-    #[structopt(long = "titlepage")]
-    pub titlepage: Option<bool>,
     /// Other options passed to `\documentclass`.
     #[structopt(long = "classoptions")]
     #[serde(default)]
     pub classoptions: Vec<String>,
+
+    // titlepage
+    /// If true, the titlepage will be its own page. Otherwise text will start on the first page.
+    #[structopt(long = "titlepage")]
+    pub titlepage: Option<bool>,
+    /// Title of document, used for titlepage
+    #[structopt(long = "title")]
+    pub title: Option<String>,
+    /// Subitle of document, used for titlepage
+    #[structopt(long = "subtitle")]
+    pub subtitle: Option<String>,
+    /// Author(s) of document, used for titlepage
+    #[structopt(long = "author")]
+    pub author: Option<String>,
+    /// Date of document, used for titlepage
+    #[structopt(long = "date")]
+    pub date: Option<String>,
+    /// Publisher of document, used for titlepage
+    #[structopt(long = "publisher")]
+    pub publisher: Option<String>,
+    /// Advisor of document, used for titlepage
+    #[structopt(long = "advisor")]
+    pub advisor: Option<String>,
+    /// Supervisor of document, used for titlepage
+    #[structopt(long = "supervisor")]
+    pub supervisor: Option<String>,
 
     /// Custom header includes
     #[structopt(long="header-includes")]
@@ -100,8 +123,17 @@ pub struct Config {
     // document
     pub documentclass: String,
     pub fontsize: String,
-    pub titlepage: bool,
     pub classoptions: HashSet<String>,
+
+    // titlepage
+    pub titlepage: bool,
+    pub title: Option<String>,
+    pub subtitle: Option<String>,
+    pub author: Option<String>,
+    pub date: Option<String>,
+    pub publisher: Option<String>,
+    pub advisor: Option<String>,
+    pub supervisor: Option<String>,
 
     pub header_includes: Vec<String>,
 
@@ -211,6 +243,27 @@ impl Config {
                 .or(infile.titlepage)
                 .or(file.titlepage)
                 .unwrap_or(true),
+            title: args.fileconfig.title
+                .or(infile.title)
+                .or(file.title),
+            subtitle: args.fileconfig.subtitle
+                .or(infile.subtitle)
+                .or(file.subtitle),
+            author: args.fileconfig.author
+                .or(infile.author)
+                .or(file.author),
+            date: args.fileconfig.date
+                .or(infile.date)
+                .or(file.date),
+            publisher: args.fileconfig.publisher
+                .or(infile.publisher)
+                .or(file.publisher),
+            advisor: args.fileconfig.advisor
+                .or(infile.advisor)
+                .or(file.advisor),
+            supervisor: args.fileconfig.supervisor
+                .or(infile.supervisor)
+                .or(file.supervisor),
             classoptions,
             header_includes,
             geometry: args.fileconfig.geometry

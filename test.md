@@ -1,5 +1,13 @@
 ```pundoc
 geometry.margin = "2cm"
+titlepage = false
+title = "Test Markdown File"
+subtitle = "Showing pundoc's Features"
+author = "Me"
+date = "\\today"
+publisher = "My Publisher"
+advisor = "My Advisor"
+supervisor = "My Supervisor"
 ```
 
 [TOC]

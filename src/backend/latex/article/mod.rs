@@ -71,7 +71,7 @@ impl<'a> Backend<'a> for Article {
 
         // TODO: biblatex options (natbib?)
         if let Some(bibliography) = &cfg.bibliography {
-            write!(out, "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}", cfg.citestyle, cfg.bibstyle)?;
+            writeln!(out, "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}", cfg.citestyle, cfg.bibstyle)?;
             writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
         }
 
@@ -87,7 +87,7 @@ impl<'a> Backend<'a> for Article {
         writeln!(out, "{}", preamble::lstdefinerust)?;
         // TODO: graphicspath
         writeln!(out, "\\usepackage{{graphicx}}")?;
-        writeln!(out, "\\usepackage{{hyperref}}")?;
+        writeln!(out, "\\usepackage[pdfusetitle]{{hyperref}}")?;
         writeln!(out, "\\usepackage{{caption}}")?;
         // TODO: cleveref options
         writeln!(out, "\\usepackage{{cleveref}}")?;
@@ -97,12 +97,43 @@ impl<'a> Backend<'a> for Article {
         writeln!(out)?;
         writeln!(out, "{}", preamble::aquote)?;
         writeln!(out)?;
+
         for include in &cfg.header_includes {
             writeln!(out, "{}", include)?;
         }
+
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
+
+        if let Some(title) = &cfg.title {
+            writeln!(out, "\\title{{{}}}", title)?;
+        }
+        if let Some(subtitle) = &cfg.subtitle {
+            writeln!(out, "\\subtitle{{{}}}", subtitle)?;
+        }
+        if let Some(author) = &cfg.author {
+            writeln!(out, "\\author{{{}}}", author)?;
+        }
+        if let Some(date) = &cfg.date {
+            writeln!(out, "\\date{{{}}}", date)?;
+        }
+        if let Some(mut publisher) = cfg.publisher.clone() {
+            if let Some(advisor) = &cfg.advisor {
+                publisher += &format!("\\\\ Advisor: {}", advisor);
+            }
+            if let Some(supervisor) = &cfg.supervisor {
+                publisher += &format!("\\\\ Supervisor: {}", supervisor);
+            }
+            writeln!(out, "\\publishers{{{}}}", publisher)?;
+        }
+
+        if cfg.title.is_some() {
+            // TODO: Warn if title isn't set but something else is
+            writeln!(out, "\\maketitle")?;
+        }
+        writeln!(out)?;
+
         Ok(())
     }
 
