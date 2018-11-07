@@ -20,8 +20,6 @@ impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
         self.stack.iter()
     }
 
-    // TODO
-    #[allow(unused)]
     pub fn get_out(&mut self) -> &mut dyn Write {
         self.stack.iter_mut().rev()
             .filter_map(|state| state.output_redirect()).next()

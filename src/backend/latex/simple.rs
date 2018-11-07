@@ -1,15 +1,35 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
-use crate::backend::SimpleCodeGenUnit;
+use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
 use crate::generator::event::{FootnoteReference, Link, Image, Pdf, LabelReference};
+use crate::generator::Stack;
+
+static REPLACEMENTS: &[(char, &str)] = &[
+    ('→', "$\\rightarrow$"),
+    ('⇒', "$\\Rightarrow$"),
+    ('←', "$\\leftarrow$"),
+    ('⇐', "$\\Leftarrow$"),
+];
 
 #[derive(Debug)]
 pub struct TextGen;
 
-impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for TextGen {
-    fn gen(text: Cow<'a, str>, out: &mut impl Write) -> Result<()> {
-        write!(out, "{}", text)?;
+impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
+    fn gen<'b, 'c>(text: Cow<'a, str>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+        let strfn = if stack.iter().any(|e| e.is_math()) {
+            fn a(s: &str) -> &str { &s[1..s.len() - 1] }
+            a
+        } else {
+            fn a(s: &str) -> &str { s }
+            a
+        };
+        // TODO: be more performant ifneedbe
+        let mut text = text.into_owned();
+        for (from, to) in REPLACEMENTS {
+            text = text.replace(*from, strfn(to));
+        }
+        write!(stack.get_out(), "{}", text)?;
         Ok(())
     }
 

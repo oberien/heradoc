@@ -163,9 +163,28 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    pub fn is_equation(&self) -> bool {
+        match self {
+            StackElement::Equation(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_numbered_equation(&self) -> bool {
+        match self {
+            StackElement::NumberedEquation(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_math(&self) -> bool {
+        self.is_equation() || self.is_numbered_equation() || self.is_inline_math()
+    }
+
     #[allow(dead_code)]
     pub fn is_inline(&self) -> bool {
         self.is_inline_emphasis() || self.is_inline_strong() || self.is_inline_code()
+            || self.is_inline_math()
     }
 
     #[allow(dead_code)]
@@ -189,6 +208,14 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         match self {
             StackElement::InlineCode(_) => true,
             _ => false
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_inline_math(&self) -> bool {
+        match self {
+            StackElement::InlineMath(_) => true,
+            _ => false,
         }
     }
 }

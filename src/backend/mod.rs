@@ -19,18 +19,18 @@ pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<Str
 }
 
 pub trait Backend<'a>: Debug {
-    type Text: SimpleCodeGenUnit<Cow<'a, str>>;
-    type FootnoteReference: SimpleCodeGenUnit<FootnoteReference<'a>>;
-    type Link: SimpleCodeGenUnit<Link<'a>>;
-    type Image: SimpleCodeGenUnit<Image<'a>>;
-    type Pdf: SimpleCodeGenUnit<Pdf>;
-    type SoftBreak: SimpleCodeGenUnit<()>;
-    type HardBreak: SimpleCodeGenUnit<()>;
-    type TableOfContents: SimpleCodeGenUnit<()>;
-    type Bibliography: SimpleCodeGenUnit<()>;
-    type ListOfTables: SimpleCodeGenUnit<()>;
-    type ListOfFigures: SimpleCodeGenUnit<()>;
-    type ListOfListings: SimpleCodeGenUnit<()>;
+    type Text: MediumCodeGenUnit<Cow<'a, str>>;
+    type FootnoteReference: MediumCodeGenUnit<FootnoteReference<'a>>;
+    type Link: MediumCodeGenUnit<Link<'a>>;
+    type Image: MediumCodeGenUnit<Image<'a>>;
+    type Pdf: MediumCodeGenUnit<Pdf>;
+    type SoftBreak: MediumCodeGenUnit<()>;
+    type HardBreak: MediumCodeGenUnit<()>;
+    type TableOfContents: MediumCodeGenUnit<()>;
+    type Bibliography: MediumCodeGenUnit<()>;
+    type ListOfTables: MediumCodeGenUnit<()>;
+    type ListOfFigures: MediumCodeGenUnit<()>;
+    type ListOfListings: MediumCodeGenUnit<()>;
 
     type Paragraph: CodeGenUnit<'a, ()>;
     type Rule: CodeGenUnit<'a, ()>;
@@ -76,3 +76,12 @@ pub trait SimpleCodeGenUnit<T> {
     fn gen(data: T, out: &mut impl Write) -> Result<()>;
 }
 
+pub trait MediumCodeGenUnit<T> {
+    fn gen<'a, 'b>(data: T, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()>;
+}
+
+impl<T: SimpleCodeGenUnit<D>, D> MediumCodeGenUnit<D> for T {
+    fn gen<'a, 'b>(data: D, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()> {
+        T::gen(data, &mut stack.get_out())
+    }
+}

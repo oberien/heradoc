@@ -1,6 +1,6 @@
 use std::io::{Write, Result};
 
-use crate::backend::{Backend, SimpleCodeGenUnit};
+use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::Event;
 use super::{Stack, StackElement};
@@ -42,6 +42,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             Some(event)
         };
 
+        let mut stack = Stack::new(&mut self.default_out, &mut self.stack);
         match event {
             None => (),
             Some(Event::End(_)) => unreachable!(),
@@ -49,20 +50,20 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
                 let state = StackElement::new(self.cfg, tag, self)?;
                 self.stack.push(state);
             },
-            Some(Event::Text(text)) => B::Text::gen(text, &mut self.get_out())?,
-            Some(Event::Html(html)) => B::Text::gen(html, &mut self.get_out())?,
-            Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut self.get_out())?,
-            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut self.get_out())?,
-            Some(Event::Link(link)) => B::Link::gen(link, &mut self.get_out())?,
-            Some(Event::Image(img)) => B::Image::gen(img, &mut self.get_out())?,
-            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut self.get_out())?,
-            Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut self.get_out())?,
-            Some(Event::HardBreak) => B::HardBreak::gen((), &mut self.get_out())?,
-            Some(Event::TableOfContents) => B::TableOfContents::gen((), &mut self.get_out())?,
-            Some(Event::Bibliography) => B::Bibliography::gen((), &mut self.get_out())?,
-            Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut self.get_out())?,
-            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), &mut self.get_out())?,
-            Some(Event::ListOfListings) => B::ListOfListings::gen((), &mut self.get_out())?,
+            Some(Event::Text(text)) => B::Text::gen(text, &mut stack)?,
+            Some(Event::Html(html)) => B::Text::gen(html, &mut stack)?,
+            Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut stack)?,
+            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut stack)?,
+            Some(Event::Link(link)) => B::Link::gen(link, &mut stack)?,
+            Some(Event::Image(img)) => B::Image::gen(img, &mut stack)?,
+            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut stack)?,
+            Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut stack)?,
+            Some(Event::HardBreak) => B::HardBreak::gen((), &mut stack)?,
+            Some(Event::TableOfContents) => B::TableOfContents::gen((), &mut stack)?,
+            Some(Event::Bibliography) => B::Bibliography::gen((), &mut stack)?,
+            Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut stack)?,
+            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), &mut stack)?,
+            Some(Event::ListOfListings) => B::ListOfListings::gen((), &mut stack)?,
         }
 
         Ok(())
