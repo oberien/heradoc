@@ -87,6 +87,7 @@ impl Remote {
             Some("text/markdown") => Some(ContentType::Markdown),
             Some("image/png") | Some("image/jpeg") => Some(ContentType::Image),
             Some("application/pdf") => Some(ContentType::Pdf),
+            // Let the file extension logic take over.
             _ => None,
         }
     }

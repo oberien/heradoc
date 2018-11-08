@@ -106,7 +106,8 @@ impl Source {
                 let downloaded = match remote.http(url) {
                     Ok(downloaded) => downloaded,
                     Err(RemoteError::Io(io)) => return Err(io),
-                    Err(RemoteError::Request(req)) => return Err(io::ErrorKind::ConnectionAborted.into()),
+                    // TODO: proper error handling with failure
+                    Err(RemoteError::Request(_req)) => return Err(io::ErrorKind::ConnectionAborted.into()),
                 };
 
                 let path = downloaded.path().to_owned();
@@ -123,6 +124,11 @@ impl Source {
     }
 }
 
+/// Guess the type of include based on the file extension.
+///
+/// Used to detect the type of include for relative and absolute file paths or for webrequest
+/// includes that did not receive repsonse with a media type header. Matching is performed purely
+/// based on the file extension.
 fn to_include(path: PathBuf, context: Context) -> io::Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
