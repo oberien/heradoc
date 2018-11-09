@@ -37,6 +37,7 @@ impl Remote {
 
         let client = Client::builder()
             // TODO: how should redirects interact relative references etc. ?
+            // Also consider that redirects could influence the injectivity of `target_path`
             .redirect(RedirectPolicy::none())
             .build()?;
 
@@ -170,5 +171,22 @@ mod tests {
 
         // Test that folders in the path don't create an actual hierarchy.
         assert_eq!(top_level_path.parent(), path_with_dir.parent());
+    }
+
+    #[test]
+    fn path_injectivity() {
+        let dir = TempDir::new("pundoc-remote-test")
+            .expect("Can't create tempdir");
+        let remote = Remote::new(dir.path().to_path_buf()).unwrap();
+
+        // Test no extension vs. empty extension.
+        let a = remote.target_path(&"https://example.com/a".parse().unwrap());
+        let b = remote.target_path(&"https://example.com/a.".parse().unwrap());
+        assert!(a != b, "Two urls with the same underlying file path");
+
+        // Test character replacement '/' vs '.' within the path.
+        let a = remote.target_path(&"https://example.com/a/b.jpg".parse().unwrap());
+        let b = remote.target_path(&"https://example.com/a.b.jpg".parse().unwrap());
+        assert!(a != b, "Two urls with the same underlying file path");
     }
 }
