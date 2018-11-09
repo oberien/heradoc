@@ -187,6 +187,12 @@ Left | Center | Right
 
 1. Numbered list to include into (test continuous state)
   ![][test-include.md]
+  
+# Unicode Substitution
+
+A → B ⇒ C ≤ D
+
+In math: `$ A ← B ⇐ C ∈ D ⊥ E`
 
 # Math
 
@@ -211,6 +217,7 @@ b + b &= b\\
 2b &= b\\
 2 &= 1
 ```
+
 
 [listoflistings]
 

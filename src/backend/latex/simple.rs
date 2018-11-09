@@ -4,12 +4,11 @@ use std::borrow::Cow;
 use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
 use crate::generator::event::{FootnoteReference, Link, Image, Pdf, LabelReference};
 use crate::generator::Stack;
+use super::replace::replace;
 
 static REPLACEMENTS: &[(char, &str)] = &[
     ('→', "$\\rightarrow$"),
     ('⇒', "$\\Rightarrow$"),
-    ('←', "$\\leftarrow$"),
-    ('⇐', "$\\Leftarrow$"),
 ];
 
 #[derive(Debug)]
@@ -17,6 +16,8 @@ pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     fn gen<'b, 'c>(text: Cow<'a, str>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+        // TODO: make code-blocks containing unicode allow inline-math
+        // handle unicode
         let strfn = if stack.iter().any(|e| e.is_math()) {
             fn a(s: &str) -> &str { &s[1..s.len() - 1] }
             a
@@ -24,12 +25,14 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
             fn a(s: &str) -> &str { s }
             a
         };
-        // TODO: be more performant ifneedbe
-        let mut text = text.into_owned();
-        for (from, to) in REPLACEMENTS {
-            text = text.replace(*from, strfn(to));
+        let mut s = String::with_capacity(text.len() + 20);
+        for c in text.chars() {
+            match replace(c) {
+                Some(rep) => s.push_str(strfn(rep)),
+                None => s.push(c),
+            }
         }
-        write!(stack.get_out(), "{}", text)?;
+        write!(stack.get_out(), "{}", s)?;
         Ok(())
     }
 

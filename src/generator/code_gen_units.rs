@@ -139,6 +139,13 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    pub fn is_graphviz(&self) -> bool {
+        match self {
+            StackElement::Graphviz(_) => true,
+            _ => false
+        }
+    }
+
     // TODO: reomve allows
     #[allow(dead_code)]
     pub fn is_code_block(&self) -> bool {
@@ -175,6 +182,10 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::NumberedEquation(_) => true,
             _ => false,
         }
+    }
+
+    pub fn is_code(&self) -> bool {
+        self.is_code_block() || self.is_inline_code()
     }
 
     pub fn is_math(&self) -> bool {

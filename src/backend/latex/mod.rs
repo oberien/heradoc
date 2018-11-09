@@ -1,4 +1,5 @@
 mod article;
+mod replace;
 mod simple;
 mod complex;
 

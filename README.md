@@ -26,6 +26,9 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] equation with number (```` ```$$$\nfoo\n``` ````)
 - [x] hrule
     - [ ] fix currently buggy indentation after hrule
+- [x] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )
+    - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
+    - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [ ] labels for code blocks / equations / numbered equations (currently not unified)
 - [ ] tables: merge columns
 - [ ] tables: merge rows
@@ -36,9 +39,6 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] ```` ```gnuplot````
 - [ ] ```` ```mermaid````
 - [ ] ```` ```abc````
-- [ ] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )
-    - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
-    - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [ ] citation style (.cs)
 - [ ] todolist (enumitem): `- [ ] foo`
 - [ ] label: ``* `label`: Description`` (escape hatch with double-space after list item dot)
