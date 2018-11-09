@@ -2,6 +2,7 @@ use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
+use mime;
 // TODO: The error representation is awkward with reqwest, evaluate cHTTP instead.
 use reqwest::{Client, Error as RequestError, RedirectPolicy, Response, header};
 use url::Url;
@@ -81,13 +82,14 @@ impl Remote {
 
     fn content_type(&self, response: &Response) -> Option<ContentType> {
         // Get a value content type header if any.
-        let header = response.headers().get(header::CONTENT_TYPE);
-        let header = header.and_then(|value| value.to_str().ok());
+        let header = response.headers().get(header::CONTENT_TYPE)
+            .and_then(|raw| raw.to_str().ok())
+            .and_then(|string| string.parse::<mime::Mime>().ok())?;
 
-        match header {
-            Some("text/markdown") => Some(ContentType::Markdown),
-            Some("image/png") | Some("image/jpeg") => Some(ContentType::Image),
-            Some("application/pdf") => Some(ContentType::Pdf),
+        match (header.type_(), header.subtype()) {
+            (mime::TEXT, sub) if sub == "markdown" => Some(ContentType::Markdown),
+            (mime::IMAGE, mime::PNG) | (mime::IMAGE, mime::JPEG) => Some(ContentType::Image),
+            (mime::APPLICATION, sub) if sub == "pdf" => Some(ContentType::Pdf),
             // Let the file extension logic take over.
             _ => None,
         }
