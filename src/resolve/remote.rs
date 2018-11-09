@@ -95,33 +95,39 @@ impl Remote {
         }
     }
 
+    /// Injectively map urls to paths in the download directory.
     fn target_path(&self, url: &Url) -> PathBuf {
         let mut target = self.temp.clone();
 
         // http(s) domains must contain a hostname
         target.push(url.host_str().unwrap());
 
-        // http(s) must not be cannot-be-base
-        //
-        // Also, '+' is a reserved character that can not appear unescaped.
-        let path = url.path().replace('/', "+");
+        // http(s) must not be cannot-be-base.  Also, '+' is a reserved character that can not
+        // appear unescaped and "+0" is a unique sequence to this replacement.
+        let path = url.path().replace('/', "+0");
         let path = Path::new(&path);
 
         // Since pdflatex is picky with file extensions, replace all dots.
-        let stem = path.file_stem()
+        let mut stem = path.file_stem()
             // `path` already was valid utf-8
             .map(|osstr| osstr.to_str().unwrap())
             // file_stem is a part of the file_name, which exists if the last component is not `..`
             // This would not make sense to handle right now.
             .expect("url path should not be empty")
             // Replace all preceding dots, since some consumers (`pdflatex`) do not expect that.
-            .replace('.', "+");
+            // The sequence "+1" is unique to this kind of replacement.
+            .replace('.', "+1");
+
+        // `PathBuf::set_extension` does not do anything when the extension is empty. This would
+        // resolve files ending in `.` to the same path as without. Instead, we correct the
+        // extension manually.
+        if let Some(extension) = path.extension() {
+            stem.push('.');
+            // The extension is always valid utf-8
+            stem.push_str(extension.to_str().unwrap());
+        }
 
         target.push(stem);
-
-        if let Some(extension) = path.extension() {
-            target.set_extension(extension);
-        }
 
         target
     }
@@ -166,7 +172,7 @@ mod tests {
         let path_with_dir = remote.target_path(&"https://example.com/subsite/index.html".parse().unwrap());
         
         // Ensure that the temp dir has a parent relationship with downloaded file.
-        assert!(top_level_path.ancestors().skip(1).find(|&folder| folder == dir.path()).is_some());
+        assert!(top_level_path.parent().unwrap().starts_with(dir.path()));
         
         // Make sure that even the top level was placed in the same directory as other files.
         assert_eq!(top_level_path.parent(), some_file.parent());
@@ -184,11 +190,16 @@ mod tests {
         // Test no extension vs. empty extension.
         let a = remote.target_path(&"https://example.com/a".parse().unwrap());
         let b = remote.target_path(&"https://example.com/a.".parse().unwrap());
-        assert!(a != b, "Two urls with the same underlying file path");
+        assert!(a != b, "Two urls with the same underlying file path: {:?} {:?}", a, b);
 
         // Test character replacement '/' vs '.' within the path.
         let a = remote.target_path(&"https://example.com/a/b.jpg".parse().unwrap());
         let b = remote.target_path(&"https://example.com/a.b.jpg".parse().unwrap());
+        assert!(a != b, "Two urls with the same underlying file path");
+
+        // Test character replacement '/' vs an existing '+' within the path.
+        let a = remote.target_path(&"https://example.com/a/b.jpg".parse().unwrap());
+        let b = remote.target_path(&"https://example.com/a+b.jpg".parse().unwrap());
         assert!(a != b, "Two urls with the same underlying file path");
     }
 }
