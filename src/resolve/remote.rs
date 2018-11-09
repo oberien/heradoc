@@ -147,3 +147,28 @@ impl From<io::Error> for Error {
         Error::Io(inner)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Remote;
+    use tempdir::TempDir;
+
+    #[test]
+    fn download_paths() {
+        let dir = TempDir::new("pundoc-remote-test")
+            .expect("Can't create tempdir");
+        let remote = Remote::new(dir.path().to_path_buf()).unwrap();
+        let top_level_path = remote.target_path(&"https://example.com/".parse().unwrap());
+        let some_file = remote.target_path(&"https://example.com/index.html".parse().unwrap());
+        let path_with_dir = remote.target_path(&"https://example.com/subsite/index.html".parse().unwrap());
+        
+        // Ensure that the temp dir has a parent relationship with downloaded file.
+        assert!(top_level_path.ancestors().skip(1).find(|&folder| folder == dir.path()).is_some());
+        
+        // Make sure that even the top level was placed in the same directory as other files.
+        assert_eq!(top_level_path.parent(), some_file.parent());
+
+        // Test that folders in the path don't create an actual hierarchy.
+        assert_eq!(top_level_path.parent(), path_with_dir.parent());
+    }
+}
