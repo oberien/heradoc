@@ -99,6 +99,7 @@ impl Remote {
 
         let file_hash = Sha256::new()
             .chain(key.path.to_str().unwrap())
+            .chain(key.mime.as_ref().map(Mime::as_ref).unwrap_or(""))
             .result();
 
         let mut hash_name = String::new();
