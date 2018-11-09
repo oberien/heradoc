@@ -22,3 +22,4 @@ toml = { git = "https://github.com/alexcrichton/toml-rs", rev = "8181a7e64506442
 log = "0.4.5"
 env_logger = "0.5.13"
 mime = "0.3"
+sha2 = "0.8"

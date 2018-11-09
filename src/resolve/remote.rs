@@ -2,7 +2,8 @@ use std::fs::{self, File, OpenOptions};
 use std::io;
 use std::path::{Path, PathBuf};
 
-use mime;
+use mime::Mime;
+use sha2::{Digest, Sha256};
 // TODO: The error representation is awkward with reqwest, evaluate cHTTP instead.
 use reqwest::{Client, Error as RequestError, RedirectPolicy, Response, header};
 use url::Url;
@@ -32,6 +33,17 @@ pub enum ContentType {
     Pdf,
 }
 
+/// Unique information identifying the same resource.
+///
+/// Used to calculate a hash-based unique path in the download directory, as a preparation for
+/// possible caching. TODO: when caching is implemented we need to store enough information to
+/// serve this key information instead of the response.
+struct FileKey {
+    host: String,
+    path: PathBuf,
+    mime: Option<Mime>,
+}
+
 impl Remote {
     pub fn new(download_folder: PathBuf) -> Result<Self, Error> {
         fs::create_dir_all(&download_folder)?;
@@ -54,7 +66,8 @@ impl Remote {
             .send()
             .and_then(|response| response.error_for_status())?;
 
-        let path = self.target_path(&url);
+        let key = FileKey::from(&response);
+        let path = self.target_path(&key);
 
         fs::create_dir_all(path.parent().unwrap())?;
 
@@ -71,7 +84,7 @@ impl Remote {
 
         io::copy(&mut response, &mut file)?;
 
-        let content_type = self.content_type(&response);
+        let content_type = key.content_type();
 
         Ok(Downloaded {
             file,
@@ -80,56 +93,63 @@ impl Remote {
         })
     }
 
-    fn content_type(&self, response: &Response) -> Option<ContentType> {
-        // Get a value content type header if any.
-        let header = response.headers().get(header::CONTENT_TYPE)
-            .and_then(|raw| raw.to_str().ok())
-            .and_then(|string| string.parse::<mime::Mime>().ok())?;
+    /// Injectively map urls to paths in the download directory.
+    fn target_path(&self, key: &FileKey) -> PathBuf {
+        let extension = key.path.extension();
 
-        match (header.type_(), header.subtype()) {
+        let file_hash = Sha256::new()
+            .chain(key.path.to_str().unwrap())
+            .result();
+
+        let mut hash_name = String::new();
+        file_hash.into_iter().for_each(|x| {
+            hash_name.push(std::char::from_digit((x >> 4).into(), 16).unwrap());
+            hash_name.push(std::char::from_digit((x & 15).into(), 16).unwrap());
+        });
+
+        if let Some(extension) = extension {
+            hash_name.push('.');
+            hash_name.push_str(extension.to_str().unwrap());
+        }
+
+        let mut target = self.temp.clone();
+        target.push(&key.host);
+        target.push(hash_name);
+
+        target
+    }
+}
+
+impl FileKey {
+    fn from(response: &Response) -> Self {
+        let mime = response.headers().get(header::CONTENT_TYPE)
+            .and_then(|raw| raw.to_str().ok())
+            .and_then(|string| string.parse::<Mime>().ok());
+
+        Self::from_parts(response.url().clone(), mime)
+    }
+
+    fn from_parts(url: Url, mime: Option<Mime>) -> Self {
+        let host = url.host_str().unwrap().to_owned();
+        let path = Path::new(url.path()).to_owned();
+
+        FileKey {
+            host,
+            path,
+            mime,
+        }
+    }
+
+    fn content_type(&self) -> Option<ContentType> {
+        let mime = self.mime.as_ref()?;
+
+        match (mime.type_(), mime.subtype()) {
             (mime::TEXT, sub) if sub == "markdown" => Some(ContentType::Markdown),
             (mime::IMAGE, mime::PNG) | (mime::IMAGE, mime::JPEG) => Some(ContentType::Image),
             (mime::APPLICATION, sub) if sub == "pdf" => Some(ContentType::Pdf),
             // Let the file extension logic take over.
             _ => None,
         }
-    }
-
-    /// Injectively map urls to paths in the download directory.
-    fn target_path(&self, url: &Url) -> PathBuf {
-        let mut target = self.temp.clone();
-
-        // http(s) domains must contain a hostname
-        target.push(url.host_str().unwrap());
-
-        // http(s) must not be cannot-be-base.  Also, '+' is a reserved character that can not
-        // appear unescaped and "+0" is a unique sequence to this replacement.
-        let path = url.path().replace('/', "+0");
-        let path = Path::new(&path);
-
-        // Since pdflatex is picky with file extensions, replace all dots.
-        let mut stem = path.file_stem()
-            // `path` already was valid utf-8
-            .map(|osstr| osstr.to_str().unwrap())
-            // file_stem is a part of the file_name, which exists if the last component is not `..`
-            // This would not make sense to handle right now.
-            .expect("url path should not be empty")
-            // Replace all preceding dots, since some consumers (`pdflatex`) do not expect that.
-            // The sequence "+1" is unique to this kind of replacement.
-            .replace('.', "+1");
-
-        // `PathBuf::set_extension` does not do anything when the extension is empty. This would
-        // resolve files ending in `.` to the same path as without. Instead, we correct the
-        // extension manually.
-        if let Some(extension) = path.extension() {
-            stem.push('.');
-            // The extension is always valid utf-8
-            stem.push_str(extension.to_str().unwrap());
-        }
-
-        target.push(stem);
-
-        target
     }
 }
 
@@ -159,7 +179,7 @@ impl From<io::Error> for Error {
 
 #[cfg(test)]
 mod tests {
-    use super::Remote;
+    use super::{FileKey, Remote};
     use tempdir::TempDir;
 
     #[test]
@@ -167,9 +187,9 @@ mod tests {
         let dir = TempDir::new("pundoc-remote-test")
             .expect("Can't create tempdir");
         let remote = Remote::new(dir.path().to_path_buf()).unwrap();
-        let top_level_path = remote.target_path(&"https://example.com/".parse().unwrap());
-        let some_file = remote.target_path(&"https://example.com/index.html".parse().unwrap());
-        let path_with_dir = remote.target_path(&"https://example.com/subsite/index.html".parse().unwrap());
+        let top_level_path = remote.target_path(&FileKey::from_parts("https://example.com/".parse().unwrap(), None));
+        let some_file = remote.target_path(&FileKey::from_parts("https://example.com/index.html".parse().unwrap(), None));
+        let path_with_dir = remote.target_path(&FileKey::from_parts("https://example.com/subsite/index.html".parse().unwrap(), None));
         
         // Ensure that the temp dir has a parent relationship with downloaded file.
         assert!(top_level_path.parent().unwrap().starts_with(dir.path()));
@@ -179,27 +199,5 @@ mod tests {
 
         // Test that folders in the path don't create an actual hierarchy.
         assert_eq!(top_level_path.parent(), path_with_dir.parent());
-    }
-
-    #[test]
-    fn path_injectivity() {
-        let dir = TempDir::new("pundoc-remote-test")
-            .expect("Can't create tempdir");
-        let remote = Remote::new(dir.path().to_path_buf()).unwrap();
-
-        // Test no extension vs. empty extension.
-        let a = remote.target_path(&"https://example.com/a".parse().unwrap());
-        let b = remote.target_path(&"https://example.com/a.".parse().unwrap());
-        assert!(a != b, "Two urls with the same underlying file path: {:?} {:?}", a, b);
-
-        // Test character replacement '/' vs '.' within the path.
-        let a = remote.target_path(&"https://example.com/a/b.jpg".parse().unwrap());
-        let b = remote.target_path(&"https://example.com/a.b.jpg".parse().unwrap());
-        assert!(a != b, "Two urls with the same underlying file path");
-
-        // Test character replacement '/' vs an existing '+' within the path.
-        let a = remote.target_path(&"https://example.com/a/b.jpg".parse().unwrap());
-        let b = remote.target_path(&"https://example.com/a+b.jpg".parse().unwrap());
-        assert!(a != b, "Two urls with the same underlying file path");
     }
 }
