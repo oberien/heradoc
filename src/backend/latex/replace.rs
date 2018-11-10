@@ -6,6 +6,7 @@
 // %s/^'x\(.\+\)' =>/'\1' =>/g
 // g/'\(.\+\)' => "$\1$",/d
 // g/\('#'\|'\$'\|'%'\|'&'\|'∶'\|'\['\|'\\\\'\|'\]'\|'_'\|'{'\|'}'\|'\~'\|'\∕'\)/d
+// manually delete duplicate characters (just fix the unreachable pattern warnings)
 pub fn replace(c: char) -> Option<&'static str> {
     Some(match c {
         '𝐴' => "$A$",
@@ -63,7 +64,6 @@ pub fn replace(c: char) -> Option<&'static str> {
         '£' => "$\\pounds$",
         '¥' => "$\\yen$",
         '¨' => "$\\spddot$",
-        '¬' => "$\\neg$",
         '¬' => "$\\lnot$",
         '®' => "$\\circledR$",
         '±' => "$\\pm$",
@@ -123,7 +123,6 @@ pub fn replace(c: char) -> Option<&'static str> {
         'β' => "$\\beta$",
         'γ' => "$\\gamma$",
         'δ' => "$\\delta$",
-        'ε' => "$\\upepsilon$",
         'ζ' => "$\\zeta$",
         'η' => "$\\eta$",
         'θ' => "$\\theta$",
@@ -264,7 +263,6 @@ pub fn replace(c: char) -> Option<&'static str> {
         '←' => "$\\leftarrow$",
         '↑' => "$\\uparrow$",
         '→' => "$\\rightarrow$",
-        '→' => "$\\to$",
         '↓' => "$\\downarrow$",
         '↔' => "$\\leftrightarrow$",
         '↕' => "$\\updownarrow$",
@@ -371,7 +369,6 @@ pub fn replace(c: char) -> Option<&'static str> {
         '𝜕' => "$\\partial$",
         '∃' => "$\\exists$",
         '∄' => "$\\nexists$",
-        '∅' => "$\\varnothing$",
         '∅' => "$\\emptyset$",
         '∆' => "$\\increment$",
         '∇' => "$\\nabla$",
@@ -406,8 +403,6 @@ pub fn replace(c: char) -> Option<&'static str> {
         '∤' => "$\\nmid$",
         '∥' => "$\\parallel$",
         '∦' => "$\\nparallel$",
-        '∧' => "$\\wedge$",
-        '∨' => "$\\vee$",
         '∧' => "$\\land$",
         '∨' => "$\\lor$",
         '∩' => "$\\cap$",
@@ -464,7 +459,6 @@ pub fn replace(c: char) -> Option<&'static str> {
         '≞' => "$\\measeq$",
         '≟' => "$\\questeq$",
         '≠' => "$\\neq$",
-        '≠' => "$\\not\\eq$",
         '≡' => "$\\equiv$",
         '≢' => "$\\nequiv$",
         '≣' => "$\\Equiv$",

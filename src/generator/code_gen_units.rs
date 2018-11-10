@@ -139,6 +139,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    // TODO: reomve allows
+    #[allow(dead_code)]
     pub fn is_graphviz(&self) -> bool {
         match self {
             StackElement::Graphviz(_) => true,
@@ -146,7 +148,6 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    // TODO: reomve allows
     #[allow(dead_code)]
     pub fn is_code_block(&self) -> bool {
         match self {
@@ -184,6 +185,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_code(&self) -> bool {
         self.is_code_block() || self.is_inline_code()
     }

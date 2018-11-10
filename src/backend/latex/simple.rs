@@ -6,11 +6,6 @@ use crate::generator::event::{FootnoteReference, Link, Image, Pdf, LabelReferenc
 use crate::generator::Stack;
 use super::replace::replace;
 
-static REPLACEMENTS: &[(char, &str)] = &[
-    ('→', "$\\rightarrow$"),
-    ('⇒', "$\\Rightarrow$"),
-];
-
 #[derive(Debug)]
 pub struct TextGen;
 
