@@ -14,14 +14,17 @@ use std::path::{Path, PathBuf};
 use url::Url;
 
 mod include;
+mod remote;
 mod source;
 
 pub use self::include::*;
+use self::remote::Remote;
 use self::source::{Source, SourceGroup};
 
 pub struct Resolver {
     base: Url,
     permissions: Permissions,
+    remote: Remote,
 }
 
 /// Manages permissions if includes as allowed explicitly from the Cli.
@@ -30,12 +33,13 @@ struct Permissions {
 }
 
 impl Resolver {
-    pub fn new(workdir: PathBuf) -> Self {
+    pub fn new(workdir: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
             base: Url::parse("pundoc://document/").unwrap(),
             permissions: Permissions {
                 allowed_absolute_folders: vec![workdir],
             },
+            remote: Remote::new(tempdir).unwrap(),
         }
     }
 
@@ -51,7 +55,7 @@ impl Resolver {
         // check if context is allowed to access target
         self.check_access(context, &target)?;
 
-        target.into_include()
+        target.into_include(&self.remote)
     }
 
     /// Test if the source is allowed to request the target document.
@@ -111,6 +115,23 @@ mod tests {
     use std::fs::File;
     use tempdir::TempDir;
 
+macro_rules! assert_match {
+    ($left:expr, $right:pat if $cond:expr) => ({
+        let left_val = $left;
+        match &left_val {
+            $right if $cond => (),
+            _ => {
+                panic!(r#"assertion failed: `match left`
+  left: `{:?}`,
+ right: `{:?}`"#, left_val, stringify!($right))
+            }
+        }
+    });
+    ($left:expr, $right:pat) => ({
+        assert_match!($left, $right if true)
+    });
+}
+
     fn prepare() -> TempDir {
         let dir = TempDir::new("pundoc-test")
             .expect("Can't create tempdir");
@@ -128,32 +149,43 @@ mod tests {
     #[test]
     fn standard_resolves() {
         let dir = prepare();
-        let resolver = Resolver::new(PathBuf::from("."));
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
-        let main = resolver.request(&top, "main.md")
+        let main = resolver.resolve(&top, "main.md")
             .expect("Failed to resolve direct path");
-        let sibling = resolver.request(main.context().unwrap(), "image.png")
+        let sibling = resolver.resolve(&top, "image.png")
             .expect("Failed to resolve sibling file");
 
-        assert_eq!(main.path(), Some(dir.path().join("main.md").as_ref()));
-        assert_eq!(sibling.path(), Some(dir.path().join("image.png").as_ref()));
+        assert_match!(main, Include::Markdown(path, _) if path == &dir.path().join("main.md"));
+        assert_match!(sibling, Include::Image(path) if path == &dir.path().join("image.png"));
         drop(dir);
     }
 
     #[test]
     fn domain_resolves() {
         let dir = prepare();
-        let mut resolver = Resolver::new(PathBuf::from("."));
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
-        let main = resolver.request(&top, "main.md")
-            .expect("Failed to resolve direct path");
 
-        let toc = resolver.request(main.context().unwrap(), "//toc")
+        let toc = resolver.resolve(&top, "//toc")
             .expect("Failed to resolve path in different domain");
 
         assert_eq!(toc, Include::Command(Command::Toc));
         drop(dir);
     }
-}
 
+    #[test]
+    fn http_resolves_needs_internet() {
+        let dir = prepare();
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+
+        let external = resolver.resolve(&top, 
+                "https://raw.githubusercontent.com/oberien/pundoc/master/README.md")
+            .expect("Failed to download external document");
+
+        assert_match!(external, Include::Markdown(_, Context::Remote));
+        drop(dir);
+    }
+}

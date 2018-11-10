@@ -10,6 +10,8 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 extern crate toml;
+extern crate mime;
+extern crate sha2;
 
 use std::fs::{self, File};
 use std::path::Path;

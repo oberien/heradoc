@@ -14,9 +14,12 @@ boolinator = "2.4"
 tempdir = "0.3.7"
 typed-arena = "1.4.1"
 url = "1.7.1"
+reqwest = "0.9.2"
 serde = "1.0.79"
 serde_derive = "1.0.79"
 # toml 0.5 isn't released yet but adds support for dotted keys
 toml = { git = "https://github.com/alexcrichton/toml-rs", rev = "8181a7e645064426b43891b0f4c7fa86c2a2d154" }
 log = "0.4.5"
 env_logger = "0.5.13"
+mime = "0.3"
+sha2 = "0.8"

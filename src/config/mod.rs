@@ -112,6 +112,12 @@ pub struct Config {
     // IO
     pub output: FileOrStdio,
     pub out_dir: PathBuf,
+    /// Space for auxiliary files that *must not* be accessible directly.
+    ///
+    /// In particular, it should not be possible to reference a markdown file placed in this
+    /// directory.  This prevents content injection from untrusted sources and is currently the
+    /// result of choosing this path randomly.  TODO: Make this restriction explicit.
+    pub temp_dir: PathBuf,
     pub input: FileOrStdio,
     pub input_dir: PathBuf,
     pub output_type: OutType,
@@ -217,6 +223,7 @@ impl Config {
         Config {
             output,
             out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
+            temp_dir: tempdir.path().to_owned(),
             input: args.input,
             input_dir,
             output_type,

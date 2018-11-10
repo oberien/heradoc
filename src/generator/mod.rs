@@ -37,7 +37,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             arena,
             doc,
             prim,
-            resolver: Resolver::new(cfg.input_dir.clone()),
+            resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
         }
     }
 
