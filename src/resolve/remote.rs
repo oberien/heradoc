@@ -98,15 +98,12 @@ impl Remote {
         let extension = key.path.extension();
 
         let file_hash = Sha256::new()
+            .chain(key.host.as_str())
             .chain(key.path.to_str().unwrap())
             .chain(key.mime.as_ref().map(Mime::as_ref).unwrap_or(""))
             .result();
 
-        let mut hash_name = String::new();
-        file_hash.into_iter().for_each(|x| {
-            hash_name.push(std::char::from_digit((x >> 4).into(), 16).unwrap());
-            hash_name.push(std::char::from_digit((x & 15).into(), 16).unwrap());
-        });
+        let mut hash_name = format!("{:x}", file_hash);
 
         if let Some(extension) = extension {
             hash_name.push('.');
@@ -127,10 +124,10 @@ impl FileKey {
             .and_then(|raw| raw.to_str().ok())
             .and_then(|string| string.parse::<Mime>().ok());
 
-        Self::from_parts(response.url().clone(), mime)
+        Self::from_parts(response.url(), mime)
     }
 
-    fn from_parts(url: Url, mime: Option<Mime>) -> Self {
+    fn from_parts(url: &Url, mime: Option<Mime>) -> Self {
         let host = url.host_str().unwrap().to_owned();
         let path = Path::new(url.path()).to_owned();
 
@@ -188,9 +185,12 @@ mod tests {
         let dir = TempDir::new("pundoc-remote-test")
             .expect("Can't create tempdir");
         let remote = Remote::new(dir.path().to_path_buf()).unwrap();
-        let top_level_path = remote.target_path(&FileKey::from_parts("https://example.com/".parse().unwrap(), None));
-        let some_file = remote.target_path(&FileKey::from_parts("https://example.com/index.html".parse().unwrap(), None));
-        let path_with_dir = remote.target_path(&FileKey::from_parts("https://example.com/subsite/index.html".parse().unwrap(), None));
+        let top_level_path = remote.target_path(
+            &FileKey::from_parts(&"https://example.com/".parse().unwrap(), None));
+        let some_file = remote.target_path(
+            &FileKey::from_parts(&"https://example.com/index.html".parse().unwrap(), None));
+        let path_with_dir = remote.target_path(
+            &FileKey::from_parts(&"https://example.com/subsite/index.html".parse().unwrap(), None));
         
         // Ensure that the temp dir has a parent relationship with downloaded file.
         assert!(top_level_path.parent().unwrap().starts_with(dir.path()));
