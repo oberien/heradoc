@@ -144,9 +144,11 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 }
             }
             CmarkTag::Image(typ, dst, title) => {
+                // always consume the full image including end tag
+                let content = get_content(&|t| if let CmarkTag::Image(..) = t { true } else { false });
                 let caption = match typ {
                     LinkType::Reference | LinkType::ReferenceUnknown =>
-                        Some(get_content(&|t| if let CmarkTag::Image(..) = t { true } else { false })),
+                        Some(content),
                     LinkType::Collapsed | LinkType::CollapsedUnknown
                     | LinkType::Shortcut | LinkType::ShortcutUnknown
                     | LinkType::Inline | LinkType::Autolink => None
