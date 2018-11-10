@@ -99,10 +99,10 @@ Inline Link to [a section with custom tex](#fun-with-references).
 [eXisting]: Link "Title"
 
 This is hopefully an image with a title which is used as label, such that I can reference it here as [img:placeholdit].
-![Foobar](100x100.png "placeholdit")
+![Foobar](https://placehold.it/100x100.png "placeholdit")
 ![placeholditimage]
 
-[placeholditimage]: 100x100.png
+[placeholditimage]: https://placehold.it/100x100.png
 
 A biber reference: [@foo].  
 A biber reference with page: [@foo 1337].  
@@ -188,17 +188,17 @@ Left | Center | Right
 1. Numbered list to include into (test continuous state)
   ![][test-include.md]
   
+> From web:
+> [include https://raw.githubusercontent.com/oberien/pundoc/master/test-include.md]
+> -- [@foo]
+
+![](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png)
+  
 # Unicode Substitution
 
 A → B ⇒ C ≤ D
 
 In math: `$ A ← B ⇐ C ∈ D ⊥ E`
-
-> From web:
-> [include https://raw.githubusercontent.com/oberien/pundoc/download/test-include.md]
-> -- [@foo]
-
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png)
 
 # Math
 
