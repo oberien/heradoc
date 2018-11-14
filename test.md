@@ -1,5 +1,6 @@
 ```pundoc
 geometry.margin = "2cm"
+lang = "en"
 titlepage = false
 title = "Test Markdown File"
 subtitle = "Showing pundoc's Features"

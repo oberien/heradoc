@@ -11,6 +11,7 @@ use boolinator::Boolinator;
 use structopt::StructOpt;
 use serde::{Deserialize, Deserializer, de, de::IntoDeserializer};
 use tempdir::TempDir;
+use isolang::Language;
 
 mod geometry;
 
@@ -63,6 +64,12 @@ pub struct FileConfig {
     /// If this parameter is used, other header-configuration options will be discarded.
     #[structopt(long = "template")]
     pub template: Option<String>,
+
+    /// Language of document (used for l18n).
+    /// Can be an ISO 639-1 or ISO 639-3 identifier (e.g. "en"), or a locale (e.g. "de_DE").
+    /// Defaults to english.
+    #[structopt(long = "lang", long = "language")]
+    pub lang: Option<String>,
 
     /// Latex documentclass. Defaults to `scrartcl`.
     #[structopt(long = "documentclass")]
@@ -133,6 +140,8 @@ pub struct Config {
     pub bibstyle: MaybeUnknown<CitationStyle>,
 
     pub template: Option<PathBuf>,
+
+    pub lang: Language,
 
     // document
     pub documentclass: String,
@@ -223,6 +232,17 @@ impl Config {
             assert!(template.is_file(), "Template is not a file");
         }
 
+        let lang = args.fileconfig.lang
+            .or(infile.lang)
+            .or(file.lang);
+        let lang = match lang {
+            None => Language::Eng,
+            Some(lang) => Language::from_639_1(&lang)
+                .or_else(|| Language::from_639_3(&lang))
+                .or_else(|| Language::from_locale(&lang))
+                // TODO: improve error message (with origin and value)
+                .expect("Unknown language parameter")
+        };
 
         let mut classoptions = HashSet::new();
         classoptions.extend(args.fileconfig.classoptions);
@@ -246,6 +266,7 @@ impl Config {
             output_type,
             bibliography,
             template,
+            lang,
             citestyle: args.fileconfig.citestyle
                 .or(infile.citestyle)
                 .or(file.citestyle)

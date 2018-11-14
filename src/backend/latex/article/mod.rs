@@ -61,6 +61,9 @@ impl<'a> Backend<'a> for Article {
             write!(out, "{},", other)?;
         }
         writeln!(out, "]{{{}}}", cfg.documentclass)?;
+
+        writeln!(out, "\\usepackage[{}]{{babel}}", cfg.lang.to_name().to_ascii_lowercase())?;
+
         // geometry
         write!(out, "\\usepackage[")?;
         cfg.geometry.write_latex_options(&mut *out)?;

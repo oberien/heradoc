@@ -12,6 +12,7 @@ extern crate serde_derive;
 extern crate toml;
 extern crate mime;
 extern crate sha2;
+extern crate isolang;
 
 use std::fs::{self, File};
 use std::path::Path;
@@ -66,7 +67,6 @@ fn main() {
     clear_dir(&cfg.out_dir).expect("can't clear output directory");
     println!("{:#?}", cfg);
 
-    // TODO bibliography
     match cfg.output_type {
         OutType::Latex => backend::generate(&cfg, Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
         OutType::Pdf => {
