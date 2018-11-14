@@ -17,6 +17,8 @@ use std::fs::{self, File};
 use std::path::Path;
 use std::process::Command;
 use std::io::{self, Write, Result};
+use std::env;
+use std::ffi::OsString;
 
 use structopt::StructOpt;
 use tempdir::TempDir;
@@ -61,7 +63,7 @@ fn main() {
 
     let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
     let cfg = Config::new(args, infile, file, &tmpdir);
-    clear_dir(&cfg.out_dir).expect("can't clear directory");
+    clear_dir(&cfg.out_dir).expect("can't clear output directory");
     println!("{:#?}", cfg);
 
     // TODO bibliography
@@ -73,12 +75,12 @@ fn main() {
                 .expect("can't create temporary tex file");
             backend::generate(&cfg, Article, &Arena::new(), markdown, tex_file).unwrap();
 
-            pdflatex(tmpdir.path());
+            pdflatex(tmpdir.path(), &cfg);
             if cfg.bibliography.is_some() {
                 biber(tmpdir.path());
-                pdflatex(tmpdir.path());
+                pdflatex(tmpdir.path(), &cfg);
             }
-            pdflatex(tmpdir.path());
+            pdflatex(tmpdir.path(), &cfg);
             let mut pdf = File::open(tmpdir.path().join("document.pdf"))
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
@@ -86,13 +88,21 @@ fn main() {
     }
 }
 
-fn pdflatex<P: AsRef<Path>>(tmpdir: P) {
+fn pdflatex<P: AsRef<Path>>(tmpdir: P, cfg: &Config) {
     let tmpdir = tmpdir.as_ref();
     let mut pdflatex = Command::new("pdflatex");
     pdflatex.arg("-halt-on-error")
         .args(&["-interaction", "nonstopmode"])
         .arg("-output-directory").arg(tmpdir)
         .arg(tmpdir.join("document.tex"));
+    if let Some(template) = &cfg.template {
+        if let Some(parent) = template.parent() {
+            let mut texinputs = env::var_os("TEXINPUTS").unwrap_or(OsString::new());
+            texinputs.push(":");
+            texinputs.push(parent);
+            pdflatex.env("TEXINPUTS", texinputs);
+        }
+    }
     let out = pdflatex.output().expect("can't execute pdflatex");
     if !out.status.success() {
         let _ = File::create("pdflatex_stdout.log")

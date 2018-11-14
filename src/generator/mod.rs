@@ -28,16 +28,22 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     doc: B,
     prim: PrimitiveGenerator<'a, B, W>,
     resolver: Resolver,
+    template: Option<String>,
 }
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     pub fn new(cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>) -> Self {
         let prim = PrimitiveGenerator::new(cfg, default_out, Context::LocalRelative(cfg.input_dir.clone()));
+        let template = cfg.template.as_ref().map(|path| {
+            fs::read_to_string(path)
+                .expect("can't read template")
+        });
         Generator {
             arena,
             doc,
             prim,
             resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
+            template,
         }
     }
 
@@ -53,7 +59,16 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 
     pub fn generate(&mut self, markdown: String) -> Result<()> {
         let events = self.get_events(markdown);
-        self.generate_with_events(events)
+        if let Some(template) = self.template.take() {
+            let body_index = template.find("\nPUNDOCBODY\n")
+                .expect("PUNDOCBODY not found in template on");
+            self.prim.get_out().write_all(&template.as_bytes()[..body_index])?;
+            self.generate_body(events)?;
+            self.prim.get_out().write_all(&template.as_bytes()[body_index + "\nPUNDOCBODY\n".len()..])?;
+        } else {
+            self.generate_with_events(events)?;
+        }
+        Ok(())
     }
 
     pub fn generate_with_events(&mut self, events: impl Iterator<Item = FeEvent<'a>>) -> Result<()> {

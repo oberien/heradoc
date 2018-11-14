@@ -58,6 +58,12 @@ pub struct FileConfig {
     #[structopt(long = "bibstyle")]
     pub bibstyle: Option<MaybeUnknown<CitationStyle>>,
 
+    /// File template to use. It must contain `PUNDOCBODY` on its own line without indentation,
+    /// which will be replaced with the rendered body.
+    /// If this parameter is used, other header-configuration options will be discarded.
+    #[structopt(long = "template")]
+    pub template: Option<String>,
+
     /// Latex documentclass. Defaults to `scrartcl`.
     #[structopt(long = "documentclass")]
     pub documentclass: Option<String>,
@@ -125,6 +131,8 @@ pub struct Config {
     pub bibliography: Option<PathBuf>,
     pub citestyle: MaybeUnknown<CitationStyle>,
     pub bibstyle: MaybeUnknown<CitationStyle>,
+
+    pub template: Option<PathBuf>,
 
     // document
     pub documentclass: String,
@@ -206,6 +214,15 @@ impl Config {
                 None
             }
         };
+        let template = args.fileconfig.template
+            .or(infile.template)
+            .or(file.template)
+            .map(PathBuf::from);
+        if let Some(template) = &template {
+            assert!(template.exists(), "Template file doesn't exist");
+            assert!(template.is_file(), "Template is not a file");
+        }
+
 
         let mut classoptions = HashSet::new();
         classoptions.extend(args.fileconfig.classoptions);
@@ -228,6 +245,7 @@ impl Config {
             input_dir,
             output_type,
             bibliography,
+            template,
             citestyle: args.fileconfig.citestyle
                 .or(infile.citestyle)
                 .or(file.citestyle)
