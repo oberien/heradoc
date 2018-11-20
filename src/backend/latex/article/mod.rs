@@ -63,6 +63,7 @@ impl<'a> Backend<'a> for Article {
         writeln!(out, "]{{{}}}", cfg.documentclass)?;
 
         writeln!(out, "\\usepackage[{}]{{babel}}", cfg.lang.to_name().to_ascii_lowercase())?;
+        writeln!(out, "\\usepackage{{csquotes}}")?;
 
         // geometry
         write!(out, "\\usepackage[")?;
@@ -121,13 +122,21 @@ impl<'a> Backend<'a> for Article {
         if let Some(date) = &cfg.date {
             writeln!(out, "\\date{{{}}}", date)?;
         }
-        if let Some(mut publisher) = cfg.publisher.clone() {
-            if let Some(advisor) = &cfg.advisor {
-                publisher += &format!("\\\\ Advisor: {}", advisor);
+        let publisher = match (&cfg.publisher, &cfg.supervisor, &cfg.advisor) {
+            (None, None, None) => None,
+            (a, b, c) => {
+                let mut buffer = String::new();
+                a.as_ref().map(|s| { buffer.push_str(s); buffer.push_str("\\\\"); });
+                // TODO: i18n
+                // TODO: better use table here
+                b.as_ref().map(|s| { buffer.push_str("Supervisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
+                c.as_ref().map(|s| { buffer.push_str("Advisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
+                // strip possibly leading linebreak
+                buffer.pop(); buffer.pop();
+                Some(buffer)
             }
-            if let Some(supervisor) = &cfg.supervisor {
-                publisher += &format!("\\\\ Supervisor: {}", supervisor);
-            }
+        };
+        if let Some(publisher) = publisher {
             writeln!(out, "\\publishers{{{}}}", publisher)?;
         }
 
