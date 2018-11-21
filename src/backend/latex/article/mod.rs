@@ -92,6 +92,7 @@ impl<'a> Backend<'a> for Article {
         writeln!(out, "{}", preamble::lstdefinerust)?;
         // TODO: graphicspath
         writeln!(out, "\\usepackage{{graphicx}}")?;
+        writeln!(out, "\\usepackage[final]{{microtype}}")?;
         writeln!(out, "\\usepackage[pdfusetitle]{{hyperref}}")?;
         writeln!(out, "\\usepackage{{caption}}")?;
         // TODO: cleveref options
