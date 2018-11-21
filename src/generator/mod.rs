@@ -93,6 +93,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                     || link.eq_ignore_ascii_case("listoftables")
                     || link.eq_ignore_ascii_case("listoffigures")
                     || link.eq_ignore_ascii_case("listoflistings")
+                    || link.eq_ignore_ascii_case("appendix")
                 {
                     let include = self.resolve(&format!("//{}", link))?;
                     Ok(self.handle_include(include, None).unwrap())
@@ -153,6 +154,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Include::Command(Command::ListOfTables) => Ok(Some(Event::ListOfTables)),
             Include::Command(Command::ListOfFigures) => Ok(Some(Event::ListOfFigures)),
             Include::Command(Command::ListOfListings) => Ok(Some(Event::ListOfListings)),
+            Include::Command(Command::Appendix) => Ok(Some(Event::Appendix)),
             Include::Markdown(path, context) => {
                 let markdown = fs::read_to_string(path)?;
                 let events = self.get_events(markdown);

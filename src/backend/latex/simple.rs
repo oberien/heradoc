@@ -152,7 +152,9 @@ pub struct BibliographyGen;
 
 impl SimpleCodeGenUnit<()> for BibliographyGen {
     fn gen((): (), out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\printbibliography")?;
+        // TODO: config option if bibliography in toc
+        // TODO: config option for title
+        writeln!(out, "\\printbibliography[heading=bibintoc]")?;
         Ok(())
     }
 }
@@ -162,7 +164,9 @@ pub struct ListOfTablesGen;
 
 impl SimpleCodeGenUnit<()> for ListOfTablesGen {
     fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\listoftables")?;
+        writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
         Ok(())
     }
 }
@@ -172,7 +176,9 @@ pub struct ListOfFiguresGen;
 
 impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
     fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\listoffigures")?;
+        writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
         Ok(())
     }
 }
@@ -182,7 +188,21 @@ pub struct ListOfListingsGen;
 
 impl SimpleCodeGenUnit<()> for ListOfListingsGen {
     fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\lstlistoflistings")?;
+        writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct AppendixGen;
+
+impl SimpleCodeGenUnit<()> for AppendixGen {
+    fn gen((): (), out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\appendix{{}}")?;
+        writeln!(out, "\\renewcommand\\thelstlisting{{\\Alph{{lstlisting}}}}")?;
+        writeln!(out, "\\setcounter{{lstlisting}}{{0}}")?;
         Ok(())
     }
 }

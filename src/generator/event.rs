@@ -25,6 +25,7 @@ pub enum Event<'a> {
     ListOfTables,
     ListOfFigures,
     ListOfListings,
+    Appendix,
 }
 
 // transformation of frontend::Tag

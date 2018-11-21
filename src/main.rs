@@ -13,6 +13,9 @@ extern crate toml;
 extern crate mime;
 extern crate sha2;
 extern crate isolang;
+extern crate strum;
+#[macro_use]
+extern crate strum_macros;
 
 use std::fs::{self, File};
 use std::path::Path;

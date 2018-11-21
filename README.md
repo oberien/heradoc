@@ -29,7 +29,11 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
-- [ ] labels for code blocks / equations / numbered equations (currently not unified)
+- [ ] `[appendix]`: sets all correct formatting for appendix, should be used before the heading
+- [ ] unified item attributes for code blocks / equations / numbered equations
+    - [ ] label
+    - [ ] figure / nofigure
+    - [ ] caption
 - [ ] tables: merge columns
 - [ ] tables: merge rows
 - [ ] tables: merge columns and rows (e.g. 3x3 field)
@@ -59,6 +63,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] header includes
 - [x] pdf metadata
     - [ ] compare with pandoc
+- [ ] figures (true / false): puts every listing / image / … inside figures
 - [ ] itemizespacing
 - [ ] use minted instead of lstlistings
 - [ ] lstset
@@ -66,6 +71,8 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] cleveref options
 - [ ] let footnotes appear where they are first used vs where they are declared
 - [ ] make softbreaks (line breaks) hard brakes (line ends with 2 spaces)
+- [ ] oneside / twoside
+    - [ ] pagebreak / newpage / clearpage
 
 # Cli
 

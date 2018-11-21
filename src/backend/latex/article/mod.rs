@@ -21,6 +21,7 @@ impl<'a> Backend<'a> for Article {
     type ListOfTables = super::ListOfTablesGen;
     type ListOfFigures = super::ListOfFiguresGen;
     type ListOfListings = super::ListOfListingsGen;
+    type Appendix = super::AppendixGen;
 
     type Paragraph = super::ParagraphGen;
     type Rule = super::RuleGen;
@@ -96,6 +97,7 @@ impl<'a> Backend<'a> for Article {
         // TODO: cleveref options
         writeln!(out, "\\usepackage{{cleveref}}")?;
         writeln!(out, "\\usepackage{{refcount}}")?;
+        writeln!(out, "\\usepackage[titletoc,toc,title]{{appendix}}")?;
         writeln!(out, "\\usepackage{{array}}")?;
         writeln!(out, "{}", preamble::thickhline)?;
         writeln!(out)?;

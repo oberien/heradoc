@@ -1,5 +1,5 @@
 ```pundoc
-geometry.margin = "2cm"
+document_type = "article"
 lang = "en"
 titlepage = false
 title = "Test Markdown File"
@@ -9,6 +9,8 @@ date = "\\today"
 publisher = "My Publisher"
 advisor = "My Advisor"
 supervisor = "My Supervisor"
+citestyle = "ieee"
+geometry.margin = "2cm"
 ```
 
 [TOC]
@@ -225,6 +227,7 @@ b + b &= b\\
 2 &= 1
 ```
 
+[appendix]
 
 [listoflistings]
 

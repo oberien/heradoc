@@ -31,6 +31,7 @@ pub trait Backend<'a>: Debug {
     type ListOfTables: MediumCodeGenUnit<()>;
     type ListOfFigures: MediumCodeGenUnit<()>;
     type ListOfListings: MediumCodeGenUnit<()>;
+    type Appendix: MediumCodeGenUnit<()>;
 
     type Paragraph: CodeGenUnit<'a, ()>;
     type Rule: CodeGenUnit<'a, ()>;

@@ -86,6 +86,8 @@ impl Source {
                     Ok(Include::Command(Command::ListOfFigures))
                 } else if domain.eq_ignore_ascii_case("listoflistings") {
                     Ok(Include::Command(Command::ListOfListings))
+                } else if domain.eq_ignore_ascii_case("appendix") {
+                    Ok(Include::Command(Command::Appendix))
                 } else {
                     Err(io::Error::new(io::ErrorKind::NotFound,
                         format!("No pundoc implementation found for domain {:?}", domain)))

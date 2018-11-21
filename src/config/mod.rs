@@ -9,7 +9,7 @@ use std::env;
 use void::Void;
 use boolinator::Boolinator;
 use structopt::StructOpt;
-use serde::{Deserialize, Deserializer, de, de::IntoDeserializer};
+use serde::{Deserialize, Deserializer, de};
 use tempdir::TempDir;
 use isolang::Language;
 
@@ -43,8 +43,12 @@ pub struct CliArgs {
 pub struct FileConfig {
     /// Output type (tex / pdf). If left blank, it's derived from the output file ending.
     /// Defaults to tex for stdout.
-    #[structopt(short = "t", long = "to", long = "type")]
+    #[structopt(short = "t", long = "to", long = "out-type", long = "output-type")]
     pub output_type: Option<OutType>,
+
+    /// Type of the document.
+    #[structopt(long = "document-type", long = "doc-type")]
+    pub document_type: Option<DocumentType>,
 
     // TODO: multiple files (VecOrSingle)
     /// Bibliography file in biblatex format. Defaults to references.bib (if it exists).
@@ -135,6 +139,8 @@ pub struct Config {
     pub input: FileOrStdio,
     pub input_dir: PathBuf,
     pub output_type: OutType,
+
+    pub document_type: DocumentType,
 
     pub bibliography: Option<PathBuf>,
     pub citestyle: MaybeUnknown<CitationStyle>,
@@ -265,6 +271,10 @@ impl Config {
             input: args.input,
             input_dir,
             output_type,
+            document_type: args.fileconfig.document_type
+                .or(infile.document_type)
+                .or(file.document_type)
+                .unwrap_or(DocumentType::Article),
             bibliography,
             template,
             lang,
@@ -412,8 +422,16 @@ impl FromStr for OutType {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, EnumString)]
+#[serde(rename_all = "lowercase", deny_unknown_fields)]
+pub enum DocumentType {
+    Article,
+    Book,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, Display, EnumString)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
+#[strum(serialize_all = "kebab_case")]
 pub enum CitationStyle {
     Numeric,
     NumericComp,
@@ -450,18 +468,4 @@ pub enum CitationStyle {
     ChicagoAuthordate,
     Mla,
     Apa,
-}
-
-impl FromStr for CitationStyle {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        CitationStyle::deserialize(s.into_deserializer()).map_err(|_: de::value::Error| ())
-    }
-}
-
-impl fmt::Display for CitationStyle {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", toml::to_string(self).map_err(|_| fmt::Error)?)
-    }
 }

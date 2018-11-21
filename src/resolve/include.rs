@@ -28,4 +28,6 @@ pub enum Command {
     ListOfFigures,
     /// List of Listings / Code blocks
     ListOfListings,
+    /// Appendix formatting
+    Appendix,
 }

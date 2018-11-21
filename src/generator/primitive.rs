@@ -64,6 +64,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut stack)?,
             Some(Event::ListOfFigures) => B::ListOfFigures::gen((), &mut stack)?,
             Some(Event::ListOfListings) => B::ListOfListings::gen((), &mut stack)?,
+            Some(Event::Appendix) => B::Appendix::gen((), &mut stack)?,
         }
 
         Ok(())
