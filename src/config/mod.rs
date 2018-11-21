@@ -39,6 +39,7 @@ pub struct CliArgs {
 }
 
 #[derive(Debug, Default, Deserialize, StructOpt)]
+#[serde(deny_unknown_fields)]
 pub struct FileConfig {
     /// Output type (tex / pdf). If left blank, it's derived from the output file ending.
     /// Defaults to tex for stdout.
@@ -320,7 +321,7 @@ impl Config {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-#[serde(untagged)]
+#[serde(untagged, deny_unknown_fields)]
 pub enum MaybeUnknown<T> {
     Known(T),
     Unknown(String),
@@ -412,7 +413,7 @@ impl FromStr for OutType {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case", deny_unknown_fields)]
 pub enum CitationStyle {
     Numeric,
     NumericComp,

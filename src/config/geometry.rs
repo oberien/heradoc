@@ -10,6 +10,7 @@ use crate::config::MaybeUnknown;
 
 // https://www.sharelatex.com/learn/Page_size_and_margins#Fine_tuning_your_LaTeX_page_dimensions
 #[derive(Debug, Clone, Default, Deserialize, StructOpt)]
+#[serde(deny_unknown_fields)]
 pub struct Geometry {
     #[structopt(long = "papersize")]
     pub papersize: Option<MaybeUnknown<Papersize>>,
