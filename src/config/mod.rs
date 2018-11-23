@@ -76,19 +76,19 @@ pub struct FileConfig {
     #[structopt(long = "lang", long = "language")]
     pub lang: Option<String>,
 
-    /// Latex documentclass. Defaults to `scrartcl`.
-    #[structopt(long = "documentclass")]
-    pub documentclass: Option<String>,
     /// Fontsize of the document.
     #[structopt(long = "fontsize")]
     pub fontsize: Option<String>,
+    /// When rendering a book sets whether the book should be one-sided or two-sided
+    #[structopt(long = "oneside")]
+    pub oneside: Option<bool>,
     /// Other options passed to `\documentclass`.
     #[structopt(long = "classoptions")]
     #[serde(default)]
     pub classoptions: Vec<String>,
 
     // titlepage
-    /// If true, the titlepage will be its own page. Otherwise text will start on the first page.
+    /// For article if true, the titlepage will be its own page. Otherwise text will start on the first page.
     #[structopt(long = "titlepage")]
     pub titlepage: Option<bool>,
     /// Title of document, used for titlepage
@@ -151,8 +151,8 @@ pub struct Config {
     pub lang: Language,
 
     // document
-    pub documentclass: String,
     pub fontsize: String,
+    pub oneside: bool,
     pub classoptions: HashSet<String>,
 
     // titlepage
@@ -288,14 +288,14 @@ impl Config {
                 .or(file.bibstyle)
                 .or(citationstyle)
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
-            documentclass: args.fileconfig.documentclass
-                .or(infile.documentclass)
-                .or(file.documentclass)
-                .unwrap_or_else(|| "scrartcl".to_string()),
             fontsize: args.fileconfig.fontsize
                 .or(infile.fontsize)
                 .or(file.fontsize)
-                .unwrap_or_else(|| "10pt".to_string()),
+                .unwrap_or_else(|| "11pt".to_string()),
+            oneside: args.fileconfig.oneside
+                .or(infile.oneside)
+                .or(file.oneside)
+                .unwrap_or(false),
             titlepage: args.fileconfig.titlepage
                 .or(infile.titlepage)
                 .or(file.titlepage)
@@ -426,7 +426,7 @@ impl FromStr for OutType {
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum DocumentType {
     Article,
-    Book,
+    Thesis,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, Display, EnumString)]

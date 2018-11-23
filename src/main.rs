@@ -35,8 +35,8 @@ mod frontend;
 mod generator;
 mod backend;
 
-use crate::config::{Config, CliArgs, FileConfig, OutType};
-use crate::backend::latex::Article;
+use crate::config::{Config, CliArgs, FileConfig, OutType, DocumentType};
+use crate::backend::latex::{Article, Thesis};
 
 fn main() {
     let args = CliArgs::from_args();
@@ -71,12 +71,12 @@ fn main() {
     println!("{:#?}", cfg);
 
     match cfg.output_type {
-        OutType::Latex => backend::generate(&cfg, Article, &Arena::new(), markdown, cfg.output.to_write()).unwrap(),
+        OutType::Latex => gen(&cfg, markdown, cfg.output.to_write()),
         OutType::Pdf => {
             let tex_path = tmpdir.path().join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
-            backend::generate(&cfg, Article, &Arena::new(), markdown, tex_file).unwrap();
+            gen(&cfg, markdown, tex_file);
 
             pdflatex(tmpdir.path(), &cfg);
             if cfg.bibliography.is_some() {
@@ -88,6 +88,15 @@ fn main() {
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
         }
+    }
+}
+
+fn gen(cfg: &Config, markdown: String, out: impl Write) {
+    match cfg.document_type {
+        DocumentType::Article =>
+            backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap(),
+        DocumentType::Thesis =>
+            backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap(),
     }
 }
 

@@ -1,9 +1,11 @@
-mod article;
+mod document;
+mod presentation;
+mod preamble;
 mod replace;
 mod simple;
 mod complex;
 
-pub use self::article::Article;
+pub use self::document::{Article, Thesis};
 
 use self::simple::{TextGen, FootnoteReferenceGen, LinkGen, ImageGen, PdfGen, SoftBreakGen, HardBreakGen,
     TableOfContentsGen, BibliographyGen, ListOfTablesGen, ListOfFiguresGen, ListOfListingsGen,

@@ -1,7 +1,77 @@
-#![allow(non_upper_case_globals)]
+use std::io::{Write, Result};
+
+use isolang::Language;
+
+use crate::config::Config;
+
+pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
+    writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
+    writeln!(out, "\\usepackage[T1]{{fontenc}}")?;
+    writeln!(out, "\\usepackage[sc]{{mathpazo}}")?;
+    let lang = match cfg.lang {
+        Language::Deu => "ngerman".to_string(),
+        lang => lang.to_name().to_ascii_lowercase(),
+    };
+    writeln!(out, "\\usepackage[{}]{{babel}}", lang)?;
+    writeln!(out, "\\usepackage{{csquotes}}")?;
+
+    // geometry
+    write!(out, "\\usepackage[")?;
+    cfg.geometry.write_latex_options(&mut *out)?;
+    writeln!(out, "]{{geometry}}")?;
+
+    writeln!(out)?;
+
+    // TODO: biblatex options (natbib?)
+    if let Some(bibliography) = &cfg.bibliography {
+        writeln!(out, "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}", cfg.citestyle, cfg.bibstyle)?;
+        writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
+    }
+
+    // TODO: use minted instead of lstlistings?
+    // TODO: do we want scrhack?
+    writeln!(out, "\\usepackage{{listings}}")?;
+    writeln!(out, "\\usepackage[usenames, dvipsnames]{{color}}")?;
+    writeln!(out, "\\usepackage{{xcolor}}")?;
+    writeln!(out, "\\usepackage{{pdfpages}}")?;
+    writeln!(out, "\\usepackage{{environ}}")?;
+    writeln!(out, "\\usepackage{{amssymb}}")?;
+    writeln!(out, "\\usepackage{{amsmath}}")?;
+    // TODO: graphicspath
+    writeln!(out, "\\usepackage{{graphicx}}")?;
+    writeln!(out, "\\usepackage[final]{{microtype}}")?;
+    writeln!(out, "\\usepackage[pdfusetitle]{{hyperref}}")?;
+    writeln!(out, "\\usepackage{{caption}}")?;
+    // TODO: cleveref options
+    writeln!(out, "\\usepackage{{cleveref}}")?;
+    writeln!(out, "\\usepackage{{refcount}}")?;
+    writeln!(out, "\\usepackage[titletoc,toc,title]{{appendix}}")?;
+    writeln!(out, "\\usepackage{{array}}")?;
+    writeln!(out)?;
+    Ok(())
+}
+
+pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
+    writeln!(out, "\\setlength{{\\parindent}}{{0pt}}")?;
+    writeln!(out, "\\setlength{{\\parskip}}{{1\\baselineskip plus 2pt minus 2pt}}")?;
+    writeln!(out, "{}", LSTSET)?;
+    writeln!(out, "{}", LST_DEFINE_ASM)?;
+    writeln!(out, "{}", LST_DEFINE_RUST)?;
+    writeln!(out, "{}", THICKHLINE)?;
+    writeln!(out, "{}", AQUOTE)?;
+    writeln!(out, "{}", FIX_INCLUDEGRAPHICS)?;
+    writeln!(out, "{}", SCALE_TIKZ_PICTURE_TO_WIDTH)?;
+    // TODO: figures inline? https://tex.stackexchange.com/a/11342 last codeblock
+    // with package float and `[H]`
+
+    for include in &cfg.header_includes {
+        writeln!(out, "{}", include)?;
+    }
+    Ok(())
+}
 
 // https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings
-pub const lstset: &'static str = r#"
+pub const LSTSET: &'static str = r#"
 \lstset{%
   numbers=left,
   numberstyle=\tiny\color{gray},
@@ -34,7 +104,7 @@ pub const lstset: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/questions/51645/
-pub const lstdefineasm: &'static str = r#"
+pub const LST_DEFINE_ASM: &'static str = r#"
 %  x86-64-assembler-language-dialect-for-the-listings-package
 \lstdefinelanguage
    [x86_64]{Assembler}
@@ -48,7 +118,7 @@ pub const lstdefineasm: &'static str = r#"
                   LR}}
 "#;
 
-pub const lstdefinerust: &'static str = r#"
+pub const LST_DEFINE_RUST: &'static str = r#"
 \lstdefinelanguage{rust}{%
   keywords={%
     % strict keywords
@@ -79,7 +149,7 @@ pub const lstdefinerust: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/13761
-pub const aquote: &'static str = r#"
+pub const AQUOTE: &'static str = r#"
 \def\signed #1{{\leavevmode\unskip\nobreak\hfil\penalty50\hskip2em
   \hbox{}\nobreak\hfil(#1)%
   \parfillskip=0pt \finalhyphendemerits=0 \endgraf}}
@@ -91,7 +161,7 @@ pub const aquote: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/41761
-pub const thickhline: &'static str = r#"
+pub const THICKHLINE: &'static str = r#"
 \makeatletter
 \newcommand{\thickhline}{%
     \noalign {\ifnum 0=`}\fi \hrule height 1pt
@@ -102,7 +172,7 @@ pub const thickhline: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/160022
-pub const fixincludegraphics: &'static str = r#"
+pub const FIX_INCLUDEGRAPHICS: &'static str = r#"
 % Redefine \includegraphics so that, unless explicit options are
 % given, the image width will not exceed the width or the height of the page.
 % Images get their normal width if they fit onto the page, but
@@ -128,7 +198,7 @@ pub const fixincludegraphics: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/q/183699
-pub const scaletikzpicturetowidth: &'static str = r#"
+pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &'static str = r#"
 \makeatletter
 \newsavebox{\measure@tikzpicture}
 \NewEnviron{scaletikzpicturetowidth}[1]{%
