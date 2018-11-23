@@ -132,7 +132,7 @@ pub struct HardBreakGen;
 
 impl SimpleCodeGenUnit<()> for HardBreakGen {
     fn gen((): (), out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\par")?;
+        writeln!(out, "\\\\")?;
         Ok(())
     }
 }

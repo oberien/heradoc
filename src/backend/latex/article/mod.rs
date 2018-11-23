@@ -1,5 +1,7 @@
 use std::io::{Write, Result};
 
+use isolang::Language;
+
 use crate::backend::Backend;
 use crate::config::Config;
 
@@ -62,8 +64,16 @@ impl<'a> Backend<'a> for Article {
             write!(out, "{},", other)?;
         }
         writeln!(out, "]{{{}}}", cfg.documentclass)?;
+        writeln!(out)?;
 
-        writeln!(out, "\\usepackage[{}]{{babel}}", cfg.lang.to_name().to_ascii_lowercase())?;
+        writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
+        writeln!(out, "\\usepackage[T1]{{fontenc}}")?;
+        writeln!(out, "\\usepackage[sc]{{mathpazo}}")?;
+        let lang = match cfg.lang {
+            Language::Deu => "ngerman".to_string(),
+            lang => lang.to_name().to_ascii_lowercase(),
+        };
+        writeln!(out, "\\usepackage[{}]{{babel}}", lang)?;
         writeln!(out, "\\usepackage{{csquotes}}")?;
 
         // geometry
@@ -71,7 +81,6 @@ impl<'a> Backend<'a> for Article {
         cfg.geometry.write_latex_options(&mut *out)?;
         writeln!(out, "]{{geometry}}")?;
 
-        writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
         writeln!(out)?;
 
         // TODO: biblatex options (natbib?)
@@ -81,15 +90,14 @@ impl<'a> Backend<'a> for Article {
         }
 
         // TODO: use minted instead of lstlistings?
+        // TODO: do we want scrhack?
         writeln!(out, "\\usepackage{{listings}}")?;
         writeln!(out, "\\usepackage[usenames, dvipsnames]{{color}}")?;
         writeln!(out, "\\usepackage{{xcolor}}")?;
         writeln!(out, "\\usepackage{{pdfpages}}")?;
+        writeln!(out, "\\usepackage{{environ}}")?;
         writeln!(out, "\\usepackage{{amssymb}}")?;
         writeln!(out, "\\usepackage{{amsmath}}")?;
-        writeln!(out, "{}", preamble::lstset)?;
-        writeln!(out, "{}", preamble::lstdefineasm)?;
-        writeln!(out, "{}", preamble::lstdefinerust)?;
         // TODO: graphicspath
         writeln!(out, "\\usepackage{{graphicx}}")?;
         writeln!(out, "\\usepackage[final]{{microtype}}")?;
@@ -100,10 +108,19 @@ impl<'a> Backend<'a> for Article {
         writeln!(out, "\\usepackage{{refcount}}")?;
         writeln!(out, "\\usepackage[titletoc,toc,title]{{appendix}}")?;
         writeln!(out, "\\usepackage{{array}}")?;
+        writeln!(out)?;
+
+        writeln!(out, "\\setlength{{\\parindent}}{{0pt}}")?;
+        writeln!(out, "\\setlength{{\\parskip}}{{1\\baselineskip plus 2pt minus 2pt}}")?;
+        writeln!(out, "{}", preamble::lstset)?;
+        writeln!(out, "{}", preamble::lstdefineasm)?;
+        writeln!(out, "{}", preamble::lstdefinerust)?;
         writeln!(out, "{}", preamble::thickhline)?;
-        writeln!(out)?;
         writeln!(out, "{}", preamble::aquote)?;
-        writeln!(out)?;
+        writeln!(out, "{}", preamble::fixincludegraphics)?;
+        writeln!(out, "{}", preamble::scaletikzpicturetowidth)?;
+        // TODO: figures inline? https://tex.stackexchange.com/a/11342 last codeblock
+        // with package float and `[H]`
 
         for include in &cfg.header_includes {
             writeln!(out, "{}", include)?;

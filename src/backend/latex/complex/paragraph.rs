@@ -25,8 +25,10 @@ impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
             | Some(Event::Start(Tag::InlineEmphasis))
             | Some(Event::Start(Tag::InlineStrong))
             | Some(Event::Start(Tag::InlineCode))
-            | Some(Event::Image(_)) => writeln!(gen.get_out(), "\\mbox{{}}\\\\\n\\mbox{{}}\\\\"),
-            _ => writeln!(gen.get_out()),
+            | Some(Event::Image(_)) => writeln!(gen.get_out(), "\n")?,
+            Some(Event::End(Tag::FootnoteDefinition(_))) => (),
+            _ => writeln!(gen.get_out(), "\n")?,
         }
+        Ok(())
     }
 }
