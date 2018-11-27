@@ -47,7 +47,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    fn get_events(&mut self, markdown: String) -> impl Iterator<Item = FeEvent<'a>> {
+    pub fn get_events(&mut self, markdown: String) -> impl Iterator<Item = FeEvent<'a>> {
         let markdown = self.arena.alloc(markdown);
         let parser: Frontend<'_, B> = Frontend::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
             markdown,

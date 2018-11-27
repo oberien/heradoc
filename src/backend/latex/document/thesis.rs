@@ -1,8 +1,13 @@
 use std::io::{Write, Result};
+use std::fs;
+use std::path::Path;
+
+use typed_arena::Arena;
 
 use crate::backend::Backend;
 use crate::backend::latex::{self, preamble};
 use crate::config::Config;
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -105,6 +110,13 @@ impl<'a> Backend<'a> for Thesis {
 
         writeln!(out, "\\cleardoublepage{{}}")?;
 
+        if let Some(_abstract) = &cfg._abstract {
+            gen(_abstract, cfg, out)?;
+        }
+        if let Some(abstract2) = &cfg.abstract2 {
+            gen(abstract2, cfg, out)?;
+        }
+
         writeln!(out)?;
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\tableofcontents{{}}")?;
@@ -121,3 +133,12 @@ impl<'a> Backend<'a> for Thesis {
     }
 }
 
+fn gen<P: AsRef<Path>>(path: P, cfg: &Config, out: &mut impl Write) -> Result<()> {
+    let arena = Arena::new();
+    let mut gen = Generator::new(cfg, Thesis, out, &arena);
+    let markdown = fs::read_to_string(path)?;
+    let events = gen.get_events(markdown);
+    gen.generate_body(events)?;
+    Ok(())
+
+}

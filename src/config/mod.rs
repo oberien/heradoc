@@ -134,6 +134,12 @@ pub struct FileConfig {
     /// Disclaimer for theses
     #[structopt(long = "disclaimer")]
     pub disclaimer: Option<String>,
+    /// Path to markdown file containing the abstract.
+    #[structopt(long = "abstract")]
+    #[serde(rename = "abstract")]
+    pub _abstract: Option<String>,
+    /// Path to a second file containing the abstract in a different language.
+    pub abstract2: Option<String>,
 
     /// Custom header includes
     #[structopt(long = "header-includes")]
@@ -196,6 +202,8 @@ pub struct Config {
     pub thesis_type: Option<String>,
     pub location: Option<String>,
     pub disclaimer: Option<String>,
+    pub _abstract: Option<PathBuf>,
+    pub abstract2: Option<PathBuf>,
 
     pub header_includes: Vec<String>,
 
@@ -303,6 +311,16 @@ impl Config {
             .or(file.logo_faculty)
             .map(PathBuf::from);
         check_file_exists(&logo_faculty, "logo-faculty");
+        let _abstract = args.fileconfig._abstract
+            .or(infile._abstract)
+            .or(file._abstract)
+            .map(PathBuf::from);
+        check_file_exists(&_abstract, "abstract");
+        let abstract2 = args.fileconfig.abstract2
+            .or(infile.abstract2)
+            .or(file.abstract2)
+            .map(PathBuf::from);
+        check_file_exists(&abstract2, "abstract2");
 
         Config {
             output,
@@ -378,6 +396,8 @@ impl Config {
             disclaimer: args.fileconfig.disclaimer
                 .or(infile.disclaimer)
                 .or(file.disclaimer),
+            _abstract,
+            abstract2,
             classoptions,
             header_includes,
             geometry: args.fileconfig.geometry
