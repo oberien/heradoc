@@ -212,3 +212,103 @@ pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &'static str = r#"
 }
 \makeatother
 "#;
+
+// slightly modified from
+// https://github.com/jpbernius/tum-thesis-latex/blob/740e69c6a9671c7c0e3d74c0a70604a0ceddde56/pages/cover.tex
+pub const THESIS_COVER: &'static str = r#"
+\begin{titlepage}
+  % HACK for two-sided documents: ignore binding correction for cover page.
+  % Adapted from Markus Kohm's KOMA-Script titlepage=firstiscover handling.
+  % See http://mirrors.ctan.org/macros/latex/contrib/koma-script/scrkernel-title.dtx,
+  % \maketitle macro.
+  \oddsidemargin=\evensidemargin\relax
+  \textwidth=\dimexpr\paperwidth-2\evensidemargin-2in\relax
+  \hsize=\textwidth\relax
+
+  \centering
+
+  \ifempty{\getLogoUniversity}
+    \vspace*{20mm}
+  \else
+    \includegraphics[height=20mm]{\getLogoUniversity}
+  \fi
+
+  \vspace{5mm}
+  {\huge\MakeUppercase{\getFaculty{}}}\\
+
+  \vspace{5mm}
+  {\large\MakeUppercase{\getUniversity{}}}\\
+
+  \vspace{20mm}
+  {\Large \getThesisType{}}
+
+  \vspace{15mm}
+  {\huge\bfseries \getTitle{}}
+
+  \vspace{15mm}
+  {\LARGE \getAuthor{}}
+
+  \ifempty{\getLogoFaculty}
+  \else
+    \vspace{20mm}
+    \includegraphics[height=20mm]{\getLogoFaculty}
+  \fi
+\end{titlepage}
+"#;
+
+// modified from
+// https://github.com/waltsims/TUM_Thesis_Template_CSE/blob/2a7a2f14f7b3de8873e50d2762206a78bd872470/components/cover.tex
+// TODO: l18n
+pub const THESIS_TITLE: &'static str = r#"
+\begin{titlepage}
+  \centering
+
+  \ifempty{\getLogoUniversity}
+    \vspace*{20mm}
+  \else
+    \includegraphics[height=20mm]{\getLogoUniversity}
+  \fi
+
+  \vspace{5mm}
+  {\huge\MakeUppercase{\getFaculty{}}}\\
+
+  \vspace{5mm}
+  {\large\MakeUppercase{\getUniversity{}}}\\
+
+  \vspace{20mm}
+  {\Large \getThesisType{}}
+
+  \vspace{15mm}
+  {\huge\bfseries \getTitle{}}
+
+  \vspace{5mm}
+  {\huge\bfseries \getSubtitle{}}
+
+  \vspace{15mm}
+  \begin{tabular}{l l}
+    Author: & \getAuthor{} \\
+    Supervisor: & \getSupervisor{} \\
+    Advisor: & \getAdvisor{} \\
+    Submission Date: & \getDate{} \\
+  \end{tabular}
+
+  \ifempty{\getLogoFaculty}
+  \else
+    \vspace{20mm}
+    \includegraphics[height=20mm]{\getLogoFaculty}
+  \fi
+\end{titlepage}
+"#;
+
+// modified from
+// https://github.com/jpbernius/tum-thesis-latex/blob/740e69c6a9671c7c0e3d74c0a70604a0ceddde56/pages/disclaimer.tex
+pub const THESIS_DISCLAIMER: &'static str = r#"
+\thispagestyle{empty}
+\vspace*{0.75\textheight}
+\noindent
+\getDisclaimer
+
+\vspace{15mm}
+\noindent
+\getLocation{}, \getDate{} \hspace{50mm} \getAuthor{}
+"#;

@@ -103,7 +103,7 @@ pub struct FileConfig {
     /// Date of document, used for titlepage
     #[structopt(long = "date")]
     pub date: Option<String>,
-    /// Publisher of document, used for titlepage
+    /// Publisher of document, used for titlepage of article
     #[structopt(long = "publisher")]
     pub publisher: Option<String>,
     /// Advisor of document, used for titlepage
@@ -112,9 +112,31 @@ pub struct FileConfig {
     /// Supervisor of document, used for titlepage
     #[structopt(long = "supervisor")]
     pub supervisor: Option<String>,
+    // only for thesis
+    /// University Logo, displayed on top of titlepage of theses
+    #[structopt(long = "logo-university")]
+    pub logo_university: Option<String>,
+    /// Faculty logo, displayed on bottom of titlepage of theses
+    #[structopt(long = "logo-faculty")]
+    pub logo_faculty: Option<String>,
+    /// University name
+    #[structopt(long = "university")]
+    pub university: Option<String>,
+    /// Faculty name
+    #[structopt(long = "faculty")]
+    pub faculty: Option<String>,
+    /// Thesis type (e.g. "Master's Thesis in Informatics")
+    #[structopt(long = "thesis-type")]
+    pub thesis_type: Option<String>,
+    /// Submission Location of the thesis
+    #[structopt(long = "location")]
+    pub location: Option<String>,
+    /// Disclaimer for theses
+    #[structopt(long = "disclaimer")]
+    pub disclaimer: Option<String>,
 
     /// Custom header includes
-    #[structopt(long="header-includes")]
+    #[structopt(long = "header-includes")]
     #[serde(default)]
     pub header_includes: Vec<String>,
 
@@ -157,6 +179,8 @@ pub struct Config {
 
     // titlepage
     pub titlepage: bool,
+    // metadata
+    // TODO: make metadata content dependent on document_type
     pub title: Option<String>,
     pub subtitle: Option<String>,
     pub author: Option<String>,
@@ -164,6 +188,14 @@ pub struct Config {
     pub publisher: Option<String>,
     pub advisor: Option<String>,
     pub supervisor: Option<String>,
+    // only for thesis
+    pub logo_university: Option<PathBuf>,
+    pub logo_faculty: Option<PathBuf>,
+    pub university: Option<String>,
+    pub faculty: Option<String>,
+    pub thesis_type: Option<String>,
+    pub location: Option<String>,
+    pub disclaimer: Option<String>,
 
     pub header_includes: Vec<String>,
 
@@ -221,23 +253,20 @@ impl Config {
         let bibliography = args.fileconfig.bibliography
             .or(infile.bibliography)
             .or(file.bibliography)
-            .map(|bib| PathBuf::from(bib));
-        let bibliography = match bibliography {
-            Some(path) => Some(path),
-            None => if Path::new("references.bib").is_file() {
-                Some(PathBuf::from("references.bib"))
-            } else {
-                None
-            }
-        };
+            .map(|bib| PathBuf::from(bib))
+            .or_else(|| {
+                if Path::new("references.bib").is_file() {
+                    Some(PathBuf::from("references.bib"))
+                } else {
+                    None
+                }
+            });
+        check_file_exists(&bibliography, "bibliography");
         let template = args.fileconfig.template
             .or(infile.template)
             .or(file.template)
             .map(PathBuf::from);
-        if let Some(template) = &template {
-            assert!(template.exists(), "Template file doesn't exist");
-            assert!(template.is_file(), "Template is not a file");
-        }
+        check_file_exists(&template, "template");
 
         let lang = args.fileconfig.lang
             .or(infile.lang)
@@ -263,6 +292,17 @@ impl Config {
         let citationstyle = args.fileconfig.citationstyle
             .or(infile.citationstyle)
             .or(file.citationstyle);
+
+        let logo_university = args.fileconfig.logo_university
+            .or(infile.logo_university)
+            .or(file.logo_university)
+            .map(PathBuf::from);
+        check_file_exists(&logo_university, "logo-university");
+        let logo_faculty = args.fileconfig.logo_faculty
+            .or(infile.logo_faculty)
+            .or(file.logo_faculty)
+            .map(PathBuf::from);
+        check_file_exists(&logo_faculty, "logo-faculty");
 
         Config {
             output,
@@ -321,11 +361,41 @@ impl Config {
             supervisor: args.fileconfig.supervisor
                 .or(infile.supervisor)
                 .or(file.supervisor),
+            logo_university,
+            logo_faculty,
+            university: args.fileconfig.university
+                .or(infile.university)
+                .or(file.university),
+            faculty: args.fileconfig.faculty
+                .or(infile.faculty)
+                .or(file.faculty),
+            thesis_type: args.fileconfig.thesis_type
+                .or(infile.thesis_type)
+                .or(file.thesis_type),
+            location: args.fileconfig.location
+                .or(infile.location)
+                .or(file.location),
+            disclaimer: args.fileconfig.disclaimer
+                .or(infile.disclaimer)
+                .or(file.disclaimer),
             classoptions,
             header_includes,
             geometry: args.fileconfig.geometry
                 .merge(infile.geometry)
                 .merge(file.geometry),
+        }
+    }
+}
+
+fn check_file_exists<P: AsRef<Path>>(path: &Option<P>, cfgoption: &str) {
+    if let Some(path) = path {
+        if !path.as_ref().exists() {
+            // TODO: better error handling
+            panic!("{} file doesn't exist: {:?}", cfgoption, path.as_ref());
+        }
+        if !path.as_ref().is_file() {
+            // TODO: better error handling
+            panic!("{} file isn't a file", cfgoption);
         }
     }
 }

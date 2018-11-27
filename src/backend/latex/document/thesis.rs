@@ -63,44 +63,54 @@ impl<'a> Backend<'a> for Thesis {
         preamble::write_fixes(cfg, out)?;
 
         writeln!(out)?;
+        writeln!(out, "\\def \\ifempty#1{{\\def\\temp{{#1}} \\ifx\\temp\\empty}}")?;
+
+        writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
-        if let Some(title) = &cfg.title {
-            writeln!(out, "\\title{{{}}}", title)?;
+        fn get(o: &Option<String>) -> &str { o.as_ref().map(|s| s.as_str()).unwrap_or("") }
+        writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
+        writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
+        writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;
+        writeln!(out, "\\newcommand*{{\\getDate}}{{{}}}", get(&cfg.date))?;
+        writeln!(out, "\\newcommand*{{\\getSupervisor}}{{{}}}", get(&cfg.supervisor))?;
+        writeln!(out, "\\newcommand*{{\\getAdvisor}}{{{}}}", get(&cfg.advisor))?;
+        if let Some(logo_university) = cfg.logo_university.as_ref() {
+            writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{{}}}", logo_university.display())?;
+        } else {
+            writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{}}")?;
         }
-        if let Some(subtitle) = &cfg.subtitle {
-            writeln!(out, "\\subtitle{{{}}}", subtitle)?;
+        if let Some(logo_faculty) = cfg.logo_faculty.as_ref() {
+            writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{{}}}", logo_faculty.display())?;
+        } else {
+            writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{}}")?;
         }
-        if let Some(author) = &cfg.author {
-            writeln!(out, "\\author{{{}}}", author)?;
-        }
-        if let Some(date) = &cfg.date {
-            writeln!(out, "\\date{{{}}}", date)?;
-        }
-        let publisher = match (&cfg.publisher, &cfg.supervisor, &cfg.advisor) {
-            (None, None, None) => None,
-            (a, b, c) => {
-                let mut buffer = String::new();
-                a.as_ref().map(|s| { buffer.push_str(s); buffer.push_str("\\\\"); });
-                // TODO: i18n
-                // TODO: better use table here
-                b.as_ref().map(|s| { buffer.push_str("Supervisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
-                c.as_ref().map(|s| { buffer.push_str("Advisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
-                // strip possibly leading linebreak
-                buffer.pop(); buffer.pop();
-                Some(buffer)
-            }
-        };
-        if let Some(publisher) = publisher {
-            writeln!(out, "\\publishers{{{}}}", publisher)?;
+        writeln!(out, "\\newcommand*{{\\getUniversity}}{{{}}}", get(&cfg.university))?;
+        writeln!(out, "\\newcommand*{{\\getFaculty}}{{{}}}", get(&cfg.faculty))?;
+        writeln!(out, "\\newcommand*{{\\getThesisType}}{{{}}}", get(&cfg.thesis_type))?;
+        writeln!(out, "\\newcommand*{{\\getLocation}}{{{}}}", get(&cfg.location))?;
+
+        writeln!(out, "\\pagenumbering{{alph}}")?;
+        writeln!(out, "{}", preamble::THESIS_COVER)?;
+
+        writeln!(out, "\\frontmatter{{}}")?;
+
+        writeln!(out, "{}", preamble::THESIS_TITLE)?;
+
+        if let Some(disclaimer) = &cfg.disclaimer {
+            writeln!(out, "\\newcommand*{{\\getDisclaimer}}{{{}}}", disclaimer)?;
+            writeln!(out, "{}", preamble::THESIS_DISCLAIMER)?;
         }
 
-        if cfg.title.is_some() {
-            // TODO: Warn if title isn't set but something else is
-            writeln!(out, "\\maketitle")?;
-        }
+        writeln!(out, "\\cleardoublepage{{}}")?;
+
         writeln!(out)?;
+        writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
+        writeln!(out, "\\tableofcontents{{}}")?;
+        writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
+        writeln!(out)?;
+        writeln!(out, "\\mainmatter{{}}")?;
 
         Ok(())
     }
