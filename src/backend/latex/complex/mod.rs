@@ -12,7 +12,7 @@ mod graphviz;
 
 pub use self::paragraph::ParagraphGen;
 pub use self::rule::RuleGen;
-pub use self::header::HeaderGen;
+pub use self::header::{HeaderGen, BookHeaderGen};
 pub use self::blockquote::BlockQuoteGen;
 pub use self::codeblock::CodeBlockGen;
 pub use self::list::{ListGen, EnumerateGen, ItemGen};

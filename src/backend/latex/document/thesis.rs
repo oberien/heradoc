@@ -24,7 +24,7 @@ impl<'a> Backend<'a> for Thesis {
 
     type Paragraph = latex::ParagraphGen;
     type Rule = latex::RuleGen;
-    type Header = latex::HeaderGen;
+    type Header = latex::BookHeaderGen;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
     type List = latex::ListGen;

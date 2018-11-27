@@ -15,6 +15,7 @@ use self::complex::{
     ParagraphGen,
     RuleGen,
     HeaderGen,
+    BookHeaderGen,
     BlockQuoteGen,
     CodeBlockGen,
     ListGen,
