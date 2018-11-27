@@ -187,7 +187,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
 
     #[allow(dead_code)]
     pub fn is_code(&self) -> bool {
-        self.is_code_block() || self.is_inline_code()
+        self.is_code_block() || self.is_inline_code() || self.is_graphviz()
     }
 
     pub fn is_math(&self) -> bool {

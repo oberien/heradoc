@@ -20,11 +20,18 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
             fn a(s: &str) -> &str { s }
             a
         };
+
+        let in_inline_code = stack.iter().any(|e| e.is_inline_code());
+        let in_code_or_math = stack.iter().any(|e| e.is_code() || e.is_math());
         let mut s = String::with_capacity(text.len() + 20);
         for c in text.chars() {
-            match replace(c) {
-                Some(rep) => s.push_str(strfn(rep)),
-                None => s.push(c),
+            match c {
+                '_' if in_inline_code => s.push_str("\\char`_"),
+                '_' if !in_code_or_math => s.push_str("\\_"),
+                c => match replace(c) {
+                    Some(rep) => s.push_str(strfn(rep)),
+                    None => s.push(c),
+                }
             }
         }
         write!(stack.get_out(), "{}", s)?;

@@ -208,6 +208,11 @@ In math: `$ A ← B ⇐ C ∈ D ⊥ E`
 Multiline substitution ⊂∫∀∃ΞΛℂ∈ΣℕℝΔ  
 Check for linespacing EEEEEEEEEEEEEEE
 
+Text with_underscore and `inline code with_underscore` and `$ math\ with_{subscript}`.
+```
+code block with_underscore
+```
+
 # Math
 
 Inline math `$ \forall x \in \mathbb{N} : \exists y \in \mathbb{N} : y > x`.
