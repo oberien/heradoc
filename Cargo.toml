@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 #pulldown-cmark = "0.1.2"
-pulldown-cmark = { git = "https://github.com/oberien/pulldown-cmark", rev = "a64f578e71a860503a9ffb62efcead12fdb5868c" }
+pulldown-cmark = { git = "https://github.com/raphlinus/pulldown-cmark", rev = "07863e9e54cfcb108693ca1ab64967b5ad7bd952" }
 str-concat = "0.1.4"
 structopt = "0.2.10"
 void = "1.0.2"

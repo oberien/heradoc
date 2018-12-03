@@ -1,7 +1,7 @@
 use std::io::{Write, Result};
 use std::fs;
 
-use pulldown_cmark::{Parser as CmarkParser, OPTION_ENABLE_FOOTNOTES, OPTION_ENABLE_TABLES};
+use pulldown_cmark::{Parser as CmarkParser, Options as CmarkOptions};
 use typed_arena::Arena;
 
 use crate::backend::{Backend};
@@ -51,7 +51,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         let markdown = self.arena.alloc(markdown);
         let parser: Frontend<'_, B> = Frontend::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
             markdown,
-            OPTION_ENABLE_FOOTNOTES | OPTION_ENABLE_TABLES,
+            CmarkOptions::ENABLE_FOOTNOTES | CmarkOptions::ENABLE_TABLES,
             Some(&refsolve)
         ));
         Concat(parser.peekable())
