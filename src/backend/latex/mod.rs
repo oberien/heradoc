@@ -8,7 +8,7 @@ mod presentation;
 mod replace;
 mod simple;
 
-pub use self::document::{Article, Report, Thesis};
+pub use self::document::{Article, Beamer, Report, Thesis};
 
 use crate::frontend::range::WithRange;
 

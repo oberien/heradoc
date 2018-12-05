@@ -369,7 +369,7 @@ impl Config {
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
             figures: args.fileconfig.figures.or(infile.figures).or(file.figures).unwrap_or_else(
                 || match document_type {
-                    DocumentType::Article => false,
+                    DocumentType::Article | DocumentType::Beamer => false,
                     DocumentType::Thesis | DocumentType::Report => true,
                 },
             ),
@@ -537,15 +537,16 @@ impl FromStr for OutType {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, EnumString)]
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum DocumentType {
     Article,
     Report,
     Thesis,
+    Beamer,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Display, EnumString)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[strum(serialize_all = "kebab_case")]
 pub enum CitationStyle {
