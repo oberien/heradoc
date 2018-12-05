@@ -25,11 +25,10 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] equation without number (```` ```$$\nfoo\n``` ````)
 - [x] equation with number (```` ```$$$\nfoo\n``` ````)
 - [x] hrule
-    - [ ] fix currently buggy indentation after hrule
 - [x] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
-- [ ] `[appendix]`: sets all correct formatting for appendix, should be used before the heading
+- [x] `[appendix]`: sets all correct formatting for appendix, should be used before the heading
 - [ ] unified item attributes for code blocks / equations / numbered equations
     - [ ] label
     - [ ] figure / nofigure
@@ -89,7 +88,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 
 - latex backend
     - [x] scrartcl
-    - [ ] scrbook
+    - [x] thesis (scrbook)
     - [ ] beamer
 - HTML backend
     + get rid of latex altogether
