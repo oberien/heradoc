@@ -9,6 +9,10 @@ use crate::backend::latex::{self, preamble};
 use crate::config::Config;
 use crate::generator::Generator;
 
+mod header;
+
+pub use self::header::BeamerHeaderGen;
+
 #[derive(Debug)]
 pub struct Beamer;
 
@@ -29,7 +33,7 @@ impl<'a> Backend<'a> for Beamer {
 
     type Paragraph = latex::ParagraphGen;
     type Rule = latex::RuleGen;
-    type Header = latex::HeaderGen;
+    type Header = BeamerHeaderGen;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
     type List = latex::ListGen;

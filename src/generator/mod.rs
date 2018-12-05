@@ -18,9 +18,9 @@ pub mod event;
 
 pub use self::stack::Stack;
 pub use self::primitive::PrimitiveGenerator;
+pub use self::code_gen_units::StackElement;
 
 use self::concat::Concat;
-use self::code_gen_units::StackElement;
 use self::event::{Event, Image, Pdf};
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
