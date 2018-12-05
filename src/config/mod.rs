@@ -512,14 +512,15 @@ impl FromStr for OutType {
     }
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, EnumString)]
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum DocumentType {
     Article,
     Thesis,
+    Beamer,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Display, EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Display, EnumString)]
 #[serde(rename_all = "kebab-case", deny_unknown_fields)]
 #[strum(serialize_all = "kebab_case")]
 pub enum CitationStyle {

@@ -2,7 +2,7 @@ use std::io::{Write, Result};
 
 use isolang::Language;
 
-use crate::config::Config;
+use crate::config::{Config, DocumentType};
 
 pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;

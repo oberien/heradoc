@@ -23,6 +23,7 @@ use std::process::Command;
 use std::io::{self, Write, Result};
 use std::env;
 use std::ffi::OsString;
+use std::mem::ManuallyDrop;
 
 use structopt::StructOpt;
 use tempdir::TempDir;
@@ -36,7 +37,7 @@ mod generator;
 mod backend;
 
 use crate::config::{Config, CliArgs, FileConfig, OutType, DocumentType};
-use crate::backend::latex::{Article, Thesis};
+use crate::backend::latex::{Article, Beamer, Thesis};
 
 fn main() {
     let args = CliArgs::from_args();
@@ -70,31 +71,39 @@ fn main() {
     clear_dir(&cfg.out_dir).expect("can't clear output directory");
     println!("{:#?}", cfg);
 
+    let tmpdir_path = tmpdir.path().to_owned();
+    let manually = ManuallyDrop::new(tmpdir);
+
     match cfg.output_type {
         OutType::Latex => gen(&cfg, markdown, cfg.output.to_write()),
         OutType::Pdf => {
-            let tex_path = tmpdir.path().join("document.tex");
+            let tex_path = tmpdir_path.join("document.tex");
             let tex_file = File::create(&tex_path)
                 .expect("can't create temporary tex file");
             gen(&cfg, markdown, tex_file);
 
-            pdflatex(tmpdir.path(), &cfg);
+            pdflatex(&tmpdir_path, &cfg);
             if cfg.bibliography.is_some() {
-                biber(tmpdir.path());
-                pdflatex(tmpdir.path(), &cfg);
+                biber(&tmpdir_path);
+                pdflatex(&tmpdir_path, &cfg);
             }
-            pdflatex(tmpdir.path(), &cfg);
-            let mut pdf = File::open(tmpdir.path().join("document.pdf"))
+            pdflatex(&tmpdir_path, &cfg);
+            let mut pdf = File::open(tmpdir_path.join("document.pdf"))
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
         }
     }
+
+    // If we didn't terminate due to panic, remove the tmpdir:
+    let _ = ManuallyDrop::into_inner(manually);
 }
 
 fn gen(cfg: &Config, markdown: String, out: impl Write) {
     match cfg.document_type {
         DocumentType::Article =>
             backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap(),
+        DocumentType::Beamer =>
+            backend::generate(cfg, Beamer, &Arena::new(), markdown, out).unwrap(),
         DocumentType::Thesis =>
             backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap(),
     }
