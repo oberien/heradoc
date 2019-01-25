@@ -29,7 +29,8 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [x] `[appendix]`: sets all correct formatting for appendix, should be used before the heading
-- [ ] unified item attributes for code blocks / equations / numbered equations
+- [ ] unified labels (part of frontend events)
+- [ ] unified item attributes for code blocks / equations / numbered equations / tables
     - [ ] label
     - [ ] figure / nofigure
     - [ ] caption
@@ -44,8 +45,8 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] ```` ```abc````
 - [ ] citation style (.cs)
 - [ ] todolist (enumitem): `- [ ] foo`
-- [ ] label: ``* `label`: Description`` (escape hatch with double-space after list item dot)
-- [ ] description: ``* **description**: Description`` (escape hatch with double-space after list item dot)
+- [ ] label-list: ``* `label`: Description`` (escape hatch with double-space after list item dot)
+- [ ] description-list: ``* **description**: Description`` (escape hatch with double-space after list item dot)
 - [ ] includes of files other than images / md
 - [ ] alert area??? (success, info, warning, danger)
 - [ ] superscript (`foo^bar^`)
@@ -72,6 +73,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] make softbreaks (line breaks) hard brakes (line ends with 2 spaces)
 - [ ] oneside / twoside
     - [ ] pagebreak / newpage / clearpage
+- [ ] typed config options per type
 
 # Cli
 

@@ -77,11 +77,11 @@ impl fmt::Display for LabelType {
 
 // TODO: proper label infrastructure (pass `Label` wherever a label should be generated)
 impl<'a> Label<'a> {
-    fn from_cow(s: Cow<'a, str>) -> Either<Label<'a>, Cow<'a, str>> {
-        Either::Left(match LabelReference::from_cow(s) {
-            Either::Left(r) => r.label,
-            Either::Right(l) => return Either::Right(l),
-        })
+    fn from_cow(s: Cow<'a, str>) -> Result<Label<'a>, Cow<'a, str>> {
+        match LabelReference::from_cow(s) {
+            Ok(r) => Ok(r.label),
+            Err(l) => Err(l),
+        }
     }
 }
 
@@ -92,20 +92,15 @@ impl<'a> fmt::Display for Label<'a> {
     }
 }
 
-enum Either<A, B> {
-    Left(A),
-    Right(B),
-}
-
 impl<'a> LabelReference<'a> {
-    fn from_cow(mut s: Cow<'a, str>) -> Either<LabelReference<'a>, Cow<'a, str>> {
+    fn from_cow(mut s: Cow<'a, str>) -> Result<LabelReference<'a>, Cow<'a, str>> {
         let (len, typ, uppercase) = match LabelType::from_str(&s) {
             Some(l) => l,
-            None => return Either::Right(s),
+            None => return Err(s),
         };
         s.truncate_left(len);
         s.make_ascii_lowercase_inplace();
-        Either::Left(LabelReference {
+        Ok(LabelReference {
             label: Label {
                 label: s,
                 typ,
@@ -144,7 +139,7 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
 
     match LabelReference::from_cow(dst) {
         // cref / Cref / hyperlink
-        Either::Left(labelref) => match typ {
+        Ok(labelref) => match typ {
             LinkType::ShortcutUnknown
             | LinkType::CollapsedUnknown
             | LinkType::Shortcut
@@ -154,7 +149,7 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
             | LinkType::Autolink
             | LinkType::Inline => LinkOrText::Link(Link::InterLinkWithContent(labelref, content)),
         }
-        Either::Right(dst) => match typ {
+        Err(dst) => match typ {
             LinkType::ReferenceUnknown => {
                 // TODO: warn on unknown reference and hint to proper syntax `\[foo\]`
                 LinkOrText::Text(Cow::Owned(format!("[{}][{}]", content, dst)))
