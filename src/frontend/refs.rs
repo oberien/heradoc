@@ -16,9 +16,10 @@ pub enum Link<'a> {
     Url(Cow<'a, str>),
     /// destination, content (already converted)
     UrlWithContent(Cow<'a, str>, String),
-    InterLink(LabelReference<'a>),
-    /// label, content (already converted)
-    InterLinkWithContent(LabelReference<'a>, String),
+    /// label, uppercase
+    InterLink(Cow<'a, str>, bool),
+    /// label, uppercase, content (already converted)
+    InterLinkWithContent(Cow<'a, str>, bool, String),
 }
 
 // TODO: autoparse / autoformat labels
@@ -60,18 +61,6 @@ impl LabelType {
             _ => return None,
         };
         Some((len, typ, s.chars().next().unwrap().is_uppercase()))
-    }
-}
-
-impl fmt::Display for LabelType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            LabelType::Section => write!(f, "sec:"),
-            LabelType::Image => write!(f, "img:"),
-            LabelType::Figure => write!(f, "fig:"),
-            LabelType::Footnote => write!(f, "fnote:"),
-            LabelType::Table => write!(f, "tbl:"),
-        }
     }
 }
 
@@ -118,12 +107,13 @@ pub enum LinkOrText<'a> {
 
 
 pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String) -> LinkOrText<'a> {
-    // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original
-    // case in title
-    let dst = match typ {
+    // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in title
+    let mut dst = match typ {
         LinkType::ShortcutUnknown | LinkType::ReferenceUnknown => title,
         _ => dst,
     };
+
+    dst.trim_left_inplace();
 
     // biber
     if cfg.bibliography.is_some() && dst.trim_left().starts_with('@') && typ == LinkType::ShortcutUnknown {
@@ -137,19 +127,47 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
         }
     }
 
-    match LabelReference::from_cow(dst) {
+    // Normal Text (broken references)
+    if !dst.trim_left().starts_with('#') {
+        match typ {
+            LinkType::Inline | LinkType::Autolink => (), // continue
+            LinkType::Reference | LinkType::ReferenceUnknown =>
+                // TODO: warn
+                return LinkOrText::Text(Cow::Owned(format!("[{}][{}]", content, dst))),
+            LinkType::Collapsed | LinkType::CollapsedUnknown =>
+                // TODO: warn
+                return LinkOrText::Text(Cow::Owned(format!("[{}][]", content))),
+            LinkType::Shortcut | LinkType::ShortcutUnknown =>
+                // TODO: warn
+                return LinkOrText::Text(Cow::Owned(format!("[{}]", content))),
+        }
+    }
+
+    let prefix = dst.chars().next().unwrap();
+    assert_ne!(prefix, '^', "Footnotes should be handled by pulldown-cmark already");
+    let uppercase;
+    if prefix == '#' {
+        dst.truncate_left(1);
+        // TODO: don't panic on invalid links (`#`)
+        uppercase = dst.chars().next().unwrap().is_uppercase();
+        dst.make_ascii_lowercase();
+    }
+
+    match prefix {
         // cref / Cref / hyperlink
-        Ok(labelref) => match typ {
+        '#' => match typ {
             LinkType::ShortcutUnknown
             | LinkType::CollapsedUnknown
             | LinkType::Shortcut
-            | LinkType::Collapsed => LinkOrText::Link(Link::InterLink(labelref)),
+            | LinkType::Collapsed => LinkOrText::Link(Link::InterLink(dst, uppercase)),
             LinkType::Reference
             | LinkType::ReferenceUnknown
             | LinkType::Autolink
-            | LinkType::Inline => LinkOrText::Link(Link::InterLinkWithContent(labelref, content)),
+            | LinkType::Inline => LinkOrText::Link(Link::InterLinkWithContent(dst, uppercase, content)),
         }
-        Err(dst) => match typ {
+        // url
+        _ => match typ {
+            LinkType::Autolink
             LinkType::ReferenceUnknown => {
                 // TODO: warn on unknown reference and hint to proper syntax `\[foo\]`
                 LinkOrText::Text(Cow::Owned(format!("[{}][{}]", content, dst)))
