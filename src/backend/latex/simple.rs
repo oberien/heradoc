@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 use std::borrow::Cow;
 
 use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
-use crate::generator::event::{FootnoteReference, Link, Image, Pdf, LabelReference};
+use crate::generator::event::{FootnoteReference, Link, Image, Pdf};
 use crate::generator::Stack;
 use super::replace::replace;
 
@@ -72,12 +72,12 @@ impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
             }
             Link::Url(dst) => write!(out, "\\url{{{}}}", dst)?,
             Link::UrlWithContent(dst, content) => write!(out, "\\href{{{}}}{{{}}}", dst, content)?,
-            Link::InterLink(LabelReference { label, uppercase }) => match uppercase {
+            Link::InterLink(label, uppercase) => match uppercase {
                 true => write!(out, "\\Cref{{{}}}", label)?,
                 false => write!(out, "\\cref{{{}}}", label)?,
             }
-            Link::InterLinkWithContent(labelref, content)
-                => write!(out, "\\hyperref[{}]{{{}}}", labelref.label, content)?,
+            Link::InterLinkWithContent(label, _uppercase, content)
+                => write!(out, "\\hyperref[{}]{{{}}}", label, content)?,
         })
     }
 }

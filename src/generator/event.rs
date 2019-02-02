@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 pub use pulldown_cmark::Alignment;
 pub use crate::frontend::{FootnoteReference, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
-    Table, Graphviz, Label, LabelReference};
+    Table, Graphviz};
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
 
 // transformation of frontend::Event

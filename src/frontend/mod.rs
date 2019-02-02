@@ -234,7 +234,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     width: double.remove("width"),
                     height: double.remove("height"),
                     caption: double.remove("caption"),
-                    label: double.remove("label"),
                 };
                 self.state = State::Graphviz(graphviz.clone());
                 Event::Start(Tag::Graphviz(graphviz))

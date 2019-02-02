@@ -66,9 +66,6 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
         if let Some(caption) = self.graphviz.caption {
             writeln!(out, "\\caption{{{}}}", caption)?;
         }
-        if let Some(label) = self.graphviz.label {
-            writeln!(out, "\\label{{fig:{}}}", label)?;
-        }
         writeln!(out, "\\end{{figure}}")?;
 
         Ok(())

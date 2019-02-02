@@ -214,6 +214,7 @@ Text with_underscore and `inline code with_underscore` and `$ math\ with_{subscr
 ```
 code block with_underscore
 ```
+Inline code `with \ backslash`.
 
 # Math
 

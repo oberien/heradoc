@@ -3,7 +3,6 @@ use std::borrow::Cow;
 pub use pulldown_cmark::Alignment;
 
 use super::Link;
-use super::refs::Label;
 
 // extension of pulldown_cmark::Event with custom types
 #[derive(Debug)]
@@ -74,9 +73,8 @@ pub struct FootnoteDefinition<'a> {
 }
 
 #[derive(Debug)]
-pub struct Table<'a> {
+pub struct Table {
     pub alignment: Vec<Alignment>,
-    pub label: Option<Label<'a>>,
 }
 
 #[derive(Debug)]
@@ -85,17 +83,6 @@ pub struct Image<'a> {
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
     pub caption: Option<String>,
-    pub label: Option<Label<'a>>,
-}
-
-#[derive(Debug)]
-pub struct Equation<'a> {
-    pub label: Option<Label<'a>>,
-}
-
-#[derive(Debug)]
-pub struct NumberedEquation<'a> {
-    pub label: Option<Label<'a>>,
 }
 
 #[derive(Debug, Clone)]
@@ -104,6 +91,5 @@ pub struct Graphviz<'a> {
     pub width: Option<&'a str>,
     pub height: Option<&'a str>,
     pub caption: Option<&'a str>,
-    pub label: Option<Label<'a>>,
 }
 
