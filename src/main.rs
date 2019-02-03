@@ -34,6 +34,7 @@ mod resolve;
 mod frontend;
 mod generator;
 mod backend;
+mod cskvp;
 
 use crate::config::{Config, CliArgs, FileConfig, OutType, DocumentType};
 use crate::backend::latex::{Article, Thesis};

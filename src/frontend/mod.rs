@@ -16,6 +16,7 @@ use self::refs::LinkOrText;
 use crate::config::Config;
 use crate::backend::{Backend};
 use crate::generator::PrimitiveGenerator;
+use crate::cskvp::Cskvp;
 
 #[derive(Debug, Clone)]
 enum State<'a> {
@@ -218,22 +219,22 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             Cow::Borrowed(s) => s,
             Cow::Owned(_) => unreachable!(),
         };
-        let (single, mut double) = parse_attributes(lang);
-        let res = match single[0] {
-            "equation" | "math" | "$$" => {
+        let mut cskvp = Cskvp::new(lang);
+        let res = match cskvp.single_remove(0) {
+            Some("equation") | Some("$$") => {
                 self.state = State::Equation;
                 Event::Start(Tag::Equation)
             }
-            "numberedequation" | "$$$" => {
+            Some("numberedequation") | Some("$$$") => {
                 self.state = State::NumberedEquation;
                 Event::Start(Tag::NumberedEquation)
             }
-            "graphviz" => {
+            Some("graphviz") => {
                 let graphviz = Graphviz {
-                    scale: double.remove("scale"),
-                    width: double.remove("width"),
-                    height: double.remove("height"),
-                    caption: double.remove("caption"),
+                    scale: cskvp.double("scale"),
+                    width: cskvp.double("width"),
+                    height: cskvp.double("height"),
+                    caption: cskvp.double("caption"),
                 };
                 self.state = State::Graphviz(graphviz.clone());
                 Event::Start(Tag::Graphviz(graphviz))
@@ -243,30 +244,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 Event::Start(Tag::CodeBlock(CodeBlock { language: Cow::Borrowed(lang) }))
             }
         };
-        for (k, v) in double {
-            // TODO: log instead of print
-            println!("Unknown attribute `{}={}`", k, v);
-        }
-        for attr in single.into_iter().skip(1) {
-            // TODO: log instead of print
-            println!("Unknown attribute `{}`", attr);
-        }
         res
     }
-}
-
-fn parse_attributes(s: &str) -> (Vec<&str>, HashMap<&str, &str>) {
-    let mut single = Vec::new();
-    let mut double = HashMap::new();
-    for part in s.split(',') {
-        let part = part.trim();
-        if part.contains("=") {
-            let i = part.find('=').unwrap();
-            double.insert(&part[..i], &part[(i+1)..]);
-        } else {
-            single.push(part);
-        }
-    }
-    (single, double)
 }
 
