@@ -15,6 +15,7 @@ pub enum Event<'a> {
     FootnoteReference(FootnoteReference<'a>),
     Link(Link<'a>),
     Include(Include<'a>),
+    Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
 }
@@ -29,7 +30,7 @@ pub struct FootnoteReference<'a> {
 pub enum Tag<'a> {
     Paragraph,
     Rule,
-    Header(Header),
+    Header(Header<'a>),
     BlockQuote,
     CodeBlock(CodeBlock<'a>),
     List,
@@ -37,7 +38,7 @@ pub enum Tag<'a> {
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
 
-    Table(Table),
+    Table(Table<'a>),
     TableHead,
     TableRow,
     TableCell,
@@ -53,12 +54,14 @@ pub enum Tag<'a> {
 }
 
 #[derive(Debug)]
-pub struct Header {
+pub struct Header<'a> {
+    pub label: Cow<'a, str>,
     pub level: i32,
 }
 
 #[derive(Debug)]
 pub struct CodeBlock<'a> {
+    pub label: Option<Cow<'a, str>>,
     pub language: Cow<'a, str>,
 }
 
@@ -73,12 +76,14 @@ pub struct FootnoteDefinition<'a> {
 }
 
 #[derive(Debug)]
-pub struct Table {
+pub struct Table<'a> {
+    pub label: Option<Cow<'a, str>>,
     pub alignment: Vec<Alignment>,
 }
 
 #[derive(Debug)]
 pub struct Include<'a> {
+    pub label: Option<Cow<'a, str>>,
     pub dst: Cow<'a, str>,
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
@@ -87,6 +92,7 @@ pub struct Include<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Graphviz<'a> {
+    pub label: Option<Cow<'a, str>>,
     pub scale: Option<&'a str>,
     pub width: Option<&'a str>,
     pub height: Option<&'a str>,

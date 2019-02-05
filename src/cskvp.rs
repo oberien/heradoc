@@ -55,6 +55,23 @@ impl<'a> Cskvp<'a> {
     pub fn double(&mut self, key: &str) -> Option<&'a str> {
         self.double.remove(key)
     }
+
+    pub fn merge(&mut self, other: Cskvp) {
+        self.label = self.label.or(other.label);
+        for single in other.single {
+            if !self.single.contains(&single) {
+                self.single.push(single);
+            } else {
+                // TODO: warn
+            }
+        }
+
+        for (k,v) in other.double {
+            if !self.double.contains_key(k) {
+                self.double.insert(k, v);
+            }
+        }
+    }
 }
 
 impl<'a> Drop for Cskvp<'a> {

@@ -83,7 +83,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
     }
 
-    fn convert_tag(&mut self, tag: CmarkTag<'a>, start: bool) -> Event<'a> {
+    fn convert_tag(&mut self, tag: CmarkTag<'a>, start: bool, cskvp: Option<Cskvp<'a>>) -> Event<'a> {
         let f = match start {
             true => Event::Start,
             false => Event::End,
@@ -115,7 +115,31 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         };
 
         f(match tag {
-            CmarkTag::Paragraph => Tag::Paragraph,
+            CmarkTag::Paragraph => {
+                // check for label (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph))
+                if let Some(CmarkEvent::Text(text)) = self.parser.peek() {
+                    if text.starts_with('{') && text.ends_with('}') {
+                        let text = self.parser.next().unwrap();
+                        if let Some(CmarkEvent::End(CmarkTag::Paragraph)) = self.parser.peek() {
+                            // label
+                            let _ = self.parser.next().unwrap();
+                            let cskvp = Cskvp::new(&text[1..text.len()-1]);
+                            // if next element could have a label, convert that element with the label
+                            match self.parser.peek() {
+                                CmarkEvent::Start(CmarkTag::Header(_))
+                                | CmarkEvent::Start(CmarkTag::CodeBlock(_))
+                                | CmarkEvent::Start(CmarkTag::Table(_))
+                                | CmarkEvent::Start(CmarkTag::Image(_))
+                            }
+                        } else {
+                            // just unlucky, reset everything
+                            self.buffer.push(self.convert_event(text));
+                            return Event::Start(Tag::Paragraph);
+                        }
+                    }
+                }
+                Tag::Paragraph
+            },
             CmarkTag::Rule => Tag::Rule,
             CmarkTag::Header(level) => Tag::Header(Header { level }),
             CmarkTag::BlockQuote => Tag::BlockQuote,
