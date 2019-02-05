@@ -14,7 +14,7 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
     Link(Link<'a>),
-    Image(Image<'a>),
+    Include(Include<'a>),
     SoftBreak,
     HardBreak,
 }
@@ -78,7 +78,7 @@ pub struct Table {
 }
 
 #[derive(Debug)]
-pub struct Image<'a> {
+pub struct Include<'a> {
     pub dst: Cow<'a, str>,
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,

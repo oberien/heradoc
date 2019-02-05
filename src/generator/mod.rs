@@ -5,7 +5,7 @@ use pulldown_cmark::{Parser as CmarkParser, Options as CmarkOptions};
 use typed_arena::Arena;
 
 use crate::backend::{Backend};
-use crate::frontend::{Frontend, Event as FeEvent, Link as FeLink, Image as FeImage};
+use crate::frontend::{Frontend, Event as FeEvent, Link as FeLink, Include as FeImage};
 use crate::config::Config;
 use crate::resolve::{Resolver, Context, Include, Command};
 use crate::ext::StrExt;
@@ -101,7 +101,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                     Ok(Some(FeEvent::Link(FeLink::Url(link)).into()))
                 }
             }
-            FeEvent::Image(image) => {
+            FeEvent::Include(image) => {
                 let include = self.resolve(&image.dst)?;
                 Ok(self.handle_include(include, Some(image))?)
             }

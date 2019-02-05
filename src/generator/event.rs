@@ -83,7 +83,7 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::InlineHtml(html) => Event::InlineHtml(html),
             FeEvent::FootnoteReference(fnote) => Event::FootnoteReference(fnote),
             FeEvent::Link(link) => Event::Link(link),
-            FeEvent::Image(_img) => unreachable!("handled by Generator"),
+            FeEvent::Include(_img) => unreachable!("handled by Generator"),
             FeEvent::SoftBreak => Event::SoftBreak,
             FeEvent::HardBreak => Event::HardBreak,
         }

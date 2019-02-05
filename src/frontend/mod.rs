@@ -155,7 +155,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     | LinkType::Inline | LinkType::Autolink => None
                 };
                 // TODO: parse title to extract other information
-                return Event::Image(Image { dst, width: None, height: None, caption })
+                return Event::Include(Include { dst, width: None, height: None, caption })
             },
         })
     }
