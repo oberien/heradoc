@@ -11,8 +11,9 @@ pub struct FootnoteDefinitionGen;
 
 impl<'a> CodeGenUnit<'a, FootnoteDefinition<'a>> for FootnoteDefinitionGen {
     fn new(_cfg: &'a Config, fnote: FootnoteDefinition<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        let FootnoteDefinition { label } = fnote;
         // TODO: Add pass to get all definitions to put definition on the same site as the first reference
-        write!(gen.get_out(), "\\footnotetext{{\\label{{fnote:{}}}", fnote.label)?;
+        write!(gen.get_out(), "\\footnotetext{{\\label{{fnote:{}}}", label)?;
         Ok(FootnoteDefinitionGen)
     }
 

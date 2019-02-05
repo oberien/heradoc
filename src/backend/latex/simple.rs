@@ -46,7 +46,8 @@ pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
     fn gen(fnote: FootnoteReference, out: &mut impl Write) -> Result<()> {
-        write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", fnote.label)?;
+        let FootnoteReference { label } = fnote;
+        write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", label)?;
         Ok(())
     }
 }

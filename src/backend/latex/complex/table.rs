@@ -12,6 +12,7 @@ pub struct TableGen;
 
 impl<'a> CodeGenUnit<'a, Table> for TableGen {
     fn new(_cfg: &'a Config, table: Table, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        let Table { alignment } = table;
         let out = gen.get_out();
 
         // TODO: in-cell linebreaks
@@ -19,7 +20,7 @@ impl<'a> CodeGenUnit<'a, Table> for TableGen {
         // TODO: merging rows
         // TODO: easier custom formatting
         write!(out, "\\begin{{tabular}}{{|")?;
-        for align in table.alignment {
+        for align in alignment {
             match align {
                 Alignment::None | Alignment::Left => write!(out, " l |")?,
                 Alignment::Center => write!(out, " c |")?,

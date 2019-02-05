@@ -10,16 +10,17 @@ pub struct CodeBlockGen;
 
 impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
     fn new(_cfg: &'a Config, code_block: CodeBlock<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        let CodeBlock { language } = code_block;
         let out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}")?;
-        if !code_block.language.is_empty() {
+        if !language.is_empty() {
             write!(out, "[")?;
-            let parts = code_block.language.split(",");
+            let parts = language.split(",");
             for (i, part) in parts.enumerate() {
                 if i == 0 {
                     if !part.contains("=") {
                         // TODO: language translation (use correct language, e.g. `Rust` instead of `rust` if that matters)
-                        match &*code_block.language {
+                        match &*language {
                             // TODO: sequence and stuff generation
                             "sequence" => (),
                             lang => write!(out, "language={}", lang)?,
