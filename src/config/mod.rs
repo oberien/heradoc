@@ -516,6 +516,7 @@ impl FromStr for OutType {
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum DocumentType {
     Article,
+    Report,
     Thesis,
 }
 
