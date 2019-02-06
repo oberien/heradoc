@@ -8,6 +8,7 @@ pub struct Cskvp<'a> {
 
 impl<'a> Cskvp<'a> {
     pub fn new(s: &'a str) -> Cskvp<'a> {
+        // TODO: allow double quoted strings and spaces after comma: `foo,bar="baz, qux", quux`
         let mut single = Vec::new();
         let mut double = HashMap::new();
         let mut label = None;
@@ -36,41 +37,24 @@ impl<'a> Cskvp<'a> {
         }
     }
 
-    pub fn label(&mut self) -> Option<&'a str> {
+    pub fn take_label(&mut self) -> Option<&'a str> {
         self.label.take()
     }
 
-    pub fn single(&mut self, attr: &str) -> Option<&'a str> {
+    pub fn take_single(&mut self, attr: &str) -> Option<&'a str> {
         let pos = self.single.iter().position(|&s| attr == s)?;
         Some(self.single.remove(pos))
     }
 
-    pub fn single_remove(&mut self, index: usize) -> Option<&'a str> {
+    pub fn take_single_by_index(&mut self, index: usize) -> Option<&'a str> {
         if index >= self.single.len() {
             return None;
         }
         Some(self.single.remove(index))
     }
 
-    pub fn double(&mut self, key: &str) -> Option<&'a str> {
+    pub fn take_double(&mut self, key: &str) -> Option<&'a str> {
         self.double.remove(key)
-    }
-
-    pub fn merge(&mut self, other: Cskvp) {
-        self.label = self.label.or(other.label);
-        for single in other.single {
-            if !self.single.contains(&single) {
-                self.single.push(single);
-            } else {
-                // TODO: warn
-            }
-        }
-
-        for (k,v) in other.double {
-            if !self.double.contains_key(k) {
-                self.double.insert(k, v);
-            }
-        }
     }
 }
 

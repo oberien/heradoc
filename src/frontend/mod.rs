@@ -1,10 +1,12 @@
 use std::borrow::Cow;
-use std::collections::{VecDeque, HashMap};
+use std::collections::VecDeque;
 use std::mem;
 use std::marker::PhantomData;
 use std::iter::Peekable;
 
 use pulldown_cmark::{Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser};
+use regex::Regex;
+use lazy_static::lazy_static;
 
 mod refs;
 mod event;
@@ -51,7 +53,7 @@ impl<'a, B: Backend<'a>> Iterator for Frontend<'a, B> {
         match evt {
             CmarkEvent::Start(CmarkTag::Code) => Some(self.handle_inline_code()),
             CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => Some(self.handle_code_block(lang)),
-            evt => Some(self.convert_event(evt))
+            evt => self.convert_event(evt)
         }
     }
 }
@@ -68,22 +70,24 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
     }
 
-    fn convert_event(&mut self, evt: CmarkEvent<'a>) -> Event<'a> {
+    /// Returns None if an Event was ignored, but no further Event is in the `parser`
+    fn convert_event(&mut self, evt: CmarkEvent<'a>) -> Option<Event<'a>> {
         match evt {
-            CmarkEvent::Start(tag) => self.convert_tag(tag, true),
-            CmarkEvent::End(tag) => self.convert_tag(tag, false),
-            CmarkEvent::Text(text) => Event::Text(text),
-            CmarkEvent::Html(html) => Event::Html(html),
-            CmarkEvent::InlineHtml(html) => Event::InlineHtml(html),
-            CmarkEvent::FootnoteReference(label) => Event::FootnoteReference(FootnoteReference {
+            CmarkEvent::Start(tag) => self.convert_tag(tag, true, None),
+            CmarkEvent::End(tag) => self.convert_tag(tag, false, None),
+            CmarkEvent::Text(text) => Some(Event::Text(text)),
+            CmarkEvent::Html(html) => Some(Event::Html(html)),
+            CmarkEvent::InlineHtml(html) => Some(Event::InlineHtml(html)),
+            CmarkEvent::FootnoteReference(label) => Some(Event::FootnoteReference(FootnoteReference {
                 label,
-            }),
-            CmarkEvent::SoftBreak => Event::SoftBreak,
-            CmarkEvent::HardBreak => Event::HardBreak,
+            })),
+            CmarkEvent::SoftBreak => Some(Event::SoftBreak),
+            CmarkEvent::HardBreak => Some(Event::HardBreak),
         }
     }
 
-    fn convert_tag(&mut self, tag: CmarkTag<'a>, start: bool, cskvp: Option<Cskvp<'a>>) -> Event<'a> {
+    /// Returns None if an Event was ignored, but no further Event is in the `parser`
+    fn convert_tag(&mut self, tag: CmarkTag<'a>, start: bool, mut cskvp: Option<Cskvp<'a>>) -> Option<Event<'a>> {
         let f = match start {
             true => Event::Start,
             false => Event::End,
@@ -114,34 +118,64 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             String::from_utf8(out).expect("invalid utf8")
         };
 
-        f(match tag {
+        Some(f(match tag {
             CmarkTag::Paragraph => {
-                // check for label (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph))
-                if let Some(CmarkEvent::Text(text)) = self.parser.peek() {
-                    if text.starts_with('{') && text.ends_with('}') {
-                        let text = self.parser.next().unwrap();
-                        if let Some(CmarkEvent::End(CmarkTag::Paragraph)) = self.parser.peek() {
-                            // label
-                            let _ = self.parser.next().unwrap();
-                            let cskvp = Cskvp::new(&text[1..text.len()-1]);
-                            // if next element could have a label, convert that element with the label
-                            match self.parser.peek() {
-                                CmarkEvent::Start(CmarkTag::Header(_))
-                                | CmarkEvent::Start(CmarkTag::CodeBlock(_))
-                                | CmarkEvent::Start(CmarkTag::Table(_))
-                                | CmarkEvent::Start(CmarkTag::Image(_))
-                            }
-                        } else {
-                            // just unlucky, reset everything
-                            self.buffer.push(self.convert_event(text));
-                            return Event::Start(Tag::Paragraph);
-                        }
-                    }
+                match self.try_label(f) {
+                    Some(evt) => return Some(evt),
+                    // got label, but couldn't be applied, ignore it and continue
+                    None => self.convert_event(self.parser().next()?)
                 }
-                Tag::Paragraph
             },
             CmarkTag::Rule => Tag::Rule,
-            CmarkTag::Header(level) => Tag::Header(Header { level }),
+            CmarkTag::Header(level) => {
+                // header can have 3 different labels:
+                // • `{#foo}\n\n# Header`: "prefix" style
+                // • `# Header {#foo}: "inline" style
+                // • `# Header`: "default" style, autogenerating label `header`
+                // If both the first and the second are specified, we error.
+                // If neither the first or the second are specified, we use the default one.
+                // Otherwise we take the one that's specified.
+                let prefix = cskvp.as_mut().and_then(|cskvp| cskvp.take_label());
+                // Consume elements until end of heading to get its text.
+                // Convert them and put them into the buffer because the're still needed.
+                let mut text = String::new();
+                loop {
+                    if let CmarkEvent::Stop(CmarkTag::Header(_)) = self.parser.peek() {
+                        break;
+                    }
+                    let evt = self.parser().next().unwrap();
+                    match &evt {
+                        Event::Text(t) => text.push_str(t),
+                        _ => (),
+                    }
+                    self.buffer.push_back(self.convert_event(evt).unwrap());
+                }
+
+                lazy_static! {
+                    static ref RE: Regex = Regex::new(r"\{(#[a-zA-Z0-9-_]+\})\w*$").unwrap();
+                }
+                let inline = RE.captures(text).map(|c| c.get(1).unwrap());
+
+                let autogenerated = text.chars().flat_map(|c| match c {
+                    'a'...'z' | 'A'...'Z' | '0'...'9' | '-' | '_' => Some(c.to_ascii_lowercase()),
+                    ' ' => Some('-'),
+                    _ => None,
+                }).collect();
+
+                let label = if prefix.is_some() && inline.is_some() {
+                    println!("Header has both prefix and inline style headings, ignoring both");
+                    Cow::Owned(autogenerated)
+                } else {
+                    prefix.or(inline)
+                        .map(|label| Cow::Borrowed(label))
+                        .unwrap_or_else(|| Cow::Owned(autogenerated))
+                };
+
+                Tag::Header(Header {
+                    label,
+                    level
+                })
+            },
             CmarkTag::BlockQuote => Tag::BlockQuote,
             CmarkTag::CodeBlock(language) => Tag::CodeBlock(CodeBlock { language }),
             CmarkTag::List(start_number) if start_number.is_none() => Tag::List,
@@ -181,7 +215,46 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 // TODO: parse title to extract other information
                 return Event::Include(Include { dst, width: None, height: None, caption })
             },
-        })
+        }))
+    }
+
+    fn try_label(&mut self, f: fn(Tag) -> Event) -> Option<Event<'a>> {
+        // check for label/config (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph))
+        if let Some(CmarkEvent::Text(text)) = self.parser.peek() {
+            let text = text.trim();
+            if text.starts_with('{') && text.ends_with('}') {
+                let text = self.parser.next().unwrap();
+                if let Some(CmarkEvent::End(CmarkTag::Paragraph)) = self.parser.peek() {
+                    // label
+                    let _ = self.parser.next().unwrap();
+                    let cskvp = Cskvp::new(&text[1..text.len()-1]);
+                    // if next element could have a label, convert that element with the label
+                    match self.parser.peek() {
+                        Some(CmarkEvent::Start(CmarkTag::Header(_)))
+                        | Some(CmarkEvent::Start(CmarkTag::CodeBlock(_)))
+                        | Some(CmarkEvent::Start(CmarkTag::Table(_)))
+                        | Some(CmarkEvent::Start(CmarkTag::Image(_))) => {
+                            if let CmarkEvent::Start(tag) =  self.parser.next().unwrap() {
+                                return Some(self.convert_tag(tag, true, Some(cskvp)))
+                            } else {
+                                unreachable!()
+                            }
+                        }
+                        _ => {
+                            // TODO error
+                            println!("got label / config, but there wasn't an element to\
+                             apply it to: {:?}", text);
+                            return None;
+                        }
+                    }
+                } else {
+                    // just unlucky, reset everything
+                    self.buffer.push(self.convert_event(text));
+                    return Some(f(Tag::Paragraph));
+                }
+            }
+        }
+        return Some(f(Tag::Paragraph))
     }
 
     fn try_end_tag(&mut self) -> Option<Event<'a>> {
@@ -244,7 +317,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             Cow::Owned(_) => unreachable!(),
         };
         let mut cskvp = Cskvp::new(lang);
-        let res = match cskvp.single_remove(0) {
+        let res = match cskvp.take_single_by_index(0) {
             Some("equation") | Some("$$") => {
                 self.state = State::Equation;
                 Event::Start(Tag::Equation)
@@ -255,10 +328,10 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             }
             Some("graphviz") => {
                 let graphviz = Graphviz {
-                    scale: cskvp.double("scale"),
-                    width: cskvp.double("width"),
-                    height: cskvp.double("height"),
-                    caption: cskvp.double("caption"),
+                    scale: cskvp.take_double("scale"),
+                    width: cskvp.take_double("width"),
+                    height: cskvp.take_double("height"),
+                    caption: cskvp.take_double("caption"),
                 };
                 self.state = State::Graphviz(graphviz.clone());
                 Event::Start(Tag::Graphviz(graphviz))
