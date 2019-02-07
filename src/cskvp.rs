@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::borrow::Cow;
 
 pub struct Cskvp<'a> {
     label: Option<&'a str>,
@@ -37,8 +38,12 @@ impl<'a> Cskvp<'a> {
         }
     }
 
-    pub fn take_label(&mut self) -> Option<&'a str> {
-        self.label.take()
+    pub fn has_label(&self) -> bool {
+        self.label.is_some()
+    }
+
+    pub fn take_label(&mut self) -> Option<Cow<'a, str>> {
+        Cow::Borrowed(self.label.take())
     }
 
     pub fn take_single(&mut self, attr: &str) -> Option<&'a str> {

@@ -8,8 +8,6 @@ use super::Link;
 #[derive(Debug)]
 pub enum Event<'a> {
     Start(Tag<'a>),
-    /// End Events may have invalid data, the data should be taken from the
-    /// respective Start event.
     End(Tag<'a>),
     Text(Cow<'a, str>),
     Html(Cow<'a, str>),
@@ -50,8 +48,8 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
-    Equation,
-    NumberedEquation,
+    Equation(Equation<'a>),
+    NumberedEquation(Equation<'a>),
     Graphviz(Graphviz<'a>),
 }
 
@@ -90,6 +88,11 @@ pub struct Include<'a> {
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
     pub caption: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Equation<'a> {
+    pub label: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
