@@ -33,7 +33,7 @@ pub enum Event<'a> {
 pub enum Tag<'a> {
     Paragraph,
     Rule,
-    Header(Header),
+    Header(Header<'a>),
     BlockQuote,
     CodeBlock(CodeBlock<'a>),
     List,
@@ -41,7 +41,7 @@ pub enum Tag<'a> {
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
 
-    Table(Table),
+    Table(Table<'a>),
     TableHead,
     TableRow,
     TableCell,

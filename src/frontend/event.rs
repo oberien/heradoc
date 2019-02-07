@@ -8,6 +8,8 @@ use super::Link;
 #[derive(Debug)]
 pub enum Event<'a> {
     Start(Tag<'a>),
+    /// End Events may have invalid data, the data should be taken from the
+    /// respective Start event.
     End(Tag<'a>),
     Text(Cow<'a, str>),
     Html(Cow<'a, str>),
@@ -26,7 +28,7 @@ pub struct FootnoteReference<'a> {
 }
 
 // extension of pulldown_cmark::Tag with custom types
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Tag<'a> {
     Paragraph,
     Rule,

@@ -10,8 +10,8 @@ pub struct HeaderGen {
     label: String,
 }
 
-impl<'a> CodeGenUnit<'a, Header> for HeaderGen {
-    fn new(_cfg: &'a Config, header: Header, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen {
+    fn new(_cfg: &'a Config, header: Header<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Header { level } = header;
         write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
         Ok(HeaderGen {
@@ -41,8 +41,8 @@ pub struct BookHeaderGen {
     label: String,
 }
 
-impl<'a> CodeGenUnit<'a, Header> for BookHeaderGen {
-    fn new(_cfg: &'a Config, header: Header, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen {
+    fn new(_cfg: &'a Config, header: Header<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Header { level } = header;
         if level == 1 {
             write!(gen.get_out(), "\\chapter{{")?;

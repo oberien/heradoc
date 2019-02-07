@@ -35,7 +35,7 @@ pub trait Backend<'a>: Debug {
 
     type Paragraph: CodeGenUnit<'a, ()>;
     type Rule: CodeGenUnit<'a, ()>;
-    type Header: CodeGenUnit<'a, Header>;
+    type Header: CodeGenUnit<'a, Header<'a>>;
     type BlockQuote: CodeGenUnit<'a, ()>;
     type CodeBlock: CodeGenUnit<'a, CodeBlock<'a>>;
     type List: CodeGenUnit<'a, ()>;
@@ -43,7 +43,7 @@ pub trait Backend<'a>: Debug {
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
 
-    type Table: CodeGenUnit<'a, Table>;
+    type Table: CodeGenUnit<'a, Table<'a>>;
     type TableHead: CodeGenUnit<'a, ()>;
     type TableRow: CodeGenUnit<'a, ()>;
     type TableCell: CodeGenUnit<'a, ()>;

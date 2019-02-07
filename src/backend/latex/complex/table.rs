@@ -10,8 +10,8 @@ use crate::generator::event::{Event, Tag, Table};
 #[derive(Debug)]
 pub struct TableGen;
 
-impl<'a> CodeGenUnit<'a, Table> for TableGen {
-    fn new(_cfg: &'a Config, table: Table, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen {
+    fn new(_cfg: &'a Config, table: Table<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Table { alignment } = table;
         let out = gen.get_out();
 
