@@ -9,6 +9,7 @@
 // manually delete duplicate characters (just fix the unreachable pattern warnings)
 pub fn replace(c: char) -> Option<&'static str> {
     Some(match c {
+        '#' => "\\#",
         '𝐴' => "$A$",
         '𝐵' => "$B$",
         '𝐶' => "$C$",
