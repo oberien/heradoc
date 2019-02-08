@@ -66,6 +66,9 @@ impl<'a> Backend<'a> for Report {
         preamble::write_fixes(cfg, out)?;
 
         writeln!(out)?;
+        writeln!(out, "\\def \\ifempty#1{{\\ifx\\empty#1}}")?;
+
+        writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
@@ -99,10 +102,8 @@ impl<'a> Backend<'a> for Report {
             writeln!(out, "\\publishers{{{}}}", publisher)?;
         }
 
-        if cfg.title.is_some() {
-            // TODO: Warn if title isn't set but something else is
-            writeln!(out, "\\maketitle")?;
-        }
+        preamble::write_university_commands(&cfg, out)?;
+        writeln!(out, "{}", preamble::REPORT_COVER)?;
         writeln!(out)?;
 
         Ok(())
