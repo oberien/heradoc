@@ -1,18 +1,13 @@
 use std::io::{Write, Result};
-use std::fs;
-use std::path::Path;
-
-use typed_arena::Arena;
 
 use crate::backend::Backend;
 use crate::backend::latex::{self, preamble};
 use crate::config::Config;
-use crate::generator::Generator;
 
 #[derive(Debug)]
-pub struct Thesis;
+pub struct Report;
 
-impl<'a> Backend<'a> for Thesis {
+impl<'a> Backend<'a> for Report {
     type Text = latex::TextGen;
     type FootnoteReference = latex::FootnoteReferenceGen;
     type Link = latex::LinkGen;
@@ -49,7 +44,7 @@ impl<'a> Backend<'a> for Thesis {
     type Graphviz = latex::GraphvizGen<'a>;
 
     fn new() -> Self {
-        Thesis
+        Report
     }
 
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
@@ -57,52 +52,59 @@ impl<'a> Backend<'a> for Thesis {
         // documentclass
         write!(out, "\\documentclass[")?;
         write!(out, "{},", cfg.fontsize)?;
-        write!(out, "headsepline,footsepline,BCOR=12mm,DIV=12,")?;
+        match cfg.titlepage {
+            true => write!(out, "titlepage,")?,
+            false => write!(out, "notitlepage,")?,
+        }
         for other in &cfg.classoptions {
             write!(out, "{},", other)?;
         }
-        writeln!(out, "]{{scrbook}}")?;
+        writeln!(out, "]{{scrreprt}}")?;
         writeln!(out)?;
 
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
 
         writeln!(out)?;
-        writeln!(out, "\\def \\ifempty#1{{\\def\\temp{{#1}} \\ifx\\temp\\empty}}")?;
+        writeln!(out, "\\def \\ifempty#1{{\\ifx\\empty#1}}")?;
 
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
+        if let Some(title) = &cfg.title {
+            writeln!(out, "\\title{{{}}}", title)?;
+        }
+        if let Some(subtitle) = &cfg.subtitle {
+            writeln!(out, "\\subtitle{{{}}}", subtitle)?;
+        }
+        if let Some(author) = &cfg.author {
+            writeln!(out, "\\author{{{}}}", author)?;
+        }
+        if let Some(date) = &cfg.date {
+            writeln!(out, "\\date{{{}}}", date)?;
+        }
+        let publisher = match (&cfg.publisher, &cfg.supervisor, &cfg.advisor) {
+            (None, None, None) => None,
+            (a, b, c) => {
+                let mut buffer = String::new();
+                a.as_ref().map(|s| { buffer.push_str(s); buffer.push_str("\\\\"); });
+                // TODO: i18n
+                // TODO: better use table here
+                b.as_ref().map(|s| { buffer.push_str("Supervisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
+                c.as_ref().map(|s| { buffer.push_str("Advisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
+                // strip possibly leading linebreak
+                buffer.pop(); buffer.pop();
+                Some(buffer)
+            }
+        };
+        if let Some(publisher) = publisher {
+            writeln!(out, "\\publishers{{{}}}", publisher)?;
+        }
+
         preamble::write_university_commands(&cfg, out)?;
-
-        writeln!(out, "\\pagenumbering{{alph}}")?;
-        writeln!(out, "{}", preamble::THESIS_COVER)?;
-
-        writeln!(out, "\\frontmatter{{}}")?;
-
-        writeln!(out, "{}", preamble::THESIS_TITLE)?;
-
-        if let Some(disclaimer) = &cfg.disclaimer {
-            writeln!(out, "\\newcommand*{{\\getDisclaimer}}{{{}}}", disclaimer)?;
-            writeln!(out, "{}", preamble::THESIS_DISCLAIMER)?;
-        }
-
-        writeln!(out, "\\cleardoublepage{{}}")?;
-
-        if let Some(_abstract) = &cfg._abstract {
-            gen(_abstract, cfg, out)?;
-        }
-        if let Some(abstract2) = &cfg.abstract2 {
-            gen(abstract2, cfg, out)?;
-        }
-
+        writeln!(out, "{}", preamble::REPORT_COVER)?;
         writeln!(out)?;
-        writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
-        writeln!(out, "\\tableofcontents{{}}")?;
-        writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
-        writeln!(out)?;
-        writeln!(out, "\\mainmatter{{}}")?;
 
         Ok(())
     }
@@ -113,12 +115,3 @@ impl<'a> Backend<'a> for Thesis {
     }
 }
 
-fn gen<P: AsRef<Path>>(path: P, cfg: &Config, out: &mut impl Write) -> Result<()> {
-    let arena = Arena::new();
-    let mut gen = Generator::new(cfg, Thesis, out, &arena);
-    let markdown = fs::read_to_string(path)?;
-    let events = gen.get_events(markdown);
-    gen.generate_body(events)?;
-    Ok(())
-
-}
