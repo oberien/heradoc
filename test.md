@@ -210,9 +210,10 @@ In math: `$ A ← B ⇐ C ∈ D ⊥ E`
 Multiline substitution ⊂∫∀∃ΞΛℂ∈ΣℕℝΔ  
 Check for linespacing EEEEEEEEEEEEEEE
 
-Text with_underscore and `inline code with_underscore` and `$ math\ with_{subscript}`.
+Text with_underscore and `inline code with_underscore` and `$ math\ with_{subscript}` and `# symbols` and even \\# outside any other context.
 ```
 code block with_underscore
+# And a bash-style comment with #
 ```
 
 # Math
