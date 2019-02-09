@@ -25,6 +25,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
     InlineStrong(D::InlineStrong),
     InlineCode(D::InlineCode),
     InlineMath(D::InlineMath),
+    BlockMath(D::BlockMath),
     Equation(D::Equation),
     NumberedEquation(D::NumberedEquation),
     Graphviz(D::Graphviz),
@@ -53,6 +54,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             Tag::InlineStrong => Ok(StackElement::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
             Tag::InlineCode => Ok(StackElement::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
             Tag::InlineMath => Ok(StackElement::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
+            Tag::BlockMath(math) => Ok(StackElement::BlockMath(D::BlockMath::new(cfg, math, gen)?)),
             Tag::Equation => Ok(StackElement::Equation(D::Equation::new(cfg, (), gen)?)),
             Tag::NumberedEquation => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, (), gen)?)),
             Tag::Graphviz(graphviz) => Ok(StackElement::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
@@ -78,6 +80,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::InlineStrong(s) => s.output_redirect(),
             StackElement::InlineCode(s) => s.output_redirect(),
             StackElement::InlineMath(s) => s.output_redirect(),
+            StackElement::BlockMath(s) => s.output_redirect(),
             StackElement::Equation(s) => s.output_redirect(),
             StackElement::NumberedEquation(s) => s.output_redirect(),
             StackElement::Graphviz(s) => s.output_redirect(),
@@ -105,6 +108,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::InlineStrong(s) => s.intercept_event(stack, e),
             StackElement::InlineCode(s) => s.intercept_event(stack, e),
             StackElement::InlineMath(s) => s.intercept_event(stack, e),
+            StackElement::BlockMath(s) => s.intercept_event(stack, e),
             StackElement::Equation(s) => s.intercept_event(stack, e),
             StackElement::NumberedEquation(s) => s.intercept_event(stack, e),
             StackElement::Graphviz(s) => s.intercept_event(stack, e),
@@ -132,6 +136,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             (StackElement::InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
             (StackElement::InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
             (StackElement::InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
+            (StackElement::BlockMath(s), Tag::BlockMath(_)) => s.finish(gen, peek),
             (StackElement::Equation(s), Tag::Equation) => s.finish(gen, peek),
             (StackElement::NumberedEquation(s), Tag::NumberedEquation) => s.finish(gen, peek),
             (StackElement::Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
@@ -144,6 +149,14 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     pub fn is_graphviz(&self) -> bool {
         match self {
             StackElement::Graphviz(_) => true,
+            _ => false
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_block_math(&self) -> bool {
+        match self {
+            StackElement::BlockMath(_) => true,
             _ => false
         }
     }
@@ -191,7 +204,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     }
 
     pub fn is_math(&self) -> bool {
-        self.is_equation() || self.is_numbered_equation() || self.is_inline_math()
+        self.is_equation() || self.is_numbered_equation() || self.is_inline_math() || self.is_block_math()
     }
 
     #[allow(dead_code)]

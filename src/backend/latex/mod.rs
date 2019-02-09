@@ -30,6 +30,7 @@ use self::complex::{
     InlineStrongGen,
     InlineCodeGen,
     InlineMathGen,
+    BlockMathGen,
     EquationGen,
     NumberedEquationGen,
     GraphvizGen,

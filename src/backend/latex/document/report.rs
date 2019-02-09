@@ -39,6 +39,7 @@ impl<'a> Backend<'a> for Report {
     type InlineStrong = latex::InlineStrongGen;
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
+    type BlockMath = latex::BlockMathGen;
     type Equation = latex::EquationGen;
     type NumberedEquation = latex::NumberedEquationGen;
     type Graphviz = latex::GraphvizGen<'a>;

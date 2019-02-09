@@ -22,6 +22,7 @@ enum State<'a> {
     Nothing,
     Math,
     CodeBlock,
+    BlockMath(BlockMath),
     Equation,
     NumberedEquation,
     Graphviz(Graphviz<'a>),
@@ -172,13 +173,14 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 Some(self.convert_event(evt))
             }
             // ignore everything in code blocks
-            State::CodeBlock | State::Equation | State::NumberedEquation | State::Graphviz(_) => {
+            State::BlockMath(_) | State::CodeBlock | State::Equation | State::NumberedEquation | State::Graphviz(_) => {
                 let evt = self.parser.next().unwrap();
                 if let CmarkEvent::End(CmarkTag::CodeBlock(_)) = &evt {
                     let state = mem::replace(&mut self.state, State::Nothing);
                     match state {
                         State::Nothing | State::Math => unreachable!(),
                         State::CodeBlock => return Some(self.convert_event(evt)),
+                        State::BlockMath(b) => return Some(Event::End(Tag::BlockMath(b))),
                         State::Equation => return Some(Event::End(Tag::Equation)),
                         State::NumberedEquation => return Some(Event::End(Tag::NumberedEquation)),
                         State::Graphviz(g) => return Some(Event::End(Tag::Graphviz(g))),
@@ -227,6 +229,14 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             "numberedequation" | "$$$" => {
                 self.state = State::NumberedEquation;
                 Event::Start(Tag::NumberedEquation)
+            }
+            "theorem" => {
+                self.state = State::BlockMath(BlockMath::Theorem);
+                Event::Start(Tag::BlockMath(BlockMath::Theorem))
+            }
+            "lemma" => {
+                self.state = State::BlockMath(BlockMath::Lemma);
+                Event::Start(Tag::BlockMath(BlockMath::Lemma))
             }
             "graphviz" => {
                 let graphviz = Graphviz {

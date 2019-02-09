@@ -47,6 +47,7 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
+    BlockMath(BlockMath),
     Equation,
     NumberedEquation,
     Graphviz(Graphviz<'a>),
@@ -83,6 +84,12 @@ pub struct Image<'a> {
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
     pub caption: Option<String>,
+}
+
+#[derive(Clone, Debug)]
+pub enum BlockMath {
+    Lemma,
+    Theorem,
 }
 
 #[derive(Debug, Clone)]
