@@ -37,6 +37,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage{{environ}}")?;
     writeln!(out, "\\usepackage{{amssymb}}")?;
     writeln!(out, "\\usepackage{{amsmath}}")?;
+    writeln!(out, "\\usepackage{{amsthm}}")?;
     // TODO: graphicspath
     writeln!(out, "\\usepackage{{graphicx}}")?;
     writeln!(out, "\\usepackage[final]{{microtype}}")?;
@@ -61,6 +62,7 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "{}", AQUOTE)?;
     writeln!(out, "{}", FIX_INCLUDEGRAPHICS)?;
     writeln!(out, "{}", SCALE_TIKZ_PICTURE_TO_WIDTH)?;
+    writeln!(out, "{}", AMSTHM_ENVIRONMENTS)?;
     // TODO: figures inline? https://tex.stackexchange.com/a/11342 last codeblock
     // with package float and `[H]`
 
@@ -235,6 +237,11 @@ pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &'static str = r#"
   \BODY
 }
 \makeatother
+"#;
+
+pub const AMSTHM_ENVIRONMENTS: &'static str = r#"
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}{Lemma}[section]
 "#;
 
 // slightly modified from
