@@ -53,7 +53,7 @@ pub trait Backend<'a>: Debug {
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
 
-    type BlockMath: CodeGenUnit<'a, BlockMath>;
+    type BlockMath: CodeGenUnit<'a, BlockMath<'a>>;
     type Equation: CodeGenUnit<'a, ()>;
     type NumberedEquation: CodeGenUnit<'a, ()>;
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;

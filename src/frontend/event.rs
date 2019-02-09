@@ -47,7 +47,7 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
-    BlockMath(BlockMath),
+    BlockMath(BlockMath<'a>),
     Equation,
     NumberedEquation,
     Graphviz(Graphviz<'a>),
@@ -87,7 +87,13 @@ pub struct Image<'a> {
 }
 
 #[derive(Clone, Debug)]
-pub enum BlockMath {
+pub struct BlockMath<'a> {
+    pub kind: BlockMathKind,
+    pub heading: Option<&'a str>,
+}
+
+#[derive(Clone, Debug)]
+pub enum BlockMathKind {
     Lemma,
     Theorem,
 }

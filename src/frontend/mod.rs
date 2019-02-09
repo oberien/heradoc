@@ -22,7 +22,7 @@ enum State<'a> {
     Nothing,
     Math,
     CodeBlock,
-    BlockMath(BlockMath),
+    BlockMath(BlockMath<'a>),
     Equation,
     NumberedEquation,
     Graphviz(Graphviz<'a>),
@@ -231,12 +231,20 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 Event::Start(Tag::NumberedEquation)
             }
             "theorem" => {
-                self.state = State::BlockMath(BlockMath::Theorem);
-                Event::Start(Tag::BlockMath(BlockMath::Theorem))
+                let math = BlockMath {
+                    kind: BlockMathKind::Theorem,
+                    heading: double.remove("heading"),
+                };
+                self.state = State::BlockMath(math.clone());
+                Event::Start(Tag::BlockMath(math))
             }
             "lemma" => {
-                self.state = State::BlockMath(BlockMath::Lemma);
-                Event::Start(Tag::BlockMath(BlockMath::Lemma))
+                let math = BlockMath {
+                    kind: BlockMathKind::Lemma,
+                    heading: double.remove("heading"),
+                };
+                self.state = State::BlockMath(math.clone());
+                Event::Start(Tag::BlockMath(math))
             }
             "graphviz" => {
                 let graphviz = Graphviz {

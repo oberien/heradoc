@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 pub use pulldown_cmark::Alignment;
-pub use crate::frontend::{BlockMath, FootnoteReference, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
+pub use crate::frontend::{BlockMath, BlockMathKind, FootnoteReference, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
     Table, Graphviz, Label, LabelReference};
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
 
@@ -51,7 +51,7 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
-    BlockMath(BlockMath),
+    BlockMath(BlockMath<'a>),
     Equation,
     NumberedEquation,
     Graphviz(Graphviz<'a>),
