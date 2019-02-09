@@ -87,8 +87,9 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 # Backend
 
 - latex backend
-    - [x] scrartcl
+    - [x] article (scrartcl)
     - [x] thesis (scrbook)
+    - [x] report (scrreprt)
     - [ ] beamer
 - HTML backend
     + get rid of latex altogether
