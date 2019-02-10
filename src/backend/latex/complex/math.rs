@@ -55,6 +55,9 @@ pub struct BlockMathGen<'a>(BlockMath<'a>);
 
 fn tex_label(math: &BlockMathKind) -> &'static str {
     match math {
+        BlockMathKind::Algorithm => "algorithm",
+        BlockMathKind::Corollary => "corollary",
+        BlockMathKind::Definition => "definition",
         BlockMathKind::Lemma => "lemma",
         BlockMathKind::Theorem => "theorem",
     }

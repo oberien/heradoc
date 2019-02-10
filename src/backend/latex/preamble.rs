@@ -38,6 +38,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage{{amssymb}}")?;
     writeln!(out, "\\usepackage{{amsmath}}")?;
     writeln!(out, "\\usepackage{{amsthm}}")?;
+    writeln!(out, "\\usepackage{{algorithm2e}}")?;
     // TODO: graphicspath
     writeln!(out, "\\usepackage{{graphicx}}")?;
     writeln!(out, "\\usepackage[final]{{microtype}}")?;
@@ -241,7 +242,9 @@ pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &'static str = r#"
 
 pub const AMSTHM_ENVIRONMENTS: &'static str = r#"
 \newtheorem{theorem}{Theorem}[section]
-\newtheorem{lemma}{Lemma}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{corollary}[theorem]{Corollary}
 "#;
 
 // slightly modified from

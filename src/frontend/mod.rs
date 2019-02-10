@@ -230,6 +230,30 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 self.state = State::NumberedEquation;
                 Event::Start(Tag::NumberedEquation)
             }
+            "algorithm" => {
+                let math = BlockMath {
+                    kind: BlockMathKind::Algorithm,
+                    heading: None,
+                };
+                self.state = State::BlockMath(math.clone());
+                Event::Start(Tag::BlockMath(math))
+            }
+            "corollary" => {
+                let math = BlockMath {
+                    kind: BlockMathKind::Corollary,
+                    heading: double.remove("heading"),
+                };
+                self.state = State::BlockMath(math.clone());
+                Event::Start(Tag::BlockMath(math))
+            }
+            "definition" => {
+                let math = BlockMath {
+                    kind: BlockMathKind::Definition,
+                    heading: double.remove("heading"),
+                };
+                self.state = State::BlockMath(math.clone());
+                Event::Start(Tag::BlockMath(math))
+            }
             "theorem" => {
                 let math = BlockMath {
                     kind: BlockMathKind::Theorem,

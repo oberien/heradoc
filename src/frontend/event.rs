@@ -94,6 +94,9 @@ pub struct BlockMath<'a> {
 
 #[derive(Clone, Debug)]
 pub enum BlockMathKind {
+    Algorithm,
+    Corollary,
+    Definition,
     Lemma,
     Theorem,
 }
