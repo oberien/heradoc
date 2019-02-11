@@ -260,59 +260,84 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
 
     fn convert_paragraph(&mut self) {
         // check for label/config (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph))
-        // TODO: make this not ugly
-        if let Some(CmarkEvent::Text(text)) = self.parser.peek() {
-            let text = text.trim();
-            if text.starts_with('{') && text.ends_with('}') {
-                let text = match self.parser.next().unwrap() {
-                    CmarkEvent::Text(Cow::Borrowed(text)) => text,
-                    CmarkEvent::Text(Cow::Owned(_)) => panic!("CmarkEvent::Text contains Cow::Owned"),
-                    _ => unreachable!()
-                };
-                match self.parser.peek() {
-                    Some(CmarkEvent::End(CmarkTag::Paragraph))
-                    | Some(CmarkEvent::SoftBreak) => {
-                        let _ = self.parser.next().unwrap();
-                        // label
-                        let mut cskvp = Cskvp::new(&text[1..text.len()-1]);
-                        // if next element could have a label, convert that element with the label
-                        match self.parser.peek() {
-                            Some(CmarkEvent::Start(CmarkTag::Header(_)))
-                            | Some(CmarkEvent::Start(CmarkTag::CodeBlock(_)))
-                            | Some(CmarkEvent::Start(CmarkTag::Table(_)))
-                            | Some(CmarkEvent::Start(CmarkTag::Image(..))) => match self.parser.next().unwrap() {
-                                CmarkEvent::Start(CmarkTag::Header(label)) => self.convert_header(label, Some(cskvp)),
-                                CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, Some(cskvp)),
-                                CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, Some(cskvp)),
-                                CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => self.convert_image(typ, dst, title, Some(cskvp)),
-                                _ => unreachable!(),
-                            }
-                            _ => {
-                                if !cskvp.has_label() {
-                                    // TODO error
-                                    println!("got element config, but there wasn't an element to\
-                             apply it to: {:?}", text);
-                                    return;
-                                }
-                                self.buffer.push_back(Event::Label(cskvp.take_label().unwrap()));
-                                return;
-                            }
-                        }
-                    }
-                    _ => {
-                        // not a label, reset our look-ahead and generate original
-                        self.buffer.push_back(Event::Start(Tag::Paragraph));
-                        self.buffer.push_back(Event::Text(Cow::Borrowed(text)));
-                        self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
-                        self.buffer.push_back(Event::End(Tag::Paragraph));
-                        return;
-                    }
+
+        macro_rules! handle_normal {
+            () => {{
+                self.buffer.push_back(Event::Start(Tag::Paragraph));
+                self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
+                self.buffer.push_back(Event::End(Tag::Paragraph));
+                return
+            }}
+        };
+
+        let text = match self.parser.peek() {
+            Some(CmarkEvent::Text(text)) => text, // continue
+            _ => handle_normal!()
+        };
+
+        let text = text.trim();
+        if !(text.starts_with('{') && text.ends_with('}')) {
+            handle_normal!();
+        }
+        // consume text
+        let text = match self.parser.next().unwrap() {
+            CmarkEvent::Text(Cow::Borrowed(text)) => text,
+            CmarkEvent::Text(Cow::Owned(_)) => panic!("CmarkEvent::Text contains Cow::Owned"),
+            _ => unreachable!()
+        };
+
+        // TODO: look ahead further to enable Start(Paragraph), Label, End(Paragraph), Start(Paragraph), Image, …
+        let end_paragraph = match self.parser.peek() {
+            Some(CmarkEvent::End(CmarkTag::Paragraph)) => true,
+            Some(CmarkEvent::SoftBreak) => false,
+            _ => {
+                // not a label, reset our look-ahead and generate original
+                self.buffer.push_back(Event::Start(Tag::Paragraph));
+                self.buffer.push_back(Event::Text(Cow::Borrowed(text)));
+                self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
+                self.buffer.push_back(Event::End(Tag::Paragraph));
+                return;
+            }
+        };
+
+        // consume end / soft break
+        let _ = self.parser.next().unwrap();
+
+        // if it's a label at the beginning of a paragraph, create that paragraph before creating
+        // the element
+        if !end_paragraph {
+            self.buffer.push_back(Event::Start(Tag::Paragraph));
+        }
+
+        // parse label
+        let mut cskvp = Cskvp::new(&text[1..text.len()-1]);
+        // if next element could have a label, convert that element with the label
+        // otherwise create label event
+        match self.parser.peek() {
+            Some(CmarkEvent::Start(CmarkTag::Header(_)))
+            | Some(CmarkEvent::Start(CmarkTag::CodeBlock(_)))
+            | Some(CmarkEvent::Start(CmarkTag::Table(_)))
+            | Some(CmarkEvent::Start(CmarkTag::Image(..))) => match self.parser.next().unwrap() {
+                CmarkEvent::Start(CmarkTag::Header(label)) => self.convert_header(label, Some(cskvp)),
+                CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, Some(cskvp)),
+                CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, Some(cskvp)),
+                CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => self.convert_image(typ, dst, title, Some(cskvp)),
+                _ => unreachable!(),
+            }
+            _ => {
+                if !cskvp.has_label() {
+                    // TODO error
+                    println!("got element config, but there wasn't an element to\
+                     apply it to: {:?}", text);
                 }
+                self.buffer.push_back(Event::Label(cskvp.take_label().unwrap()));
             }
         }
-        self.buffer.push_back(Event::Start(Tag::Paragraph));
-        self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
-        self.buffer.push_back(Event::End(Tag::Paragraph));
+
+        if !end_paragraph {
+            self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
+            self.buffer.push_back(Event::End(Tag::Paragraph));
+        }
     }
 
     fn convert_header(&mut self, level: i32, mut cskvp: Option<Cskvp<'a>>) {
