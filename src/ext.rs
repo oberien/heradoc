@@ -14,6 +14,17 @@ impl StrExt for str {
     }
 }
 
+// https://github.com/rust-lang/rust/issues/40062
+pub trait VecExt<T> {
+    fn remove_element<U>(&mut self, element: &U) -> Option<T> where T: PartialEq<U>, U: ?Sized;
+}
+
+impl<T> VecExt<T> for Vec<T> {
+    fn remove_element<U>(&mut self, element: &U) -> Option<T> where T: PartialEq<U>, U: ?Sized {
+        let pos = self.iter().position(|s| *s == *element)?;
+        Some(self.remove(pos))
+    }
+}
 
 pub trait CowExt<'a> {
     fn trim_inplace(&mut self);

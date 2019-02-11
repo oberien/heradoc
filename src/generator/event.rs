@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 pub use pulldown_cmark::Alignment;
 pub use crate::frontend::{FootnoteReference, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
-    Table, Graphviz, Equation};
+    Figure, Table, Graphviz, Equation};
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
 
 // transformation of frontend::Event
@@ -41,6 +41,7 @@ pub enum Tag<'a> {
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
+    Figure(Figure<'a>),
 
     Table(Table<'a>),
     TableHead,
@@ -104,6 +105,7 @@ impl<'a> From<FeTag<'a>> for Tag<'a> {
             FeTag::Enumerate(e) => Tag::Enumerate(e),
             FeTag::Item => Tag::Item,
             FeTag::FootnoteDefinition(fnote) => Tag::FootnoteDefinition(fnote),
+            FeTag::Figure(figure) => Tag::Figure(figure),
             FeTag::Table(table) => Tag::Table(table),
             FeTag::TableHead => Tag::TableHead,
             FeTag::TableRow => Tag::TableRow,

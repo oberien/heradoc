@@ -32,6 +32,7 @@ impl<'a> Backend<'a> for Article {
     type Enumerate = latex::EnumerateGen;
     type Item = latex::ItemGen;
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
+    type Figure = latex::FigureGen<'a>;
     type Table = latex::TableGen;
     type TableHead = latex::TableHeadGen;
     type TableRow = latex::TableRowGen;

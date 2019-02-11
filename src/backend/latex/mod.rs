@@ -22,6 +22,7 @@ use self::complex::{
     EnumerateGen,
     ItemGen,
     FootnoteDefinitionGen,
+    FigureGen,
     TableGen,
     TableHeadGen,
     TableRowGen,

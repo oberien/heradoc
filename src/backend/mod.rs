@@ -4,7 +4,7 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition,
+use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, Figure,
     FootnoteReference, Table, Image, Graphviz, Link, Pdf, Equation};
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
@@ -43,6 +43,7 @@ pub trait Backend<'a>: Debug {
     type Enumerate: CodeGenUnit<'a, Enumerate>;
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
+    type Figure: CodeGenUnit<'a, Figure<'a>>;
 
     type Table: CodeGenUnit<'a, Table<'a>>;
     type TableHead: CodeGenUnit<'a, ()>;

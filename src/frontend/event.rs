@@ -37,6 +37,7 @@ pub enum Tag<'a> {
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
+    Figure(Figure<'a>),
 
     Table(Table<'a>),
     TableHead,
@@ -73,6 +74,12 @@ pub struct Enumerate {
 #[derive(Debug, Clone)]
 pub struct FootnoteDefinition<'a> {
     pub label: Cow<'a, str>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Figure<'a> {
+    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]

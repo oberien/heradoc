@@ -259,7 +259,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     }
 
     fn convert_paragraph(&mut self) {
-        // check for label/config (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph))
+        // check for label/config (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph)/SoftBreak)
 
         macro_rules! handle_normal {
             () => {{
@@ -317,12 +317,30 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             Some(CmarkEvent::Start(CmarkTag::Header(_)))
             | Some(CmarkEvent::Start(CmarkTag::CodeBlock(_)))
             | Some(CmarkEvent::Start(CmarkTag::Table(_)))
-            | Some(CmarkEvent::Start(CmarkTag::Image(..))) => match self.parser.next().unwrap() {
-                CmarkEvent::Start(CmarkTag::Header(label)) => self.convert_header(label, Some(cskvp)),
-                CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, Some(cskvp)),
-                CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, Some(cskvp)),
-                CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => self.convert_image(typ, dst, title, Some(cskvp)),
-                _ => unreachable!(),
+            | Some(CmarkEvent::Start(CmarkTag::Image(..))) => {
+                // check if we want a figure
+                let figure = match cskvp.take_figure().unwrap_or(self.cfg.figures) {
+                    false => None,
+                    true => Some(Tag::Figure(Figure {
+                        caption: cskvp.take_caption(),
+                        label: cskvp.take_label(),
+                    })),
+                };
+                if let Some(figure) = figure.clone() {
+                    self.buffer.push_back(Event::Start(figure));
+                }
+
+                match self.parser.next().unwrap() {
+                    CmarkEvent::Start(CmarkTag::Header(label)) => self.convert_header(label, Some(cskvp)),
+                    CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, Some(cskvp)),
+                    CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, Some(cskvp)),
+                    CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => self.convert_image(typ, dst, title, Some(cskvp)),
+                    _ => unreachable!(),
+                }
+
+                if let Some(figure) = figure {
+                    self.buffer.push_back(Event::End(figure));
+                }
             }
             _ => {
                 if !cskvp.has_label() {

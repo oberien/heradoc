@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 use std::borrow::Cow;
 
+use crate::ext::VecExt;
+
 #[derive(Debug)]
 pub struct Cskvp<'a> {
     label: Option<&'a str>,
+    figure: Option<bool>,
+    caption: Option<&'a str>,
     single: Vec<&'a str>,
     double: HashMap<&'a str, &'a str>,
 }
@@ -18,7 +22,9 @@ impl<'a> Cskvp<'a> {
             let part = part.trim();
             if part.contains("=") {
                 let i = part.find('=').unwrap();
-                double.insert(&part[..i], &part[(i+1)..]);
+                let key = &part[..i];
+                let value = &part[(i+1)..];
+                double.insert(key, value);
             } else {
                 if part.starts_with("#") {
                     if label.is_some() {
@@ -32,8 +38,38 @@ impl<'a> Cskvp<'a> {
                 }
             }
         }
+
+        let figure_double = double.remove("figure")
+            .and_then(|s| match s.parse() {
+                Ok(val) => Some(val),
+                Err(_) => {
+                    // TODO: warn
+                    println!("cannot parse `figure={}`, only `true` and `false` are allowed", s);
+                    None
+                }
+            });
+        let figure = single.remove_element(&"figure").is_some();
+        let nofigure = single.remove_element(&"nofigure").is_some();
+
+        let figure = if figure_double.is_some() as u8 + figure as u8 + nofigure as u8 > 1 {
+            // TODO: warn
+            println!("only one of `figure=true`, `figure=false`, `figure` and `nofigure` allowed,\
+            found multiple");
+            None
+        } else {
+            figure_double
+                .or_else(|| match (figure, nofigure) {
+                    (true, false) => Some(true),
+                    (false, true) => Some(false),
+                    (false, false) => None,
+                    (true, true) => unreachable!(),
+                })
+        };
+
         Cskvp {
             label,
+            figure,
+            caption: double.remove("caption"),
             single,
             double,
         }
@@ -47,9 +83,16 @@ impl<'a> Cskvp<'a> {
         self.label.take().map(Cow::Borrowed)
     }
 
+    pub fn take_figure(&mut self) -> Option<bool> {
+        self.figure.take()
+    }
+
+    pub fn take_caption(&mut self) -> Option<Cow<'a, str>> {
+        self.caption.take().map(Cow::Borrowed)
+    }
+
     pub fn take_single(&mut self, attr: &str) -> Option<&'a str> {
-        let pos = self.single.iter().position(|&s| attr == s)?;
-        Some(self.single.remove(pos))
+        self.single.remove_element(&attr)
     }
 
     pub fn take_single_by_index(&mut self, index: usize) -> Option<&'a str> {
@@ -66,12 +109,20 @@ impl<'a> Cskvp<'a> {
 
 impl<'a> Drop for Cskvp<'a> {
     fn drop(&mut self) {
+        // TODO: warn
+        if let Some(label) = self.label {
+            println!("label ignored: {}", label);
+        }
+        if let Some(figure) = self.figure {
+            println!("figure config ignored: {}", figure);
+        }
+        if let Some(caption) = self.caption {
+            println!("caption ignored: {}", caption);
+        }
         for (k, v) in self.double.drain() {
-            // TODO: warn
             println!("Unknown attribute `{}={}`", k, v);
         }
         for attr in self.single.drain(..) {
-            // TODO: warn
             println!("Unknown attribute `{}`", attr);
         }
     }
