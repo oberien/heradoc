@@ -56,6 +56,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut stack)?,
             Some(Event::Link(link)) => B::Link::gen(link, &mut stack)?,
             Some(Event::Image(img)) => B::Image::gen(img, &mut stack)?,
+            Some(Event::Label(label)) => B::Label::gen(label, &mut stack)?,
             Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut stack)?,
             Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut stack)?,
             Some(Event::HardBreak) => B::HardBreak::gen((), &mut stack)?,

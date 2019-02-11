@@ -39,7 +39,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
 
     fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         drop(self.file);
-        let Graphviz { scale, width, height, caption } = self.graphviz;
+        let Graphviz { label, scale, width, height, caption } = self.graphviz;
         let out = Command::new("dot").args(&["-T", "pdf", "-O"]).arg(&self.path).output()
             .expect("Error executing `dot` to generate graphviz output");
         if !out.status.success() {
@@ -66,6 +66,10 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
 
         if let Some(caption) = caption {
             writeln!(out, "\\caption{{{}}}", caption)?;
+        }
+        // label must be after caption in latex
+        if let Some(label) = label {
+            writeln!(out, "\\label{{{}}}", label)?;
         }
         writeln!(out, "\\end{{figure}}")?;
 

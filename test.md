@@ -67,9 +67,9 @@ uiae
 
 ### Graphviz
 
-See the generated graphviz output in [fig:graphviz];
+See the generated graphviz output in [#graphviz];
 
-```graphviz,label=graphviz,caption=Fancy Graph,width=0.5\textwidth,height=0.5\textwidth,scale=0.4
+```graphviz,#graphviz,caption=Fancy Graph,width=0.5\textwidth,height=0.5\textwidth,scale=0.4
 digraph FancyGraph {
     splines=ortho;
     
@@ -115,15 +115,18 @@ Link to existing reference without title without text [Existing-no-title].
 Link to existing reference with title without text [Existing].  
 Link to existing reference without title with text [Text][Existing-no-title]  
 Link to existing reference with title with text [Text][Existing]  
-Link to [#Fun-with-references].  
+Capital link to [#Fun-with-references].  
+Small link to [#fun-with-references].
 Link to [a section with custom tex][#fun-with-references].  
 Inline Link to [a section with custom tex](#fun-with-references).  
 
 [existing-no-title]: Link
 [eXisting]: Link "Title"
 
-This is hopefully an image with a title which is used as label, such that I can reference it here as [img:placeholdit].
-![Foobar](https://placehold.it/100x100.png "placeholdit")
+This is hopefully an image with a title which is used as label, such that I can reference it here as [#placeholdit].
+
+{#placeholdit}
+![Foobar](https://placehold.it/100x100.png)
 ![placeholditimage]
 
 [placeholditimage]: https://placehold.it/100x100.png

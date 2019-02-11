@@ -17,6 +17,7 @@ impl<'a> Backend<'a> for Thesis {
     type FootnoteReference = latex::FootnoteReferenceGen;
     type Link = latex::LinkGen;
     type Image = latex::ImageGen;
+    type Label = latex::LabelGen;
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
@@ -29,7 +30,7 @@ impl<'a> Backend<'a> for Thesis {
 
     type Paragraph = latex::ParagraphGen;
     type Rule = latex::RuleGen;
-    type Header = latex::BookHeaderGen;
+    type Header = latex::BookHeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
     type List = latex::ListGen;

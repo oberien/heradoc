@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::borrow::Cow;
 
+#[derive(Debug)]
 pub struct Cskvp<'a> {
     label: Option<&'a str>,
     single: Vec<&'a str>,
@@ -43,7 +44,7 @@ impl<'a> Cskvp<'a> {
     }
 
     pub fn take_label(&mut self) -> Option<Cow<'a, str>> {
-        Cow::Borrowed(self.label.take())
+        self.label.take().map(Cow::Borrowed)
     }
 
     pub fn take_single(&mut self, attr: &str) -> Option<&'a str> {

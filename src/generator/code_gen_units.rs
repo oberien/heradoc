@@ -53,8 +53,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             Tag::InlineStrong => Ok(StackElement::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
             Tag::InlineCode => Ok(StackElement::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
             Tag::InlineMath => Ok(StackElement::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
-            Tag::Equation => Ok(StackElement::Equation(D::Equation::new(cfg, (), gen)?)),
-            Tag::NumberedEquation => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, (), gen)?)),
+            Tag::Equation(equation) => Ok(StackElement::Equation(D::Equation::new(cfg, equation, gen)?)),
+            Tag::NumberedEquation(equation) => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, equation, gen)?)),
             Tag::Graphviz(graphviz) => Ok(StackElement::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
         }
     }
@@ -132,8 +132,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             (StackElement::InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
             (StackElement::InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
             (StackElement::InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
-            (StackElement::Equation(s), Tag::Equation) => s.finish(gen, peek),
-            (StackElement::NumberedEquation(s), Tag::NumberedEquation) => s.finish(gen, peek),
+            (StackElement::Equation(s), Tag::Equation(_)) => s.finish(gen, peek),
+            (StackElement::NumberedEquation(s), Tag::NumberedEquation(_)) => s.finish(gen, peek),
             (StackElement::Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
             (state, tag) => unreachable!("invalid end tag {:?}, expected {:?}", tag, state),
         }

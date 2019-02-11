@@ -10,9 +10,13 @@ pub struct CodeBlockGen;
 
 impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
     fn new(_cfg: &'a Config, code_block: CodeBlock<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
-        let CodeBlock { language } = code_block;
+        let CodeBlock { label, language } = code_block;
         let out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}")?;
+        if let Some(label) = label {
+            write!(out, " \\label{{{}}}", label)?;
+        }
+
         if !language.is_empty() {
             write!(out, "[")?;
             let parts = language.split(",");

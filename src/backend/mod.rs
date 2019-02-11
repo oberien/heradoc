@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use typed_arena::Arena;
 
 use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition,
-    FootnoteReference, Table, Image, Graphviz, Link, Pdf};
+    FootnoteReference, Table, Image, Graphviz, Link, Pdf, Equation};
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
@@ -23,6 +23,7 @@ pub trait Backend<'a>: Debug {
     type FootnoteReference: MediumCodeGenUnit<FootnoteReference<'a>>;
     type Link: MediumCodeGenUnit<Link<'a>>;
     type Image: MediumCodeGenUnit<Image<'a>>;
+    type Label: MediumCodeGenUnit<Cow<'a, str>>;
     type Pdf: MediumCodeGenUnit<Pdf>;
     type SoftBreak: MediumCodeGenUnit<()>;
     type HardBreak: MediumCodeGenUnit<()>;
@@ -53,8 +54,8 @@ pub trait Backend<'a>: Debug {
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
 
-    type Equation: CodeGenUnit<'a, ()>;
-    type NumberedEquation: CodeGenUnit<'a, ()>;
+    type Equation: CodeGenUnit<'a, Equation<'a>>;
+    type NumberedEquation: CodeGenUnit<'a, Equation<'a>>;
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
 
     fn new() -> Self;

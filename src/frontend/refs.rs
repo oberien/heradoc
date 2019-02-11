@@ -51,16 +51,22 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     // Normal Text (broken references)
     if !dst.trim_left().starts_with('#') {
         match typ {
-            LinkType::Inline | LinkType::Autolink => (), // continue
-            LinkType::Reference | LinkType::ReferenceUnknown =>
+            LinkType::Inline
+            | LinkType::Autolink
+            | LinkType::Reference
+            | LinkType::Collapsed
+            // Pass through ShortcutUnknown as it could be used for includes.
+            // Those are handled by the backend.
+            // TODO: find a besser approach which can already deny invalid links here
+            // • One idea is to match the links in the link-resolve-function passed to pulldown-cmark
+            | LinkType::ShortcutUnknown
+            | LinkType::Shortcut => (), // continue
+            LinkType::ReferenceUnknown =>
                 // TODO: warn
                 return LinkOrText::Text(Cow::Owned(format!("[{}][{}]", content, dst))),
-            LinkType::Collapsed | LinkType::CollapsedUnknown =>
+            LinkType::CollapsedUnknown =>
                 // TODO: warn
                 return LinkOrText::Text(Cow::Owned(format!("[{}][]", content))),
-            LinkType::Shortcut | LinkType::ShortcutUnknown =>
-                // TODO: warn
-                return LinkOrText::Text(Cow::Owned(format!("[{}]", content))),
         }
     }
 

@@ -53,41 +53,40 @@ pub enum Tag<'a> {
     Graphviz(Graphviz<'a>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Header<'a> {
     pub label: Cow<'a, str>,
     pub level: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeBlock<'a> {
     pub label: Option<Cow<'a, str>>,
     pub language: Cow<'a, str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Enumerate {
     pub start_number: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FootnoteDefinition<'a> {
     pub label: Cow<'a, str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Table<'a> {
     pub label: Option<Cow<'a, str>>,
     pub alignment: Vec<Alignment>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Include<'a> {
     pub label: Option<Cow<'a, str>>,
     pub dst: Cow<'a, str>,
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
-    pub caption: Option<String>,
 }
 
 #[derive(Debug, Clone)]

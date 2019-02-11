@@ -37,7 +37,8 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
             - `[^a-zA-Z0-9-_ ]` removed, `[ ]` replaced with `-`
     - Code (graphviz, equation, …) / Table / Image labels ("prefix-style"):
         - must start with `{` and end with `}`
-        - must be its own markdown paragraph (empty line before and in some cases empty line after)
+        - must be either its own markdown paragraph (empty line before and in some cases empty line after)
+            or at the start of a paragraph followed by a SoftBreak (empty line before and line break after)
         - may be indented (will be trimmed)
         ````md
         {#my-label}
@@ -59,6 +60,11 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
         fn main() {}
         ```
         ````
+    - Images (label must start a paragraph and be followed by a line break with the image directly after)
+        ```md
+        {#fancy-image}
+        ![alt-text](link "title")
+        ```
 - [ ] unified item attributes for code blocks / equations / numbered equations / tables
     - [ ] label
     - [ ] figure / nofigure

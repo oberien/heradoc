@@ -88,7 +88,7 @@ pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
-        let Image { path, caption, width, height } = image;
+        let Image { label, path, width, height } = image;
 
         writeln!(out, "\\begin{{figure}}")?;
         write!(out, "\\includegraphics[")?;
@@ -100,15 +100,23 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
         }
         writeln!(out, "]{{{}}}", path.display())?;
 
-        if let Some(caption) = caption {
-            writeln!(out, "\\caption{{{}}}", caption)?;
-        }
-        // TODO: label
-//        if !self.title.is_empty() {
-//            writeln!(out, "\\label{{img:{}}}", self.title)?;
+//        if let Some(caption) = caption {
+//            writeln!(out, "\\caption{{{}}}", caption)?;
 //        }
+        if let Some(label) = label {
+            writeln!(out, "\\label{{{}}}", label)?;
+        }
         writeln!(out, "\\end{{figure}}")?;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct LabelGen;
+
+impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
+    fn gen(label: Cow<'a, str>, out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\label{{{}}}", label)
     }
 }
 

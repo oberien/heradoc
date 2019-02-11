@@ -7,9 +7,9 @@ mod complex;
 
 pub use self::document::{Article, Thesis};
 
-use self::simple::{TextGen, FootnoteReferenceGen, LinkGen, ImageGen, PdfGen, SoftBreakGen, HardBreakGen,
-    TableOfContentsGen, BibliographyGen, ListOfTablesGen, ListOfFiguresGen, ListOfListingsGen,
-    AppendixGen};
+use self::simple::{TextGen, FootnoteReferenceGen, LinkGen, ImageGen, LabelGen, PdfGen, SoftBreakGen,
+    HardBreakGen, TableOfContentsGen, BibliographyGen, ListOfTablesGen, ListOfFiguresGen,
+    ListOfListingsGen, AppendixGen};
 
 use self::complex::{
     ParagraphGen,
