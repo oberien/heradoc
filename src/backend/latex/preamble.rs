@@ -42,6 +42,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage[final]{{microtype}}")?;
     writeln!(out, "\\usepackage[pdfusetitle]{{hyperref}}")?;
     writeln!(out, "\\usepackage{{caption}}")?;
+    writeln!(out, "\\usepackage{{caption}}")?;
     // TODO: cleveref options
     writeln!(out, "\\usepackage{{cleveref}}")?;
     writeln!(out, "\\usepackage{{refcount}}")?;

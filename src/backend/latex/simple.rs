@@ -100,9 +100,9 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
         }
         writeln!(out, "]{{{}}}", path.display())?;
 
-//        if let Some(caption) = caption {
-//            writeln!(out, "\\caption{{{}}}", caption)?;
-//        }
+        // TODO: uncomment this
+        //writeln!(out, "\\caption{{{}}}", caption.as_ref().unwrap_or(""))?;
+        writeln!(out, "\\caption{{}}")?;
         if let Some(label) = label {
             writeln!(out, "\\label{{{}}}", label)?;
         }

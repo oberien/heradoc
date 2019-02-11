@@ -54,7 +54,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     }
 
     fn convert_event(&mut self, evt: CmarkEvent<'a>) {
-        dbg!(&evt);
         match evt {
             CmarkEvent::Text(text) => self.buffer.push_back(Event::Text(text)),
             CmarkEvent::Html(html) => self.buffer.push_back(Event::Html(html)),
@@ -134,7 +133,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             let evt = self.parser.next().unwrap();
             match &evt {
                 CmarkEvent::End(tag) if f(tag) => {
-                    dbg!(&evt);
                     return text
                 },
                 CmarkEvent::Text(t) => {
@@ -161,7 +159,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             let evt = self.parser.next().unwrap();
             match &evt {
                 CmarkEvent::End(tag) if f(tag) => {
-                    dbg!(&evt);
                     break
                 },
                 _ => {},
@@ -272,15 +269,12 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     CmarkEvent::Text(Cow::Owned(_)) => panic!("CmarkEvent::Text contains Cow::Owned"),
                     _ => unreachable!()
                 };
-                dbg!(text);
                 match self.parser.peek() {
                     Some(CmarkEvent::End(CmarkTag::Paragraph))
                     | Some(CmarkEvent::SoftBreak) => {
                         let _ = self.parser.next().unwrap();
-                        dbg!(text);
                         // label
                         let mut cskvp = Cskvp::new(&text[1..text.len()-1]);
-                        dbg!(&cskvp);
                         // if next element could have a label, convert that element with the label
                         match self.parser.peek() {
                             Some(CmarkEvent::Start(CmarkTag::Header(_)))
