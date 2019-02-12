@@ -37,7 +37,7 @@ mod backend;
 mod cskvp;
 
 use crate::config::{Config, CliArgs, FileConfig, OutType, DocumentType};
-use crate::backend::latex::{Article, Thesis};
+use crate::backend::latex::{Article, Report, Thesis};
 
 fn main() {
     let args = CliArgs::from_args();
@@ -96,6 +96,8 @@ fn gen(cfg: &Config, markdown: String, out: impl Write) {
     match cfg.document_type {
         DocumentType::Article =>
             backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap(),
+        DocumentType::Report =>
+            backend::generate(cfg, Report, &Arena::new(), markdown, out).unwrap(),
         DocumentType::Thesis =>
             backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap(),
     }

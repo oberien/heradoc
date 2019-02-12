@@ -358,6 +358,7 @@ impl Config {
                 .unwrap_or_else(|| match document_type {
                     DocumentType::Article => false,
                     DocumentType::Thesis => true,
+                    DocumentType::Report => true,
                 }),
             fontsize: args.fileconfig.fontsize
                 .or(infile.fontsize)
@@ -529,6 +530,7 @@ impl FromStr for OutType {
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum DocumentType {
     Article,
+    Report,
     Thesis,
 }
 

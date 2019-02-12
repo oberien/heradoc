@@ -8,7 +8,7 @@ mod replace;
 mod simple;
 mod complex;
 
-pub use self::document::{Article, Thesis};
+pub use self::document::{Article, Report, Thesis};
 
 use self::simple::{TextGen, FootnoteReferenceGen, LinkGen, ImageGen, LabelGen, PdfGen, SoftBreakGen,
     HardBreakGen, TableOfContentsGen, BibliographyGen, ListOfTablesGen, ListOfFiguresGen,

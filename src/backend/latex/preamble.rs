@@ -72,6 +72,30 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
+pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<()> {
+    fn get(o: &Option<String>) -> &str { o.as_ref().map(|s| s.as_str()).unwrap_or("") }
+    writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
+    writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
+    writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;
+    writeln!(out, "\\newcommand*{{\\getDate}}{{{}}}", get(&cfg.date))?;
+    writeln!(out, "\\newcommand*{{\\getSupervisor}}{{{}}}", get(&cfg.supervisor))?;
+    writeln!(out, "\\newcommand*{{\\getAdvisor}}{{{}}}", get(&cfg.advisor))?;
+    if let Some(logo_university) = cfg.logo_university.as_ref() {
+        writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{{}}}", logo_university.display())?;
+    } else {
+        writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{}}")?;
+    }
+    if let Some(logo_faculty) = cfg.logo_faculty.as_ref() {
+        writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{{}}}", logo_faculty.display())?;
+    } else {
+        writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{}}")?;
+    }
+    writeln!(out, "\\newcommand*{{\\getUniversity}}{{{}}}", get(&cfg.university))?;
+    writeln!(out, "\\newcommand*{{\\getFaculty}}{{{}}}", get(&cfg.faculty))?;
+    writeln!(out, "\\newcommand*{{\\getThesisType}}{{{}}}", get(&cfg.thesis_type))?;
+    writeln!(out, "\\newcommand*{{\\getLocation}}{{{}}}", get(&cfg.location))
+}
+
 // https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings
 pub const LSTSET: &'static str = r#"
 \lstset{%
@@ -295,8 +319,8 @@ pub const THESIS_TITLE: &'static str = r#"
   \end{tabular}
 
   \ifempty{\getLogoFaculty}
-  \else
     \vspace{20mm}
+  \else
     \includegraphics[height=20mm]{\getLogoFaculty}
   \fi
 \end{titlepage}
@@ -313,4 +337,55 @@ pub const THESIS_DISCLAIMER: &'static str = r#"
 \vspace{15mm}
 \noindent
 \getLocation{}, \getDate{} \hspace{50mm} \getAuthor{}
+"#;
+
+// slightly modified from THESIS_COVER from
+// https://github.com/jpbernius/tum-thesis-latex/blob/740e69c6a9671c7c0e3d74c0a70604a0ceddde56/pages/cover.tex
+pub const REPORT_COVER: &'static str = r#"
+\begin{titlepage}
+  % HACK for two-sided documents: ignore binding correction for cover page.
+  % Adapted from Markus Kohm's KOMA-Script titlepage=firstiscover handling.
+  % See http://mirrors.ctan.org/macros/latex/contrib/koma-script/scrkernel-title.dtx,
+  % \maketitle macro.
+  \oddsidemargin=\evensidemargin\relax
+  \textwidth=\dimexpr\paperwidth-2\evensidemargin-2in\relax
+  \hsize=\textwidth\relax
+
+  \centering
+
+  \ifempty{\getLogoUniversity}
+    \vspace*{20mm}
+  \else
+    \includegraphics[height=20mm]{\getLogoUniversity}
+  \fi
+
+  \vspace{5mm}
+  \ifempty{\getFaculty}
+    \vspace*{1em}
+  \else
+    {\huge\MakeUppercase{\getFaculty}}\\
+  \fi
+
+  \vspace{5mm}
+  {\large\MakeUppercase{\getUniversity}}\\
+
+  \vspace{15mm}
+  {\huge\bfseries \getTitle{}}
+
+  \vspace{5mm}
+  \ifempty{\getSubtitle}
+    {\huge\vspace{1em}}
+  \else
+    {\huge\bfseries \getSubtitle{}}
+  \fi
+
+  \vspace{15mm}
+  {\LARGE \getAuthor{}}
+
+  \ifempty{\getLogoFaculty}
+    \vspace{20mm}
+  \else
+    \includegraphics[height=20mm]{\getLogoFaculty}
+  \fi
+\end{titlepage}
 "#;
