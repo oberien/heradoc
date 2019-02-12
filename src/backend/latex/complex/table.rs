@@ -1,24 +1,24 @@
 use std::io::{Result, Write};
-use std::borrow::Cow;
 
 use pulldown_cmark::Alignment;
 
-use crate::backend::{latex, CodeGenUnit, Backend};
+use crate::backend::{CodeGenUnit, Backend};
+use crate::backend::latex::InlineEnvironment;
 use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
 use crate::generator::event::{Event, Tag, Table};
 
 #[derive(Debug)]
 pub struct TableGen<'a> {
-    label: Option<Cow<'a, str>>,
-    caption: Option<Cow<'a, str>>,
+    inline_table: InlineEnvironment<'a>,
 }
 
 impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
     fn new(_cfg: &'a Config, table: Table<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Table { label, caption, alignment } = table;
+        let inline_table = InlineEnvironment::new_table(label, caption);
         let out = gen.get_out();
-        latex::inline_table_begin(&mut*out, &label, &caption)?;
+        inline_table.write_begin(&mut*out)?;
 
         // TODO: in-cell linebreaks
         // TODO: merging columns
@@ -35,13 +35,13 @@ impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
         write!(out, "}}")?;
         writeln!(out)?;
         writeln!(out, "\\hline")?;
-        Ok(TableGen { label, caption })
+        Ok(TableGen { inline_table })
     }
 
     fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         writeln!(out, "\\end{{tabular}}")?;
-        latex::inline_table_end(out, self.label, self.caption)?;
+        self.inline_table.write_end(out)?;
         Ok(())
     }
 }

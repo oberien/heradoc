@@ -1,8 +1,8 @@
 use std::io::{Result, Write};
-use std::borrow::Cow;
 
 use crate::config::Config;
-use crate::backend::{latex, Backend, CodeGenUnit};
+use crate::backend::{Backend, CodeGenUnit};
+use crate::backend::latex::InlineEnvironment;
 use crate::generator::PrimitiveGenerator;
 use crate::generator::event::{Event, Equation};
 
@@ -23,49 +23,49 @@ impl<'a> CodeGenUnit<'a, ()> for InlineMathGen {
 
 #[derive(Debug)]
 pub struct EquationGen<'a> {
-    label: Option<Cow<'a, str>>,
-    caption: Option<Cow<'a, str>>,
+    inline_fig: InlineEnvironment<'a>,
 }
 
 impl<'a> CodeGenUnit<'a, Equation<'a>> for EquationGen<'a> {
     fn new(_cfg: &Config, eq: Equation<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Equation { label, caption } = eq;
+        let inline_fig = InlineEnvironment::new_figure(label, caption);
         let out = gen.get_out();
-        latex::inline_figure_begin(&mut*out, &label, &caption)?;
+        inline_fig.write_begin(&mut*out)?;
 
         writeln!(out, "\\begin{{align*}}")?;
 
-        Ok(EquationGen { label, caption })
+        Ok(EquationGen { inline_fig })
     }
 
     fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         write!(out, "\\end{{align*}}")?;
-        latex::inline_figure_end(out, self.label, self.caption)?;
+        self.inline_fig.write_end(out)?;
         Ok(())
     }
 }
 
 #[derive(Debug)]
 pub struct NumberedEquationGen<'a> {
-    label: Option<Cow<'a, str>>,
-    caption: Option<Cow<'a, str>>,
+    inline_fig: InlineEnvironment<'a>,
 }
 
 impl<'a> CodeGenUnit<'a, Equation<'a>> for NumberedEquationGen<'a> {
     fn new(_cfg: &Config, eq: Equation<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Equation { label, caption } = eq;
+        let inline_fig = InlineEnvironment::new_figure(label, caption);
         let out = gen.get_out();
-        latex::inline_figure_begin(&mut*out, &label, &caption)?;
+        inline_fig.write_begin(&mut*out)?;
 
         writeln!(out, "\\begin{{align}}")?;
-        Ok(NumberedEquationGen { label, caption })
+        Ok(NumberedEquationGen { inline_fig })
     }
 
     fn finish(self, gen: &'_ mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
         writeln!(out, "\\end{{align}}")?;
-        latex::inline_figure_end(out, self.label, self.caption)?;
+        self.inline_fig.write_end(out)?;
         Ok(())
     }
 }

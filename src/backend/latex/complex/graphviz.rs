@@ -4,7 +4,8 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::config::Config;
-use crate::backend::{latex, Backend, CodeGenUnit};
+use crate::backend::{Backend, CodeGenUnit};
+use crate::backend::latex::InlineEnvironment;
 use crate::generator::PrimitiveGenerator;
 use crate::generator::event::{Event, Graphviz};
 
@@ -51,7 +52,8 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             panic!("dot returned error code {:?}. Logs written to dot_stdout.log and dot_stderr.log", out.status.code());
         }
         let out = gen.get_out();
-        latex::inline_figure_begin(&mut*out, &label, &caption)?;
+        let inline_fig = InlineEnvironment::new_figure(label, caption);
+        inline_fig.write_begin(&mut*out)?;
 
         write!(out, "\\includegraphics[")?;
         if let Some(scale) = scale {
@@ -65,7 +67,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
         }
         writeln!(out, "]{{{}.pdf}}", self.path.display())?;
 
-        latex::inline_figure_end(out, label, caption)?;
+        inline_fig.write_end(out)?;
         Ok(())
     }
 }
