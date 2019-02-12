@@ -211,12 +211,13 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         let language;
         if let Some(pos) = lang.find(',') {
             language = &lang[..pos];
-            if cskvp.is_some() {
+            if let Some(c) = cskvp {
                 // TODO: error
                 println!("Code has both prefix and inline style labels / config, ignoring both");
                 // don't print warnings about unused properties
                 // will be cleaned up as it's on the stack anyways
-                mem::forget(cskvp.take());
+                mem::forget(c);
+                cskvp = None;
             } else {
                 let cskvp = Cskvp::new(&lang[pos+1..]);
                 // check for figure and handle it
@@ -227,33 +228,34 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             language = lang;
         }
 
+        let mut cskvp = cskvp.unwrap_or_default();
         let tag = match language {
             "equation" | "$$" => {
                 Tag::Equation(Equation {
-                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
-                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
                 })
             }
             "numberedequation" | "$$$" => {
                 Tag::NumberedEquation(Equation {
-                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
-                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
                 })
             }
             "graphviz" => {
                 let graphviz = Graphviz {
-                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
-                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
-                    scale: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("scale")),
-                    width: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("width")),
-                    height: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("height")),
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
+                    scale: cskvp.take_double("scale"),
+                    width: cskvp.take_double("width"),
+                    height: cskvp.take_double("height"),
                 };
                 Tag::Graphviz(graphviz)
             }
             _ => {
                 Tag::CodeBlock(CodeBlock {
-                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
-                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
                     language: if language.is_empty() {
                         None
                     } else if language == "sequence" {
@@ -383,7 +385,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
     }
 
-    fn convert_header(&mut self, level: i32, mut cskvp: Option<Cskvp<'a>>) {
+    fn convert_header(&mut self, level: i32, cskvp: Option<Cskvp<'a>>) {
+        let mut cskvp = cskvp.unwrap_or_default();
         // header can have 3 different labels:
         // • `{#foo}\n\n# Header`: "prefix" style
         // • `# Header {#foo}: "inline" style
@@ -391,7 +394,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         // If both the first and the second are specified, we error.
         // If neither the first or the second are specified, we use the default one.
         // Otherwise we take the one that's specified.
-        let prefix = cskvp.as_mut().and_then(|cskvp| cskvp.take_label());
+        let prefix = cskvp.take_label();
         // Consume elements until end of heading to get its text.
         // Convert them and put them into the buffer because the're still needed.
         let current_index = self.buffer.len();
@@ -422,10 +425,11 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         self.buffer.push_back(Event::End(tag));
     }
 
-    fn convert_table(&mut self, alignment: Vec<Alignment>, mut cskvp: Option<Cskvp<'a>>) {
+    fn convert_table(&mut self, alignment: Vec<Alignment>, cskvp: Option<Cskvp<'a>>) {
+        let mut cskvp = cskvp.unwrap_or_default();
         let tag = Tag::Table(Table {
-            label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
-            caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+            label: cskvp.take_label(),
+            caption: cskvp.take_caption(),
             alignment,
         });
         self.buffer.push_back(Event::Start(tag.clone()));
@@ -442,7 +446,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         self.buffer.push_back(evt);
     }
 
-    fn convert_image(&mut self, typ: LinkType, dst: Cow<'a, str>, _title: Cow<'a, str>, mut cskvp: Option<Cskvp<'a>>) {
+    fn convert_image(&mut self, typ: LinkType, dst: Cow<'a, str>, _title: Cow<'a, str>, cskvp: Option<Cskvp<'a>>) {
         let content = self.render_until_end_inclusive(|t| if let CmarkTag::Image(..) = t { true } else { false });
         // TODO: do something with title and alt-text (see issue #18)
         let _alt_text = match typ {
@@ -452,13 +456,14 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | LinkType::Shortcut | LinkType::ShortcutUnknown
             | LinkType::Inline | LinkType::Autolink => None
         };
+        let mut cskvp = cskvp.unwrap_or_default();
         self.buffer.push_back(Event::Include(Include {
-            label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
-            caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+            label: cskvp.take_label(),
+            caption: cskvp.take_caption(),
             dst,
-            scale: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("scale")),
-            width: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("width")),
-            height: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("height")),
+            scale: cskvp.take_double("scale"),
+            width: cskvp.take_double("width"),
+            height: cskvp.take_double("height"),
         }))
     }
 }

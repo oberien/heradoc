@@ -5,7 +5,7 @@ use single::{self, Single};
 
 use crate::ext::VecExt;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Cskvp<'a> {
     label: Option<&'a str>,
     figure: Option<bool>,
