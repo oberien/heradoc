@@ -211,13 +211,10 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         let language;
         if let Some(pos) = lang.find(',') {
             language = &lang[..pos];
-            if let Some(c) = cskvp {
+            if let Some(c) = &mut cskvp {
                 // TODO: error
                 println!("Code has both prefix and inline style labels / config, ignoring both");
-                // don't print warnings about unused properties
-                // will be cleaned up as it's on the stack anyways
-                mem::forget(c);
-                cskvp = None;
+                c.clear();
             } else {
                 let cskvp = Cskvp::new(&lang[pos+1..]);
                 // check for figure and handle it

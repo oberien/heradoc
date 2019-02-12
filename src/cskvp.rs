@@ -8,8 +8,8 @@ use crate::ext::VecExt;
 #[derive(Debug, Default)]
 pub struct Cskvp<'a> {
     label: Option<&'a str>,
-    figure: Option<bool>,
     caption: Option<&'a str>,
+    figure: Option<bool>,
     single: Vec<&'a str>,
     double: HashMap<&'a str, &'a str>,
 }
@@ -66,8 +66,8 @@ impl<'a> Cskvp<'a> {
 
         Cskvp {
             label,
-            figure,
             caption: double.remove("caption"),
+            figure,
             single,
             double,
         }
@@ -104,6 +104,17 @@ impl<'a> Cskvp<'a> {
     pub fn take_double(&mut self, key: &str) -> Option<Cow<'a, str>> {
         self.double.remove(key)
             .map(Cow::Borrowed)
+    }
+
+    /// Removes all elements from `self`.
+    ///
+    /// This can be used before dropping `Cskvp` to omit all "unused attribute" warnings.
+    pub fn clear(&mut self) {
+        let _ = self.label.take();
+        let _ = self.figure.take();
+        let _ = self.caption.take();
+        self.single.clear();
+        self.double.clear();
     }
 }
 
