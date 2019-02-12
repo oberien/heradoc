@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::borrow::Cow;
 
+use single::{self, Single};
+
 use crate::ext::VecExt;
 
 #[derive(Debug)]
@@ -48,22 +50,18 @@ impl<'a> Cskvp<'a> {
                     None
                 }
             });
-        let figure = single.remove_element(&"figure").is_some();
-        let nofigure = single.remove_element(&"nofigure").is_some();
+        let figure = single.remove_element(&"figure").map(|_| true);
+        let nofigure = single.remove_element(&"nofigure").map(|_| false);
 
-        let figure = if figure_double.is_some() as u8 + figure as u8 + nofigure as u8 > 1 {
-            // TODO: warn
-            println!("only one of `figure=true`, `figure=false`, `figure` and `nofigure` allowed, \
-            found multiple");
-            None
-        } else {
-            figure_double
-                .or_else(|| match (figure, nofigure) {
-                    (true, false) => Some(true),
-                    (false, true) => Some(false),
-                    (false, false) => None,
-                    (true, true) => unreachable!(),
-                })
+        let figure = match [figure_double, figure, nofigure].into_iter().cloned().flatten().single() {
+            Ok(val) => Some(val),
+            Err(single::Error::NoElements) => None,
+            Err(single::Error::MultipleElements) => {
+                // TODO: warn
+                println!("only one of `figure=true`, `figure=false`, `figure` and `nofigure` \
+                    allowed, found multiple");
+                None
+            }
         };
 
         Cskvp {
