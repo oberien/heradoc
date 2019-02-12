@@ -28,6 +28,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
     }
 
+    writeln!(out, "\\usepackage{{float}}")?;
     // TODO: use minted instead of lstlistings?
     // TODO: do we want scrhack?
     writeln!(out, "\\usepackage{{listings}}")?;

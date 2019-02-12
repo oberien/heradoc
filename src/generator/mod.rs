@@ -163,10 +163,12 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Ok(None)
             }
             Include::Image(path) => {
-                let FeInclude { label, dst: _dst, width, height } = image.unwrap();
+                let FeInclude { label, caption, dst: _dst, scale, width, height } = image.unwrap();
                 Ok(Some(Event::Image(Image {
                     label,
+                    caption,
                     path,
+                    scale,
                     width,
                     height,
                 })))

@@ -44,6 +44,7 @@ pub trait Backend<'a>: Debug {
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
     type Figure: CodeGenUnit<'a, Figure<'a>>;
+    type TableFigure: CodeGenUnit<'a, Figure<'a>>;
 
     type Table: CodeGenUnit<'a, Table<'a>>;
     type TableHead: CodeGenUnit<'a, ()>;

@@ -29,7 +29,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [x] `[appendix]`: sets all correct formatting for appendix, should be used before the heading
-- [ ] unified labels ([#16](https://github.com/oberien/pundoc/issues/16)
+- [x] unified labels ([#16](https://github.com/oberien/pundoc/issues/16))
     - Header labels:
         - `{#my-label}\n\n# Header`: "prefix"-style
         - `# Header {#my-label}`: "inline"-style
@@ -65,10 +65,11 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
         {#fancy-image}
         ![alt-text](link "title")
         ```
-- [ ] unified item attributes for code blocks / equations / numbered equations / tables
-    - [ ] label
-    - [ ] figure / nofigure
-    - [ ] caption
+- [x] unified item attributes for code blocks / equations / numbered equations / tables
+    - [x] label
+    - [x] figure / nofigure / figure=true / figure=false
+    - [x] caption
+    - [x] scale / width / height for image / graphviz / ...
 - [ ] tables: merge columns
 - [ ] tables: merge rows
 - [ ] tables: merge columns and rows (e.g. 3x3 field)

@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use crate::config::Config;
-use crate::backend::{Backend, CodeGenUnit};
+use crate::backend::{latex, Backend, CodeGenUnit};
 use crate::generator::PrimitiveGenerator;
 use crate::generator::event::{Event, Graphviz};
 
@@ -39,7 +39,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
 
     fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         drop(self.file);
-        let Graphviz { label, scale, width, height } = self.graphviz;
+        let Graphviz { label, caption, scale, width, height } = self.graphviz;
         let out = Command::new("dot").args(&["-T", "pdf", "-O"]).arg(&self.path).output()
             .expect("Error executing `dot` to generate graphviz output");
         if !out.status.success() {
@@ -51,6 +51,8 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             panic!("dot returned error code {:?}. Logs written to dot_stdout.log and dot_stderr.log", out.status.code());
         }
         let out = gen.get_out();
+        latex::inline_figure_begin(&mut*out, &label, &caption)?;
+
         write!(out, "\\includegraphics[")?;
         if let Some(scale) = scale {
             write!(out, "scale={},", scale)?;
@@ -63,10 +65,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
         }
         writeln!(out, "]{{{}.pdf}}", self.path.display())?;
 
-        if let Some(label) = label {
-            writeln!(out, "\\label{{{}}}", label)?;
-        }
-
+        latex::inline_figure_end(out, label, caption)?;
         Ok(())
     }
 }

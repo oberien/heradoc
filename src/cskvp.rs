@@ -53,7 +53,7 @@ impl<'a> Cskvp<'a> {
 
         let figure = if figure_double.is_some() as u8 + figure as u8 + nofigure as u8 > 1 {
             // TODO: warn
-            println!("only one of `figure=true`, `figure=false`, `figure` and `nofigure` allowed,\
+            println!("only one of `figure=true`, `figure=false`, `figure` and `nofigure` allowed, \
             found multiple");
             None
         } else {
@@ -91,19 +91,21 @@ impl<'a> Cskvp<'a> {
         self.caption.take().map(Cow::Borrowed)
     }
 
-    pub fn take_single(&mut self, attr: &str) -> Option<&'a str> {
+    pub fn take_single(&mut self, attr: &str) -> Option<Cow<'a, str>> {
         self.single.remove_element(&attr)
+            .map(Cow::Borrowed)
     }
 
-    pub fn take_single_by_index(&mut self, index: usize) -> Option<&'a str> {
+    pub fn take_single_by_index(&mut self, index: usize) -> Option<Cow<'a, str>> {
         if index >= self.single.len() {
             return None;
         }
-        Some(self.single.remove(index))
+        Some(Cow::Borrowed(self.single.remove(index)))
     }
 
-    pub fn take_double(&mut self, key: &str) -> Option<&'a str> {
+    pub fn take_double(&mut self, key: &str) -> Option<Cow<'a, str>> {
         self.double.remove(key)
+            .map(Cow::Borrowed)
     }
 }
 

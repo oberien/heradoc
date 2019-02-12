@@ -148,7 +148,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
     }
 
-
     /// Consumes all events, rendering their result.
     // TODO: don't render content but return Vec<Event> instead (less coupling with generator)
     fn render_until_end_inclusive(&mut self, f: impl Fn(&CmarkTag) -> bool) -> String {
@@ -219,25 +218,32 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 // will be cleaned up as it's on the stack anyways
                 mem::forget(cskvp.take());
             } else {
-                cskvp = Some(Cskvp::new(&lang[pos+1..]));
+                let cskvp = Cskvp::new(&lang[pos+1..]);
+                // check for figure and handle it
+                self.handle_cskvp(cskvp, CmarkEvent::Start(CmarkTag::CodeBlock(Cow::Borrowed(language))));
+                return;
             }
         } else {
             language = lang;
         }
 
-        let label = cskvp.as_mut().and_then(|cskvp| cskvp.take_label());
-        let language = Cow::Borrowed(language);
-
-        let tag = match language.as_ref() {
+        let tag = match language {
             "equation" | "$$" => {
-                Tag::Equation(Equation { label })
+                Tag::Equation(Equation {
+                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
+                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+                })
             }
             "numberedequation" | "$$$" => {
-                Tag::NumberedEquation(Equation { label })
+                Tag::NumberedEquation(Equation {
+                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
+                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+                })
             }
             "graphviz" => {
                 let graphviz = Graphviz {
                     label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
+                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
                     scale: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("scale")),
                     width: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("width")),
                     height: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("height")),
@@ -246,8 +252,17 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             }
             _ => {
                 Tag::CodeBlock(CodeBlock {
-                    label,
-                    language,
+                    label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
+                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
+                    language: if language.is_empty() {
+                        None
+                    } else if language == "sequence" {
+                        // TODO
+                        println!("sequence is not yet implemented");
+                        None
+                    } else {
+                        Some(Cow::Borrowed(language))
+                    },
                 })
             }
         };
@@ -317,35 +332,14 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | Some(CmarkEvent::Start(CmarkTag::CodeBlock(_)))
             | Some(CmarkEvent::Start(CmarkTag::Table(_)))
             | Some(CmarkEvent::Start(CmarkTag::Image(..))) => {
-                // check if we want a figure
-                let figure = match cskvp.take_figure().unwrap_or(self.cfg.figures) {
-                    false => None,
-                    true => Some(Tag::Figure(Figure {
-                        caption: cskvp.take_caption(),
-                        label: cskvp.take_label(),
-                    })),
-                };
-                if let Some(figure) = figure.clone() {
-                    self.buffer.push_back(Event::Start(figure));
-                }
-
-                match self.parser.next().unwrap() {
-                    CmarkEvent::Start(CmarkTag::Header(label)) => self.convert_header(label, Some(cskvp)),
-                    CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, Some(cskvp)),
-                    CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, Some(cskvp)),
-                    CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => self.convert_image(typ, dst, title, Some(cskvp)),
-                    _ => unreachable!(),
-                }
-
-                if let Some(figure) = figure {
-                    self.buffer.push_back(Event::End(figure));
-                }
-            }
+                let next_element = self.parser.next().unwrap();
+                self.handle_cskvp(cskvp, next_element)
+            },
             _ => {
                 if !cskvp.has_label() {
                     // TODO error
                     println!("got element config, but there wasn't an element to \
-                     apply it to: {:?}", text);
+             apply it to: {:?}", text);
                 }
                 self.buffer.push_back(Event::Label(cskvp.take_label().unwrap()));
             }
@@ -354,6 +348,38 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         if !end_paragraph {
             self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
             self.buffer.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
+    fn handle_cskvp(&mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>) {
+        // check if we want a figure
+        let figure = match cskvp.take_figure().unwrap_or(self.cfg.figures) {
+            false => None,
+            true => match &next_element {
+                CmarkEvent::Start(CmarkTag::Table(_)) => Some(Tag::TableFigure(Figure {
+                    caption: cskvp.take_caption(),
+                    label: cskvp.take_label(),
+                })),
+                _ => Some(Tag::Figure(Figure {
+                    caption: cskvp.take_caption(),
+                    label: cskvp.take_label(),
+                })),
+            }
+        };
+        if let Some(figure) = figure.clone() {
+            self.buffer.push_back(Event::Start(figure));
+        }
+
+        match next_element {
+            CmarkEvent::Start(CmarkTag::Header(label)) => self.convert_header(label, Some(cskvp)),
+            CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, Some(cskvp)),
+            CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, Some(cskvp)),
+            CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => self.convert_image(typ, dst, title, Some(cskvp)),
+            element => panic!("handle_cskvp called with unknown element {:?}", element),
+        }
+
+        if let Some(figure) = figure {
+            self.buffer.push_back(Event::End(figure));
         }
     }
 
@@ -399,6 +425,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     fn convert_table(&mut self, alignment: Vec<Alignment>, mut cskvp: Option<Cskvp<'a>>) {
         let tag = Tag::Table(Table {
             label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
+            caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
             alignment,
         });
         self.buffer.push_back(Event::Start(tag.clone()));
@@ -427,9 +454,11 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         };
         self.buffer.push_back(Event::Include(Include {
             label: cskvp.as_mut().and_then(|cskvp| cskvp.take_label()),
+            caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_caption()),
             dst,
-            width: None,
-            height: None,
+            scale: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("scale")),
+            width: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("width")),
+            height: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("height")),
         }))
     }
 }

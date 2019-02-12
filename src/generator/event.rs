@@ -42,6 +42,7 @@ pub enum Tag<'a> {
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
     Figure(Figure<'a>),
+    TableFigure(Figure<'a>),
 
     Table(Table<'a>),
     TableHead,
@@ -62,8 +63,10 @@ pub enum Tag<'a> {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Image<'a> {
     pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
     /// Path to read image from.
     pub path: PathBuf,
+    pub scale: Option<Cow<'a, str>>,
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
 }
@@ -106,6 +109,7 @@ impl<'a> From<FeTag<'a>> for Tag<'a> {
             FeTag::Item => Tag::Item,
             FeTag::FootnoteDefinition(fnote) => Tag::FootnoteDefinition(fnote),
             FeTag::Figure(figure) => Tag::Figure(figure),
+            FeTag::TableFigure(figure) => Tag::TableFigure(figure),
             FeTag::Table(table) => Tag::Table(table),
             FeTag::TableHead => Tag::TableHead,
             FeTag::TableRow => Tag::TableRow,

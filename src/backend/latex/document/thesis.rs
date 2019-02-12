@@ -38,7 +38,8 @@ impl<'a> Backend<'a> for Thesis {
     type Item = latex::ItemGen;
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
     type Figure = latex::FigureGen<'a>;
-    type Table = latex::TableGen;
+    type TableFigure = latex::TableFigureGen<'a>;
+    type Table = latex::TableGen<'a>;
     type TableHead = latex::TableHeadGen;
     type TableRow = latex::TableRowGen;
     type TableCell = latex::TableCellGen;
@@ -46,8 +47,8 @@ impl<'a> Backend<'a> for Thesis {
     type InlineStrong = latex::InlineStrongGen;
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
-    type Equation = latex::EquationGen;
-    type NumberedEquation = latex::NumberedEquationGen;
+    type Equation = latex::EquationGen<'a>;
+    type NumberedEquation = latex::NumberedEquationGen<'a>;
     type Graphviz = latex::GraphvizGen<'a>;
 
     fn new() -> Self {

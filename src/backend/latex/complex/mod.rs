@@ -18,7 +18,7 @@ pub use self::blockquote::BlockQuoteGen;
 pub use self::codeblock::CodeBlockGen;
 pub use self::list::{ListGen, EnumerateGen, ItemGen};
 pub use self::footnote_definition::FootnoteDefinitionGen;
-pub use self::figure::FigureGen;
+pub use self::figure::{FigureGen, TableFigureGen};
 pub use self::table::{TableGen, TableHeadGen, TableRowGen, TableCellGen};
 pub use self::inline::{InlineEmphasisGen, InlineStrongGen, InlineCodeGen};
 pub use self::math::{InlineMathGen, EquationGen, NumberedEquationGen};

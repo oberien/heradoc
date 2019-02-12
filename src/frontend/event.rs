@@ -38,6 +38,7 @@ pub enum Tag<'a> {
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
     Figure(Figure<'a>),
+    TableFigure(Figure<'a>),
 
     Table(Table<'a>),
     TableHead,
@@ -63,7 +64,8 @@ pub struct Header<'a> {
 #[derive(Debug, Clone)]
 pub struct CodeBlock<'a> {
     pub label: Option<Cow<'a, str>>,
-    pub language: Cow<'a, str>,
+    pub caption: Option<Cow<'a, str>>,
+    pub language: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,20 +80,23 @@ pub struct FootnoteDefinition<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Figure<'a> {
-    pub caption: Option<Cow<'a, str>>,
     pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Table<'a> {
     pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
     pub alignment: Vec<Alignment>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Include<'a> {
     pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
     pub dst: Cow<'a, str>,
+    pub scale: Option<Cow<'a, str>>,
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
 }
@@ -99,13 +104,15 @@ pub struct Include<'a> {
 #[derive(Debug, Clone)]
 pub struct Equation<'a> {
     pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Graphviz<'a> {
     pub label: Option<Cow<'a, str>>,
-    pub scale: Option<&'a str>,
-    pub width: Option<&'a str>,
-    pub height: Option<&'a str>,
+    pub caption: Option<Cow<'a, str>>,
+    pub scale: Option<Cow<'a, str>>,
+    pub width: Option<Cow<'a, str>>,
+    pub height: Option<Cow<'a, str>>,
 }
 

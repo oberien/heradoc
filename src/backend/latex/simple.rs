@@ -1,7 +1,7 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
-use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
+use crate::backend::{latex, SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
 use crate::generator::event::{FootnoteReference, Link, Image, Pdf};
 use crate::generator::Stack;
 use super::replace::replace;
@@ -88,9 +88,14 @@ pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
-        let Image { label, path, width, height } = image;
+        let Image { label, caption, path, scale, width, height } = image;
+
+        latex::inline_figure_begin(&mut*out, &label, &caption)?;
 
         write!(out, "\\includegraphics[")?;
+        if let Some(scale) = scale {
+            write!(out, "scale={}", scale)?;
+        }
         if let Some(width) = width {
             write!(out, "width={},", width)?;
         }
@@ -99,9 +104,7 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
         }
         writeln!(out, "]{{{}}}", path.display())?;
 
-        if let Some(label) = label {
-            writeln!(out, "\\label{{{}}}", label)?;
-        }
+        latex::inline_figure_end(out, label, caption)?;
         Ok(())
     }
 }
