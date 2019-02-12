@@ -401,7 +401,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         let text = self.convert_until_end_inclusive(|t| if let CmarkTag::Header(_) = t { true } else { false });
 
         lazy_static! {
-            static ref RE: Regex = Regex::new(r"\{(#[a-zA-Z0-9-_]+\})\w*$").unwrap();
+            // Matches `{#my-custom-inline-label}` returning `my-custom-inline-label`
+            static ref RE: Regex = Regex::new(r"\{#([a-zA-Z0-9-_]+)\}\w*$").unwrap();
         }
         let inline = RE.captures(&text).map(|c| c.get(1).unwrap().as_str());
 
