@@ -187,7 +187,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 self.buffer.push_back(Event::End(Tag::InlineCode));
                 return;
             }
-            e => unreachable!("InlineCode should always be followed by Text or End(Code) but was fallowed by {:?}", e),
+            e => unreachable!("InlineCode should always be followed by Text or End(Code) but was followed by {:?}", e),
         };
         let tag = if text.starts_with("$ ") {
             text.truncate_left(2);
