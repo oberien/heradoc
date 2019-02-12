@@ -107,6 +107,5 @@ pub struct Graphviz<'a> {
     pub scale: Option<&'a str>,
     pub width: Option<&'a str>,
     pub height: Option<&'a str>,
-    pub caption: Option<&'a str>,
 }
 

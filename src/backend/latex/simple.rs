@@ -90,7 +90,6 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
         let Image { label, path, width, height } = image;
 
-        writeln!(out, "\\begin{{figure}}")?;
         write!(out, "\\includegraphics[")?;
         if let Some(width) = width {
             write!(out, "width={},", width)?;
@@ -100,13 +99,9 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
         }
         writeln!(out, "]{{{}}}", path.display())?;
 
-        // TODO: uncomment this
-        //writeln!(out, "\\caption{{{}}}", caption.as_ref().unwrap_or(""))?;
-        writeln!(out, "\\caption{{}}")?;
         if let Some(label) = label {
             writeln!(out, "\\label{{{}}}", label)?;
         }
-        writeln!(out, "\\end{{figure}}")?;
         Ok(())
     }
 }

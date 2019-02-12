@@ -125,7 +125,7 @@ Inline Link to [a section with custom tex](#fun-with-references).
 
 This is hopefully an image with a title which is used as label, such that I can reference it here as [#placeholdit].
 
-{#placeholdit}
+{#placeholdit,nofigure}
 ![Foobar](https://placehold.it/100x100.png)
 ![placeholditimage]
 

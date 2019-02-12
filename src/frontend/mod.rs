@@ -241,7 +241,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     scale: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("scale")),
                     width: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("width")),
                     height: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("height")),
-                    caption: cskvp.as_mut().and_then(|cskvp| cskvp.take_double("caption")),
                 };
                 Tag::Graphviz(graphviz)
             }
@@ -345,7 +344,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             _ => {
                 if !cskvp.has_label() {
                     // TODO error
-                    println!("got element config, but there wasn't an element to\
+                    println!("got element config, but there wasn't an element to \
                      apply it to: {:?}", text);
                 }
                 self.buffer.push_back(Event::Label(cskvp.take_label().unwrap()));
