@@ -63,6 +63,9 @@ pub struct FileConfig {
     /// Style used for generating the bibliography index. Takes precedence over `citationstyle`.
     #[structopt(long = "bibstyle")]
     pub bibstyle: Option<MaybeUnknown<CitationStyle>>,
+    /// If figures should be used by default for images and similar
+    #[structopt(long = "figures")]
+    pub figures: Option<bool>,
 
     /// File template to use. It must contain `PUNDOCBODY` on its own line without indentation,
     /// which will be replaced with the rendered body.
@@ -173,6 +176,7 @@ pub struct Config {
     pub bibliography: Option<PathBuf>,
     pub citestyle: MaybeUnknown<CitationStyle>,
     pub bibstyle: MaybeUnknown<CitationStyle>,
+    pub figures: bool,
 
     pub template: Option<PathBuf>,
 
@@ -322,6 +326,11 @@ impl Config {
             .map(PathBuf::from);
         check_file_exists(&abstract2, "abstract2");
 
+        let document_type = args.fileconfig.document_type
+                .or(infile.document_type)
+                .or(file.document_type)
+                .unwrap_or(DocumentType::Article);
+
         Config {
             output,
             out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
@@ -329,10 +338,7 @@ impl Config {
             input: args.input,
             input_dir,
             output_type,
-            document_type: args.fileconfig.document_type
-                .or(infile.document_type)
-                .or(file.document_type)
-                .unwrap_or(DocumentType::Article),
+            document_type,
             bibliography,
             template,
             lang,
@@ -346,6 +352,14 @@ impl Config {
                 .or(file.bibstyle)
                 .or(citationstyle)
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
+            figures: args.fileconfig.figures
+                .or(infile.figures)
+                .or(file.figures)
+                .unwrap_or_else(|| match document_type {
+                    DocumentType::Article => false,
+                    DocumentType::Thesis => true,
+                    DocumentType::Report => true,
+                }),
             fontsize: args.fileconfig.fontsize
                 .or(infile.fontsize)
                 .or(file.fontsize)

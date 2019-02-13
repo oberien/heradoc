@@ -4,8 +4,8 @@ use std::borrow::Cow;
 
 use typed_arena::Arena;
 
-use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition,
-    FootnoteReference, Table, Image, Graphviz, Link, Pdf};
+use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, Figure,
+    FootnoteReference, Table, Image, Graphviz, Link, Pdf, Equation};
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
@@ -23,6 +23,7 @@ pub trait Backend<'a>: Debug {
     type FootnoteReference: MediumCodeGenUnit<FootnoteReference<'a>>;
     type Link: MediumCodeGenUnit<Link<'a>>;
     type Image: MediumCodeGenUnit<Image<'a>>;
+    type Label: MediumCodeGenUnit<Cow<'a, str>>;
     type Pdf: MediumCodeGenUnit<Pdf>;
     type SoftBreak: MediumCodeGenUnit<()>;
     type HardBreak: MediumCodeGenUnit<()>;
@@ -35,15 +36,17 @@ pub trait Backend<'a>: Debug {
 
     type Paragraph: CodeGenUnit<'a, ()>;
     type Rule: CodeGenUnit<'a, ()>;
-    type Header: CodeGenUnit<'a, Header>;
+    type Header: CodeGenUnit<'a, Header<'a>>;
     type BlockQuote: CodeGenUnit<'a, ()>;
     type CodeBlock: CodeGenUnit<'a, CodeBlock<'a>>;
     type List: CodeGenUnit<'a, ()>;
     type Enumerate: CodeGenUnit<'a, Enumerate>;
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
+    type Figure: CodeGenUnit<'a, Figure<'a>>;
+    type TableFigure: CodeGenUnit<'a, Figure<'a>>;
 
-    type Table: CodeGenUnit<'a, Table>;
+    type Table: CodeGenUnit<'a, Table<'a>>;
     type TableHead: CodeGenUnit<'a, ()>;
     type TableRow: CodeGenUnit<'a, ()>;
     type TableCell: CodeGenUnit<'a, ()>;
@@ -53,8 +56,8 @@ pub trait Backend<'a>: Debug {
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
 
-    type Equation: CodeGenUnit<'a, ()>;
-    type NumberedEquation: CodeGenUnit<'a, ()>;
+    type Equation: CodeGenUnit<'a, Equation<'a>>;
+    type NumberedEquation: CodeGenUnit<'a, Equation<'a>>;
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
 
     fn new() -> Self;

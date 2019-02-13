@@ -2,7 +2,8 @@ use std::io::{Result, Write};
 use std::borrow::Cow;
 
 use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
-use crate::generator::event::{FootnoteReference, Link, Image, Pdf, LabelReference};
+use crate::backend::latex::InlineEnvironment;
+use crate::generator::event::{FootnoteReference, Link, Image, Pdf};
 use crate::generator::Stack;
 use super::replace::replace;
 
@@ -47,7 +48,8 @@ pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
     fn gen(fnote: FootnoteReference, out: &mut impl Write) -> Result<()> {
-        write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", fnote.label)?;
+        let FootnoteReference { label } = fnote;
+        write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", label)?;
         Ok(())
     }
 }
@@ -73,12 +75,12 @@ impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
             }
             Link::Url(dst) => write!(out, "\\url{{{}}}", dst)?,
             Link::UrlWithContent(dst, content) => write!(out, "\\href{{{}}}{{{}}}", dst, content)?,
-            Link::InterLink(LabelReference { label, uppercase }) => match uppercase {
+            Link::InterLink(label, uppercase) => match uppercase {
                 true => write!(out, "\\Cref{{{}}}", label)?,
                 false => write!(out, "\\cref{{{}}}", label)?,
             }
-            Link::InterLinkWithContent(labelref, content)
-                => write!(out, "\\hyperref[{}]{{{}}}", labelref.label, content)?,
+            Link::InterLinkWithContent(label, _uppercase, content)
+                => write!(out, "\\hyperref[{}]{{{}}}", label, content)?,
         })
     }
 }
@@ -88,10 +90,14 @@ pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
-        let Image { path, caption, width, height } = image;
+        let Image { label, caption, path, scale, width, height } = image;
+        let inline_fig = InlineEnvironment::new_figure(label, caption);
+        inline_fig.write_begin(&mut*out)?;
 
-        writeln!(out, "\\begin{{figure}}")?;
         write!(out, "\\includegraphics[")?;
+        if let Some(scale) = scale {
+            write!(out, "scale={}", scale)?;
+        }
         if let Some(width) = width {
             write!(out, "width={},", width)?;
         }
@@ -100,15 +106,17 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
         }
         writeln!(out, "]{{{}}}", path.display())?;
 
-        if let Some(caption) = caption {
-            writeln!(out, "\\caption{{{}}}", caption)?;
-        }
-        // TODO: label
-//        if !self.title.is_empty() {
-//            writeln!(out, "\\label{{img:{}}}", self.title)?;
-//        }
-        writeln!(out, "\\end{{figure}}")?;
+        inline_fig.write_end(out)?;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct LabelGen;
+
+impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
+    fn gen(label: Cow<'a, str>, out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\label{{{}}}", label)
     }
 }
 

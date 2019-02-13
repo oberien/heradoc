@@ -12,6 +12,7 @@ impl<'a> Backend<'a> for Report {
     type FootnoteReference = latex::FootnoteReferenceGen;
     type Link = latex::LinkGen;
     type Image = latex::ImageGen;
+    type Label = latex::LabelGen;
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
@@ -24,14 +25,16 @@ impl<'a> Backend<'a> for Report {
 
     type Paragraph = latex::ParagraphGen;
     type Rule = latex::RuleGen;
-    type Header = latex::BookHeaderGen;
+    type Header = latex::BookHeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
     type List = latex::ListGen;
     type Enumerate = latex::EnumerateGen;
     type Item = latex::ItemGen;
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
-    type Table = latex::TableGen;
+    type Figure = latex::FigureGen<'a>;
+    type TableFigure = latex::TableFigureGen<'a>;
+    type Table = latex::TableGen<'a>;
     type TableHead = latex::TableHeadGen;
     type TableRow = latex::TableRowGen;
     type TableCell = latex::TableCellGen;
@@ -39,8 +42,8 @@ impl<'a> Backend<'a> for Report {
     type InlineStrong = latex::InlineStrongGen;
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
-    type Equation = latex::EquationGen;
-    type NumberedEquation = latex::NumberedEquationGen;
+    type Equation = latex::EquationGen<'a>;
+    type NumberedEquation = latex::NumberedEquationGen<'a>;
     type Graphviz = latex::GraphvizGen<'a>;
 
     fn new() -> Self {

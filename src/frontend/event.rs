@@ -14,7 +14,8 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
     Link(Link<'a>),
-    Image(Image<'a>),
+    Include(Include<'a>),
+    Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
 }
@@ -25,19 +26,21 @@ pub struct FootnoteReference<'a> {
 }
 
 // extension of pulldown_cmark::Tag with custom types
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Tag<'a> {
     Paragraph,
     Rule,
-    Header(Header),
+    Header(Header<'a>),
     BlockQuote,
     CodeBlock(CodeBlock<'a>),
     List,
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
+    Figure(Figure<'a>),
+    TableFigure(Figure<'a>),
 
-    Table(Table),
+    Table(Table<'a>),
     TableHead,
     TableRow,
     TableCell,
@@ -47,50 +50,69 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
-    Equation,
-    NumberedEquation,
+    Equation(Equation<'a>),
+    NumberedEquation(Equation<'a>),
     Graphviz(Graphviz<'a>),
 }
 
-#[derive(Debug)]
-pub struct Header {
+#[derive(Debug, Clone)]
+pub struct Header<'a> {
+    pub label: Cow<'a, str>,
     pub level: i32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CodeBlock<'a> {
-    pub language: Cow<'a, str>,
+    pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
+    pub language: Option<Cow<'a, str>>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Enumerate {
     pub start_number: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FootnoteDefinition<'a> {
     pub label: Cow<'a, str>,
 }
 
-#[derive(Debug)]
-pub struct Table {
+#[derive(Debug, Clone)]
+pub struct Figure<'a> {
+    pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Table<'a> {
+    pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
     pub alignment: Vec<Alignment>,
 }
 
-#[derive(Debug)]
-pub struct Image<'a> {
+#[derive(Debug, Clone)]
+pub struct Include<'a> {
+    pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
     pub dst: Cow<'a, str>,
+    pub scale: Option<Cow<'a, str>>,
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
-    pub caption: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Equation<'a> {
+    pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Graphviz<'a> {
-    pub scale: Option<&'a str>,
-    pub width: Option<&'a str>,
-    pub height: Option<&'a str>,
-    pub caption: Option<&'a str>,
-    pub label: Option<&'a str>,
+    pub label: Option<Cow<'a, str>>,
+    pub caption: Option<Cow<'a, str>>,
+    pub scale: Option<Cow<'a, str>>,
+    pub width: Option<Cow<'a, str>>,
+    pub height: Option<Cow<'a, str>>,
 }
 

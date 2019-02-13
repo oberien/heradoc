@@ -5,7 +5,7 @@ use pulldown_cmark::{Parser as CmarkParser, Options as CmarkOptions};
 use typed_arena::Arena;
 
 use crate::backend::{Backend};
-use crate::frontend::{Frontend, Event as FeEvent, Link as FeLink, Image as FeImage};
+use crate::frontend::{Frontend, Event as FeEvent, Link as FeLink, Include as FeInclude};
 use crate::config::Config;
 use crate::resolve::{Resolver, Context, Include, Command};
 use crate::ext::StrExt;
@@ -101,7 +101,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                     Ok(Some(FeEvent::Link(FeLink::Url(link)).into()))
                 }
             }
-            FeEvent::Image(image) => {
+            FeEvent::Include(image) => {
                 let include = self.resolve(&image.dst)?;
                 Ok(self.handle_include(include, Some(image))?)
             }
@@ -147,7 +147,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.resolver.resolve(context, url)
     }
 
-    fn handle_include(&mut self, include: Include, image: Option<FeImage<'a>>) -> Result<Option<Event<'a>>> {
+    fn handle_include(&mut self, include: Include, image: Option<FeInclude<'a>>) -> Result<Option<Event<'a>>> {
         match include {
             Include::Command(Command::Toc) => Ok(Some(Event::TableOfContents)),
             Include::Command(Command::Bibliography) => Ok(Some(Event::Bibliography)),
@@ -163,12 +163,14 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Ok(None)
             }
             Include::Image(path) => {
-                let image = image.unwrap();
+                let FeInclude { label, caption, dst: _dst, scale, width, height } = image.unwrap();
                 Ok(Some(Event::Image(Image {
+                    label,
+                    caption,
                     path,
-                    caption: image.caption,
-                    width: image.width,
-                    height: image.height,
+                    scale,
+                    width,
+                    height,
                 })))
             }
             Include::Pdf(path) => Ok(Some(Event::Pdf(Pdf { path }))),

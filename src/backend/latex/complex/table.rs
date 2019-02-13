@@ -3,36 +3,45 @@ use std::io::{Result, Write};
 use pulldown_cmark::Alignment;
 
 use crate::backend::{CodeGenUnit, Backend};
+use crate::backend::latex::InlineEnvironment;
 use crate::generator::PrimitiveGenerator;
 use crate::config::Config;
 use crate::generator::event::{Event, Tag, Table};
 
 #[derive(Debug)]
-pub struct TableGen;
+pub struct TableGen<'a> {
+    inline_table: InlineEnvironment<'a>,
+}
 
-impl<'a> CodeGenUnit<'a, Table> for TableGen {
-    fn new(_cfg: &'a Config, table: Table, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
+    fn new(_cfg: &'a Config, table: Table<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        let Table { label, caption, alignment } = table;
+        let inline_table = InlineEnvironment::new_table(label, caption);
         let out = gen.get_out();
+        inline_table.write_begin(&mut*out)?;
 
         // TODO: in-cell linebreaks
         // TODO: merging columns
         // TODO: merging rows
         // TODO: easier custom formatting
         write!(out, "\\begin{{tabular}}{{|")?;
-        for align in table.alignment {
+        for align in alignment {
             match align {
                 Alignment::None | Alignment::Left => write!(out, " l |")?,
                 Alignment::Center => write!(out, " c |")?,
                 Alignment::Right => write!(out, " r |")?,
             }
         }
-        writeln!(out, "}}")?;
+        write!(out, "}}")?;
+        writeln!(out)?;
         writeln!(out, "\\hline")?;
-        Ok(TableGen)
+        Ok(TableGen { inline_table })
     }
 
     fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
-        writeln!(gen.get_out(), "\\end{{tabular}}")?;
+        let out = gen.get_out();
+        writeln!(out, "\\end{{tabular}}")?;
+        self.inline_table.write_end(out)?;
         Ok(())
     }
 }

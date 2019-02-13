@@ -5,6 +5,7 @@ use std::process::Command;
 
 use crate::config::Config;
 use crate::backend::{Backend, CodeGenUnit};
+use crate::backend::latex::InlineEnvironment;
 use crate::generator::PrimitiveGenerator;
 use crate::generator::event::{Event, Graphviz};
 
@@ -39,6 +40,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
 
     fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         drop(self.file);
+        let Graphviz { label, caption, scale, width, height } = self.graphviz;
         let out = Command::new("dot").args(&["-T", "pdf", "-O"]).arg(&self.path).output()
             .expect("Error executing `dot` to generate graphviz output");
         if !out.status.success() {
@@ -50,27 +52,22 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             panic!("dot returned error code {:?}. Logs written to dot_stdout.log and dot_stderr.log", out.status.code());
         }
         let out = gen.get_out();
-        writeln!(out, "\\begin{{figure}}")?;
+        let inline_fig = InlineEnvironment::new_figure(label, caption);
+        inline_fig.write_begin(&mut*out)?;
+
         write!(out, "\\includegraphics[")?;
-        if let Some(scale) = self.graphviz.scale {
+        if let Some(scale) = scale {
             write!(out, "scale={},", scale)?;
         }
-        if let Some(width) = self.graphviz.width {
+        if let Some(width) = width {
             write!(out, "width={},", width)?;
         }
-        if let Some(height) = self.graphviz.height {
+        if let Some(height) = height {
             write!(out, "height={},", height)?;
         }
         writeln!(out, "]{{{}.pdf}}", self.path.display())?;
 
-        if let Some(caption) = self.graphviz.caption {
-            writeln!(out, "\\caption{{{}}}", caption)?;
-        }
-        if let Some(label) = self.graphviz.label {
-            writeln!(out, "\\label{{fig:{}}}", label)?;
-        }
-        writeln!(out, "\\end{{figure}}")?;
-
+        inline_fig.write_end(out)?;
         Ok(())
     }
 }

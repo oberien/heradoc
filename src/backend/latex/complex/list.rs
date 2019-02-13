@@ -24,7 +24,8 @@ pub struct EnumerateGen;
 
 impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     fn new(_cfg: &'a Config, enumerate: Enumerate, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
-        let start = enumerate.start_number as i32 - 1;
+        let Enumerate { start_number } = enumerate;
+        let start = start_number as i32 - 1;
         let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate()).count();
         writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
         writeln!(gen.get_out(), "\\setcounter{{enum{}}}{{{}}}", "i".repeat(enumerate_depth), start)?;
