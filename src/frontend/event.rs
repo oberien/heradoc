@@ -100,6 +100,9 @@ pub struct Table<'a> {
 pub struct Include<'a> {
     pub label: Option<Cow<'a, str>>,
     pub caption: Option<Cow<'a, str>>,
+    pub title: Option<Cow<'a, str>>,
+    /// rendered already
+    pub alt_text: Option<String>,
     pub dst: Cow<'a, str>,
     pub scale: Option<Cow<'a, str>>,
     pub width: Option<Cow<'a, str>>,

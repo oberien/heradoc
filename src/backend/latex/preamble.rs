@@ -28,6 +28,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
     }
 
+    writeln!(out, "\\usepackage{{cmap}}")?;
     writeln!(out, "\\usepackage{{float}}")?;
     // TODO: use minted instead of lstlistings?
     // TODO: do we want scrhack?
@@ -40,15 +41,16 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage{{amsmath}}")?;
     // TODO: graphicspath
     writeln!(out, "\\usepackage{{graphicx}}")?;
+    writeln!(out, "\\usepackage{{transparent}}")?;
     writeln!(out, "\\usepackage[final]{{microtype}}")?;
     writeln!(out, "\\usepackage[pdfusetitle]{{hyperref}}")?;
-    writeln!(out, "\\usepackage{{caption}}")?;
     writeln!(out, "\\usepackage{{caption}}")?;
     // TODO: cleveref options
     writeln!(out, "\\usepackage{{cleveref}}")?;
     writeln!(out, "\\usepackage{{refcount}}")?;
     writeln!(out, "\\usepackage[titletoc,toc,title]{{appendix}}")?;
     writeln!(out, "\\usepackage{{array}}")?;
+    writeln!(out, "\\usepackage{{pdfcomment}}")?;
     writeln!(out)?;
     Ok(())
 }
@@ -62,6 +64,7 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "{}", THICKHLINE)?;
     writeln!(out, "{}", AQUOTE)?;
     writeln!(out, "{}", FIX_INCLUDEGRAPHICS)?;
+    writeln!(out, "{}", IMAGE_WITH_TEXT)?;
     writeln!(out, "{}", SCALE_TIKZ_PICTURE_TO_WIDTH)?;
     // TODO: figures inline? https://tex.stackexchange.com/a/11342 last codeblock
     // with package float and `[H]`
@@ -221,6 +224,20 @@ pub const FIX_INCLUDEGRAPHICS: &'static str = r#"
 \makeatother
 
 \setkeys{Gin}{width=\ScaleWidthIfNeeded,height=\ScaleHeightIfNeeded,keepaspectratio}
+"#;
+
+// https://tex.stackexchange.com/a/75104
+pub const IMAGE_WITH_TEXT: &'static str = r#"
+\newsavebox\imagebox
+\newcommand*{\imagewithtext}[3][]{%
+  \sbox\imagebox{\includegraphics[{#1}]{#2}}%
+  \usebox\imagebox
+  \llap{%
+    \resizebox{\wd\imagebox}{\height}{%
+      \texttransparent{0}{#3}%
+    }%
+  }%
+}
 "#;
 
 // https://tex.stackexchange.com/q/183699

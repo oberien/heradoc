@@ -469,20 +469,22 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         self.buffer.push_back(evt);
     }
 
-    fn convert_image(&mut self, typ: LinkType, dst: Cow<'a, str>, _title: Cow<'a, str>, cskvp: Option<Cskvp<'a>>) {
+    fn convert_image(&mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, cskvp: Option<Cskvp<'a>>) {
         let content = self.render_until_end_inclusive(|t| if let CmarkTag::Image(..) = t { true } else { false });
         // TODO: do something with title and alt-text (see issue #18)
-        let _alt_text = match typ {
-            LinkType::Reference | LinkType::ReferenceUnknown =>
-                Some(content),
+        let alt_text = match typ {
+            LinkType::Reference | LinkType::ReferenceUnknown
+            | LinkType::Inline => if content.is_empty() { None } else { Some(content) },
             LinkType::Collapsed | LinkType::CollapsedUnknown
-            | LinkType::Shortcut | LinkType::ShortcutUnknown
-            | LinkType::Inline | LinkType::Autolink => None
+            | LinkType::Shortcut | LinkType::ShortcutUnknown => None,
+            LinkType::Autolink => unreachable!("Autolinks can be images???")
         };
         let mut cskvp = cskvp.unwrap_or_default();
         self.buffer.push_back(Event::Include(Include {
             label: cskvp.take_label(),
             caption: cskvp.take_caption(),
+            title: if title.is_empty() { None } else { Some(title) },
+            alt_text,
             dst,
             scale: cskvp.take_double("scale"),
             width: cskvp.take_double("width"),
