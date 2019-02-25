@@ -4,7 +4,9 @@ use std::path::PathBuf;
 pub use pulldown_cmark::Alignment;
 pub use crate::frontend::{FootnoteReference, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
     Figure, Table, Graphviz, Equation};
+
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
+use crate::resolve::Command;
 
 // transformation of frontend::Event
 #[derive(Debug)]
@@ -88,10 +90,26 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::InlineHtml(html) => Event::InlineHtml(html),
             FeEvent::FootnoteReference(fnote) => Event::FootnoteReference(fnote),
             FeEvent::Link(link) => Event::Link(link),
-            FeEvent::Include(_img) => unreachable!("handled by Generator"),
+            FeEvent::Include(_img) => unreachable!("Include is handled by Generator"),
             FeEvent::Label(label) => Event::Label(label),
             FeEvent::SoftBreak => Event::SoftBreak,
             FeEvent::HardBreak => Event::HardBreak,
+
+            FeEvent::Command(command) => command.into(),
+            FeEvent::ResolveInclude(_include) => unreachable!("ResolveInclude is handled by Generator"),
+        }
+    }
+}
+
+impl<'a> From<Command> for Event<'a> {
+    fn from(command: Command) -> Self {
+        match command {
+            Command::Toc => Event::TableOfContents,
+            Command::Bibliography => Event::Bibliography,
+            Command::ListOfTables => Event::ListOfTables,
+            Command::ListOfFigures => Event::ListOfFigures,
+            Command::ListOfListings => Event::ListOfListings,
+            Command::Appendix => Event::Appendix,
         }
     }
 }

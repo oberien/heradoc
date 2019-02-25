@@ -1,14 +1,12 @@
 use std::io::{Write, Result};
 use std::fs;
 
-use pulldown_cmark::{Parser as CmarkParser, Options as CmarkOptions};
 use typed_arena::Arena;
 
 use crate::backend::{Backend};
-use crate::frontend::{Frontend, Event as FeEvent, Link as FeLink, Include as FeInclude};
+use crate::frontend::{Frontend, Event as FeEvent, Include as FeInclude};
 use crate::config::Config;
-use crate::resolve::{Resolver, Context, Include, Command};
-use crate::ext::StrExt;
+use crate::resolve::{Resolver, Context, Include};
 
 mod stack;
 mod primitive;
@@ -47,11 +45,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 
     pub fn get_events(&mut self, markdown: String) -> impl Iterator<Item = FeEvent<'a>> {
         let markdown = self.arena.alloc(markdown);
-        let parser: Frontend<'_, B> = Frontend::new(self.prim.cfg, CmarkParser::new_with_broken_link_callback(
-            markdown,
-            CmarkOptions::ENABLE_FOOTNOTES | CmarkOptions::ENABLE_TABLES,
-            Some(&refsolve)
-        ));
+        let parser: Frontend<'_, B> = Frontend::new(self.prim.cfg, markdown);
         parser.peekable()
     }
 
@@ -79,29 +73,13 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 
     fn convert_event(&mut self, event: FeEvent<'a>) -> Result<Option<Event<'a>>> {
         match event {
-            FeEvent::Link(FeLink::Url(link)) => {
-                if link.starts_with_ignore_ascii_case("include ") {
-                    let include = self.resolve(&link[8..])?;
-                    assert!(self.handle_include(include, None)?.is_none());
-                    Ok(None)
-                } else if link.eq_ignore_ascii_case("toc")
-                    || link.eq_ignore_ascii_case("tableofcontents")
-                    || link.eq_ignore_ascii_case("bibliography")
-                    || link.eq_ignore_ascii_case("references")
-                    || link.eq_ignore_ascii_case("listoftables")
-                    || link.eq_ignore_ascii_case("listoffigures")
-                    || link.eq_ignore_ascii_case("listoflistings")
-                    || link.eq_ignore_ascii_case("appendix")
-                {
-                    let include = self.resolve(&format!("//{}", link))?;
-                    Ok(self.handle_include(include, None).unwrap())
-                } else {
-                    Ok(Some(FeEvent::Link(FeLink::Url(link)).into()))
-                }
-            }
             FeEvent::Include(image) => {
                 let include = self.resolve(&image.dst)?;
                 Ok(self.handle_include(include, Some(image))?)
+            }
+            FeEvent::ResolveInclude(include) => {
+                let include = self.resolve(&include)?;
+                Ok(self.handle_include(include, None)?)
             }
             e => Ok(Some(e.into())),
         }
@@ -147,12 +125,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 
     fn handle_include(&mut self, include: Include, image: Option<FeInclude<'a>>) -> Result<Option<Event<'a>>> {
         match include {
-            Include::Command(Command::Toc) => Ok(Some(Event::TableOfContents)),
-            Include::Command(Command::Bibliography) => Ok(Some(Event::Bibliography)),
-            Include::Command(Command::ListOfTables) => Ok(Some(Event::ListOfTables)),
-            Include::Command(Command::ListOfFigures) => Ok(Some(Event::ListOfFigures)),
-            Include::Command(Command::ListOfListings) => Ok(Some(Event::ListOfListings)),
-            Include::Command(Command::Appendix) => Ok(Some(Event::Appendix)),
+            Include::Command(command) => Ok(Some(command.into())),
             Include::Markdown(path, context) => {
                 let markdown = fs::read_to_string(path)?;
                 let events = self.get_events(markdown);
@@ -161,7 +134,12 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Ok(None)
             }
             Include::Image(path) => {
-                let FeInclude { label, caption, dst: _dst, scale, width, height } = image.unwrap();
+                let (label, caption, scale, width, height) =
+                    if let Some(FeInclude { label, caption, dst: _dst, scale, width, height }) = image {
+                        (label, caption, scale, width, height)
+                    } else {
+                        Default::default()
+                    };
                 Ok(Some(Event::Image(Image {
                     label,
                     caption,
@@ -175,10 +153,5 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
 
     }
-}
-
-fn refsolve(a: &str, b: &str) -> Option<(String, String)> {
-    // pass everything, it's handled in the frontend::refs implementation
-    Some((a.to_string(), b.to_string()))
 }
 

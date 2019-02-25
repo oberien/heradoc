@@ -113,12 +113,13 @@ Inline link without title [Text](Link).
 Inline link with title [Text](Link "Title").  
 Link to existing reference without title without text [Existing-no-title].  
 Link to existing reference with title without text [Existing].  
-Link to existing reference without title with text [Text][Existing-no-title]  
-Link to existing reference with title with text [Text][Existing]  
+Link to existing reference without title with text [Text][Existing-no-title].  
+Link to existing reference with title with text [Text][Existing].  
 Capital link to [#Fun-with-references].  
 Small link to [#fun-with-references].  
 Link to [a section with custom tex][#fun-with-references].  
 Inline Link to [a section with custom tex](#fun-with-references).  
+A collapsed link to a section [#fun-with-references][].
 
 [existing-no-title]: Link
 [eXisting]: Link "Title"
@@ -196,13 +197,15 @@ Left | Center | Right
   [include test-include.md]
 
 1. Numbered list to include into (test continuous state)
-  ![][test-include.md]
+  ![](test-include.md)
   
 > From web:
 > [include https://raw.githubusercontent.com/oberien/pundoc/master/test-include.md]
 > -- [@foo]
 
 ![](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png)
+
+[include https://placehold.it/100x100.png]
   
 # Unicode Substitution
 
@@ -213,11 +216,13 @@ In math: `$ A ← B ⇐ C ∈ D ⊥ E`
 Multiline substitution ⊂∫∀∃ΞΛℂ∈ΣℕℝΔ  
 Check for linespacing EEEEEEEEEEEEEEE
 
+Text with # sharp.
+Text with \\{} backslash curly parentheses.
 Text with_underscore and `inline code with_underscore` and `$ math\ with_{subscript}`.
 ```
 code block with_underscore
 ```
-Inline code `with \ backslash`.
+Inline code `with \ backslash`. Inline code `with # sharp`.
 
 # Math
 

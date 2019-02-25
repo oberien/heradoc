@@ -3,6 +3,7 @@ use std::borrow::Cow;
 pub use pulldown_cmark::Alignment;
 
 use super::Link;
+use crate::resolve::Command;
 
 // extension of pulldown_cmark::Event with custom types
 #[derive(Debug)]
@@ -18,6 +19,10 @@ pub enum Event<'a> {
     Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
+
+    Command(Command),
+    /// Include to be resolved by the resolver
+    ResolveInclude(Cow<'a, str>),
 }
 
 #[derive(Debug)]
