@@ -2,8 +2,9 @@ use std::collections::HashMap;
 use std::borrow::Cow;
 
 use single::{self, Single};
+use quoted_string::test_utils::TestSpec;
 
-use crate::ext::VecExt;
+use crate::ext::{VecExt, CowExt};
 
 #[derive(Debug, Default)]
 pub struct Cskvp<'a> {
@@ -16,7 +17,8 @@ pub struct Cskvp<'a> {
 
 impl<'a> Cskvp<'a> {
     pub fn new(s: &'a str) -> Cskvp<'a> {
-        // TODO: allow double quoted strings and spaces after comma: `foo,bar="baz, qux", quux`
+        let mut parser = Parser::new(s);
+
         let mut single = Vec::new();
         let mut double = HashMap::new();
         let mut label = None;
@@ -136,5 +138,106 @@ impl<'a> Drop for Cskvp<'a> {
         for attr in self.single.drain(..) {
             println!("Unknown attribute `{}`", attr);
         }
+    }
+}
+
+struct Parser<'a> {
+    rest: &'a str,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Value<'a> {
+    KeyValue(Cow<'a, str>, Cow<'a, str>),
+    Value(Cow<'a, str>),
+}
+
+impl<'a> Parser<'a> {
+    fn new(s: &'a str) -> Parser<'a> {
+        Parser {
+            rest: s,
+        }
+    }
+
+    fn next_quoted(&mut self) -> Cow<'a, str> {
+        assert!(self.rest.trim_start().starts_with('"'));
+
+        match quoted_string::parse::<TestSpec>(self.rest) {
+            // TODO: error handling
+            Err(e) => panic!("Invalid double-quoted string: {:?}", e),
+            Ok(parsed) => {
+                self.rest = parsed.tail;
+                quoted_string::to_content::<TestSpec>(parsed.quoted_string).unwrap()
+            }
+        }
+    }
+
+    fn next_unquoted(&mut self, delimiters: &[char]) -> &'a str {
+        let idx = delimiters.iter().cloned()
+            .filter_map(|delim| self.rest.find(delim))
+            .min()
+            .unwrap_or(self.rest.len());
+        let val = &self.rest[..idx];
+        self.rest = &self.rest[idx..];
+        val
+    }
+
+    fn next_single(&mut self, delimiters: &[char]) -> Cow<'a, str> {
+        self.rest = self.rest.trim_start();
+        let mut res = if self.rest.starts_with('"') {
+            self.next_quoted()
+        } else {
+            Cow::Borrowed(self.next_unquoted(delimiters).trim())
+        };
+        res
+    }
+
+    fn skip_delimiter(&mut self) -> Option<char> {
+        self.rest = self.rest.trim_start();
+        let delim = self.rest.chars().next();
+        if delim.is_some() {
+            self.rest = &self.rest[1..];
+        }
+        delim
+
+    }
+}
+
+impl<'a> Iterator for Parser<'a> {
+    type Item = Value<'a>;
+
+    fn next(&mut self) -> Option<Value<'a>> {
+        if self.rest.is_empty() {
+            return None;
+        }
+
+        let mut key = self.next_single(&['=', ',']);
+        key.trim_inplace();
+
+        let delim = self.skip_delimiter();
+
+        if let Some('=') = delim {
+            let res = Some(Value::KeyValue(key, self.next_single(&[','])));
+
+            let delim = self.skip_delimiter();
+            assert!(delim == Some(',') || delim == None, "invalid comma seperated key value pair");
+            res
+        } else {
+            // TODO: error handling
+            assert!(delim == Some(',') || delim == None, "invalid comma seperated value");
+            Some(Value::Value(key))
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parser() {
+        let mut parser = Parser::new(r#"foo, bar = " baz, \"qux\"", quux"#);
+        assert_eq!(parser.next(), Some(Value::Value(Cow::Borrowed("foo"))));
+        assert_eq!(parser.next(), Some(Value::KeyValue(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string()))));
+        assert_eq!(parser.next(), Some(Value::Value(Cow::Borrowed("quux"))));
     }
 }
