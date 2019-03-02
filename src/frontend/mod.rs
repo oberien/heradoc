@@ -10,11 +10,13 @@ use lazy_static::lazy_static;
 
 mod refs;
 mod event;
+mod concat;
 
 pub use self::refs::*;
 pub use self::event::*;
 
 use self::refs::LinkOrText;
+use self::concat::Concat;
 use crate::config::Config;
 use crate::backend::{Backend};
 use crate::generator::PrimitiveGenerator;
@@ -23,7 +25,7 @@ use crate::ext::CowExt;
 
 pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
-    parser: Peekable<CmarkParser<'a>>,
+    parser: Peekable<Concat<'a, CmarkParser<'a>>>,
     buffer: VecDeque<Event<'a>>,
     marker: PhantomData<B>,
 }
@@ -47,7 +49,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     pub fn new(cfg: &'a Config, parser: CmarkParser<'a>) -> Frontend<'a, B> {
         Frontend {
             cfg,
-            parser: parser.peekable(),
+            parser: Concat::new(parser).peekable(),
             buffer: VecDeque::new(),
             marker: PhantomData,
         }
@@ -216,7 +218,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 println!("Code has both prefix and inline style labels / config, ignoring both");
                 c.clear();
             } else {
-                let cskvp = Cskvp::new(&lang[pos+1..]);
+                let cskvp = Cskvp::new(Cow::Borrowed(&lang[pos+1..]));
                 // check for figure and handle it
                 self.handle_cskvp(cskvp, CmarkEvent::Start(CmarkTag::CodeBlock(Cow::Borrowed(language))));
                 return;
@@ -293,9 +295,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             handle_normal!();
         }
         // consume text
-        let text = match self.parser.next().unwrap() {
-            CmarkEvent::Text(Cow::Borrowed(text)) => text,
-            CmarkEvent::Text(Cow::Owned(_)) => panic!("CmarkEvent::Text contains Cow::Owned"),
+        let mut text = match self.parser.next().unwrap() {
+            CmarkEvent::Text(text) => text,
             _ => unreachable!()
         };
 
@@ -304,9 +305,10 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             Some(CmarkEvent::End(CmarkTag::Paragraph)) => true,
             Some(CmarkEvent::SoftBreak) => false,
             _ => {
+                println!("not a label: {:?}", text);
                 // not a label, reset our look-ahead and generate original
                 self.buffer.push_back(Event::Start(Tag::Paragraph));
-                self.buffer.push_back(Event::Text(Cow::Borrowed(text)));
+                self.buffer.push_back(Event::Text(text));
                 self.convert_until_end_inclusive(|t| if let CmarkTag::Paragraph = t { true } else { false });
                 self.buffer.push_back(Event::End(Tag::Paragraph));
                 return;
@@ -323,7 +325,9 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
 
         // parse label
-        let mut cskvp = Cskvp::new(&text[1..text.len()-1]);
+        text.truncate_right(1);
+        text.truncate_left(1);
+        let mut cskvp = Cskvp::new(text);
         // if next element could have a label, convert that element with the label
         // otherwise create label event
         match self.parser.peek() {
@@ -338,7 +342,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 if !cskvp.has_label() {
                     // TODO error
                     println!("got element config, but there wasn't an element to \
-             apply it to: {:?}", text);
+             apply it to: {:?}", cskvp);
                 }
                 self.buffer.push_back(Event::Label(cskvp.take_label().unwrap()));
             }
