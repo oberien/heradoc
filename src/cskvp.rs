@@ -186,10 +186,9 @@ impl<'a> Parser<'a> {
             .min()
             .unwrap_or(self.rest.len());
         let mut rest = self.rest.split_off(idx);
-        mem::swap(&mut rest, &mut self.rest);
-        let mut res = rest;
-        res.trim_inplace();
-        res
+        let mut val = mem::replace(&mut self.rest, rest);
+        val.trim_inplace();
+        val
     }
 
     fn next_single(&mut self, delimiters: &[char]) -> Cow<'a, str> {
