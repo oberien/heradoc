@@ -30,7 +30,11 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '_' if in_inline_code => s.push_str("\\char`_"),
                 '_' if !in_code_or_math => s.push_str("\\_"),
                 '#' if in_inline_code => s.push_str("\\#"),
+                '#' if !in_code_or_math => s.push_str("\\#"),
+                '{' if !in_code_or_math => s.push_str("\\{"),
+                '}' if !in_code_or_math => s.push_str("\\}"),
                 '\\' if in_inline_code => s.push_str("\\textbackslash{}"),
+                '\\' if !in_code_or_math => s.push_str("\\textbackslash{}"),
                 c => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),

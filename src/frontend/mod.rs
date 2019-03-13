@@ -3,8 +3,10 @@ use std::collections::VecDeque;
 use std::mem;
 use std::marker::PhantomData;
 use std::iter::Peekable;
+use std::str::FromStr;
 
-use pulldown_cmark::{Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser};
+use pulldown_cmark::{Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser,
+    Options as CmarkOptions};
 use regex::Regex;
 use lazy_static::lazy_static;
 
@@ -15,13 +17,14 @@ mod concat;
 pub use self::refs::*;
 pub use self::event::*;
 
-use self::refs::LinkOrText;
 use self::concat::Concat;
+use self::refs::ReferenceParseResult;
 use crate::config::Config;
 use crate::backend::{Backend};
 use crate::generator::PrimitiveGenerator;
 use crate::cskvp::Cskvp;
-use crate::ext::CowExt;
+use crate::ext::{CowExt, StrExt};
+use crate::resolve::Command;
 
 pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
@@ -44,9 +47,26 @@ impl<'a, B: Backend<'a>> Iterator for Frontend<'a, B> {
     }
 }
 
+fn broken_link_callback(normalized_ref: &str, text_ref: &str) -> Option<(String, String)> {
+    let trimmed = normalized_ref.trim();
+    if trimmed.starts_with_ignore_ascii_case("include")
+        || Command::from_str(trimmed).is_ok()
+        || trimmed.starts_with('#')
+        || trimmed.starts_with('@')
+    {
+        Some((normalized_ref.to_string(), text_ref.to_string()))
+    } else {
+        None
+    }
+}
 
 impl<'a, B: Backend<'a>> Frontend<'a, B> {
-    pub fn new(cfg: &'a Config, parser: CmarkParser<'a>) -> Frontend<'a, B> {
+    pub fn new(cfg: &'a Config, markdown: &'a str) -> Frontend<'a, B> {
+        let parser = CmarkParser::new_with_broken_link_callback(
+            markdown,
+            CmarkOptions::ENABLE_FOOTNOTES | CmarkOptions::ENABLE_TABLES,
+            Some(&broken_link_callback)
+        );
         Frontend {
             cfg,
             parser: Concat::new(parser).peekable(),
@@ -442,8 +462,9 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     fn convert_link(&mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>) {
         let content = self.render_until_end_inclusive(|t| if let CmarkTag::Link(..) = t { true } else { false });
         let evt = match refs::parse_references(self.cfg, typ, dst, title, content) {
-            LinkOrText::Link(link) => Event::Link(link),
-            LinkOrText::Text(text) => Event::Text(text),
+            ReferenceParseResult::Link(link) => Event::Link(link),
+            ReferenceParseResult::Command(command) => Event::Command(command),
+            ReferenceParseResult::ResolveInclude(resolve_include) => Event::ResolveInclude(resolve_include),
         };
         self.buffer.push_back(evt);
     }

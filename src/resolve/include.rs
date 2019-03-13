@@ -1,6 +1,7 @@
 //! Result type of the resolution of a file include.
 
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use crate::resolve::Context;
 
@@ -24,10 +25,36 @@ pub enum Command {
     Bibliography,
     /// List of Tables
     ListOfTables,
-    /// List of Figures
+    // List of Figures
     ListOfFigures,
     /// List of Listings / Code blocks
     ListOfListings,
     /// Appendix formatting
     Appendix,
+}
+
+impl FromStr for Command {
+    type Err = ();
+
+    fn from_str(domain: &str) -> Result<Self, ()> {
+        if domain.eq_ignore_ascii_case("toc")
+            || domain.eq_ignore_ascii_case("tableofcontents")
+        {
+            Ok(Command::Toc)
+        } else if domain.eq_ignore_ascii_case("bibliography")
+            || domain.eq_ignore_ascii_case("references")
+        {
+            Ok(Command::Bibliography)
+        } else if domain.eq_ignore_ascii_case("listoftables") {
+            Ok(Command::ListOfTables)
+        } else if domain.eq_ignore_ascii_case("listoffigures") {
+            Ok(Command::ListOfFigures)
+        } else if domain.eq_ignore_ascii_case("listoflistings") {
+            Ok(Command::ListOfListings)
+        } else if domain.eq_ignore_ascii_case("appendix") {
+            Ok(Command::Appendix)
+        } else {
+            Err(())
+        }
+    }
 }

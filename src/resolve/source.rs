@@ -1,6 +1,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 use std::env;
+use std::str::FromStr;
 
 use url::Url;
 
@@ -72,22 +73,8 @@ impl Source {
         let Source { url, group } = self;
         match group {
             SourceGroup::Implementation => if let Some(domain) = url.domain() {
-                if domain.eq_ignore_ascii_case("toc")
-                    || domain.eq_ignore_ascii_case("tableofcontents")
-                {
-                    Ok(Include::Command(Command::Toc))
-                } else if domain.eq_ignore_ascii_case("bibliography")
-                    || domain.eq_ignore_ascii_case("references")
-                {
-                    Ok(Include::Command(Command::Bibliography))
-                } else if domain.eq_ignore_ascii_case("listoftables") {
-                    Ok(Include::Command(Command::ListOfTables))
-                } else if domain.eq_ignore_ascii_case("listoffigures") {
-                    Ok(Include::Command(Command::ListOfFigures))
-                } else if domain.eq_ignore_ascii_case("listoflistings") {
-                    Ok(Include::Command(Command::ListOfListings))
-                } else if domain.eq_ignore_ascii_case("appendix") {
-                    Ok(Include::Command(Command::Appendix))
+                if let Ok(command) = Command::from_str(domain) {
+                    Ok(Include::Command(command))
                 } else {
                     Err(io::Error::new(io::ErrorKind::NotFound,
                         format!("No pundoc implementation found for domain {:?}", domain)))

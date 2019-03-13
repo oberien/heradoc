@@ -1,9 +1,11 @@
 use std::borrow::Cow;
+use std::str::FromStr;
 
 pub use pulldown_cmark::LinkType;
 
 use crate::config::Config;
-use crate::ext::CowExt;
+use crate::ext::{CowExt, StrExt};
+use crate::resolve::Command;
 
 #[derive(Debug, Clone)]
 pub enum Link<'a> {
@@ -21,13 +23,14 @@ pub enum Link<'a> {
 }
 
 #[derive(Debug)]
-pub enum LinkOrText<'a> {
+pub enum ReferenceParseResult<'a> {
     Link(Link<'a>),
-    Text(Cow<'a, str>),
+    Command(Command),
+    ResolveInclude(Cow<'a, str>),
 }
 
 
-pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String) -> LinkOrText<'a> {
+pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in title
     let mut dst = match typ {
         LinkType::ShortcutUnknown | LinkType::ReferenceUnknown => title,
@@ -36,37 +39,41 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
 
     dst.trim_left_inplace();
 
+    // possible include
+    match typ {
+        LinkType::ShortcutUnknown => if dst.starts_with_ignore_ascii_case("include ") {
+            dst.truncate_left(8);
+            return ReferenceParseResult::ResolveInclude(dst);
+        } else if let Ok(command) = Command::from_str(&dst) {
+            return ReferenceParseResult::Command(command);
+        }
+        _ => (),
+    }
+
     // biber
     if cfg.bibliography.is_some() && dst.trim_left().starts_with('@') && typ == LinkType::ShortcutUnknown {
         // TODO: parse biber file and warn on unknown references
         // TODO: don't clone here
         if iter_multiple_biber(dst.clone()).nth(1).is_some() {
-            return LinkOrText::Link(Link::BiberMultiple(iter_multiple_biber(dst).collect()));
+            return ReferenceParseResult::Link(Link::BiberMultiple(iter_multiple_biber(dst).collect()));
         } else {
             let (r, a) = parse_single_biber(dst);
-            return LinkOrText::Link(Link::BiberSingle(r, a));
+            return ReferenceParseResult::Link(Link::BiberSingle(r, a));
         }
     }
 
-    // Normal Text (broken references)
+    // sanity check
     if !dst.trim_left().starts_with('#') {
         match typ {
+            // these cases should already be handled above for anything except '#'
+            LinkType::ShortcutUnknown
+            | LinkType::ReferenceUnknown
+            | LinkType::CollapsedUnknown => unreachable!(),
             LinkType::Inline
             | LinkType::Autolink
             | LinkType::Reference
             | LinkType::Collapsed
-            // Pass through ShortcutUnknown as it could be used for includes.
-            // Those are handled by the backend.
-            // TODO: find a besser approach which can already deny invalid links here
-            // • One idea is to match the links in the link-resolve-function passed to pulldown-cmark
-            | LinkType::ShortcutUnknown
-            | LinkType::Shortcut => (), // continue
-            LinkType::ReferenceUnknown =>
-                // TODO: warn
-                return LinkOrText::Text(Cow::Owned(format!("[{}][{}]", content, dst))),
-            LinkType::CollapsedUnknown =>
-                // TODO: warn
-                return LinkOrText::Text(Cow::Owned(format!("[{}][]", content))),
+            | LinkType::Shortcut => (),
         }
     }
 
@@ -85,12 +92,12 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
         '#' => match typ {
             LinkType::Shortcut | LinkType::ShortcutUnknown
             | LinkType::Collapsed | LinkType::CollapsedUnknown => {
-                LinkOrText::Link(Link::InterLink(dst, uppercase.unwrap()))
+                ReferenceParseResult::Link(Link::InterLink(dst, uppercase.unwrap()))
             },
             LinkType::Reference | LinkType::ReferenceUnknown
             | LinkType::Autolink
             | LinkType::Inline => {
-                LinkOrText::Link(Link::InterLinkWithContent(dst, uppercase.unwrap(), content))
+                ReferenceParseResult::Link(Link::InterLinkWithContent(dst, uppercase.unwrap(), content))
             }
         }
         // url
@@ -98,11 +105,11 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
             LinkType::Autolink
             | LinkType::Shortcut | LinkType::ShortcutUnknown
             | LinkType::Collapsed | LinkType::CollapsedUnknown => {
-                LinkOrText::Link(Link::Url(dst))
+                ReferenceParseResult::Link(Link::Url(dst))
             }
             LinkType::Reference | LinkType::ReferenceUnknown
             | LinkType::Inline => {
-                LinkOrText::Link(Link::UrlWithContent(dst, content))
+                ReferenceParseResult::Link(Link::UrlWithContent(dst, content))
             }
         }
     }
