@@ -751,6 +751,7 @@ dependencies = [
  "log 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "mime 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "pulldown-cmark 0.2.0 (git+https://github.com/raphlinus/pulldown-cmark?rev=07863e9e54cfcb108693ca1ab64967b5ad7bd952)",
+ "quoted-string 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "reqwest 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -780,6 +781,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "proc-macro2 0.4.20 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "quoted-string"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "rand"
@@ -1600,6 +1606,7 @@ dependencies = [
 "checksum pulldown-cmark 0.2.0 (git+https://github.com/raphlinus/pulldown-cmark?rev=07863e9e54cfcb108693ca1ab64967b5ad7bd952)" = "<none>"
 "checksum quick-error 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "9274b940887ce9addde99c4eee6b5c44cc494b182b97e73dc8ffdcb3397fd3f0"
 "checksum quote 0.6.8 (registry+https://github.com/rust-lang/crates.io-index)" = "dd636425967c33af890042c483632d33fa7a18f19ad1d7ea72e8998c6ef8dea5"
+"checksum quoted-string 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "aea1125b7d7fc2022e6a4dc4dc8ae36ebeef1668f3c037512582d3795a5c154c"
 "checksum rand 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "8356f47b32624fef5b3301c1be97e5944ecdd595409cc5da11d05f211db6cfbd"
 "checksum rand 0.5.5 (registry+https://github.com/rust-lang/crates.io-index)" = "e464cd887e869cddcae8792a4ee31d23c7edd516700695608f5b98c67ee0131c"
 "checksum rand_core 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1961a422c4d189dfb50ffa9320bf1f2a9bd54ecb92792fb9477f99a1045f3372"

@@ -10,7 +10,6 @@ use crate::config::Config;
 use crate::resolve::{Resolver, Context, Include, Command};
 use crate::ext::StrExt;
 
-mod concat;
 mod stack;
 mod primitive;
 mod code_gen_units;
@@ -19,7 +18,6 @@ pub mod event;
 pub use self::stack::Stack;
 pub use self::primitive::PrimitiveGenerator;
 
-use self::concat::Concat;
 use self::code_gen_units::StackElement;
 use self::event::{Event, Image, Pdf};
 
@@ -54,7 +52,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             CmarkOptions::ENABLE_FOOTNOTES | CmarkOptions::ENABLE_TABLES,
             Some(&refsolve)
         ));
-        Concat(parser.peekable())
+        parser.peekable()
     }
 
     pub fn generate(&mut self, markdown: String) -> Result<()> {

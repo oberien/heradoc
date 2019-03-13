@@ -34,6 +34,8 @@ pub trait CowExt<'a> {
     fn truncate_right(&mut self, num: usize);
     fn truncate(&mut self, len: usize);
     fn make_ascii_lowercase_inplace(&mut self);
+    fn split_at(self, pos: usize) -> (Cow<'a, str>, Cow<'a, str>);
+    fn split_off(&mut self, pos: usize) -> Cow<'a, str>;
     fn map_inplace(&mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String));
     fn map_inplace_return<R>(&mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R), owned: impl FnOnce(&mut String) -> R) -> R;
     fn map<R: 'a>(self, borrowed: impl FnOnce(&'a str) -> R, owned: impl FnOnce(String) -> R) -> R;
@@ -91,6 +93,30 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
                 *self = Cow::Owned(s.to_ascii_lowercase());
             }
             Cow::Owned(s) => s.as_mut_str().make_ascii_lowercase(),
+        }
+    }
+
+    fn split_at(self, pos: usize) -> (Cow<'a, str>, Cow<'a, str>) {
+        match self {
+            Cow::Borrowed(s) => (Cow::Borrowed(&s[..pos]), Cow::Borrowed(&s[pos..])),
+            Cow::Owned(mut s) => {
+                let s2 = s.split_off(pos);
+                (Cow::Owned(s), Cow::Owned(s2))
+            }
+        }
+    }
+
+    fn split_off(&mut self, pos: usize) -> Cow<'a, str> {
+        match self {
+            Cow::Borrowed(s) => {
+                let left = &s[..pos];
+                let right = &s[pos..];
+                *s = left;
+                Cow::Borrowed(right)
+            }
+            Cow::Owned(s) => {
+                Cow::Owned(s.split_off(pos))
+            }
         }
     }
 

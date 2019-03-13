@@ -2,10 +2,15 @@ use std::iter::Peekable;
 use std::borrow::Cow;
 
 use str_concat;
+use pulldown_cmark::Event;
 
-use crate::frontend::Event;
+pub struct Concat<'a, I: Iterator<Item = Event<'a>>>(Peekable<I>);
 
-pub struct Concat<'a, I: Iterator<Item = Event<'a>>>(pub Peekable<I>);
+impl<'a, I: Iterator<Item = Event<'a>>> Concat<'a, I> {
+    pub fn new(i: I) -> Self {
+        Concat(i.peekable())
+    }
+}
 
 impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Concat<'a, I> {
     type Item = Event<'a>;
