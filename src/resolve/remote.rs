@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn download_paths() {
-        let dir = TempDir::new("pundoc-remote-test")
+        let dir = TempDir::new("heradoc-remote-test")
             .expect("Can't create tempdir");
         let remote = Remote::new(dir.path().to_path_buf()).unwrap();
         let top_level_path = remote.target_path(

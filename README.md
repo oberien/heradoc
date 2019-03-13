@@ -1,4 +1,4 @@
-Pundoc is a markdown to LaTeX converter.
+Heradoc is a markdown to LaTeX converter.
 It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) with a pinch of
 [hackmd](https://hackmd.io/features?both).
 
@@ -8,7 +8,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] cite author formatting (`> -- [@foo]`)
 - [x] renders ok-ish in commonmark renderers
 - [x] produces readable latex
-    + worst case: fall back to latex if pundoc fails
+    + worst case: fall back to latex if heradoc fails
 - [x] generate links for sections (non-alphanumerics replaced with `-`, all lowercase)
 - [x] Footnotes (currently the footnote is on the page where the footnote definition is placed, not its first reference)
 - [x] biber support: `[@foo]` references biber
@@ -29,7 +29,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
 - [x] `[appendix]`: sets all correct formatting for appendix, should be used before the heading
-- [x] unified labels ([#16](https://github.com/oberien/pundoc/issues/16))
+- [x] unified labels ([#16](https://github.com/oberien/heradoc/issues/16))
     - Header labels:
         - `{#my-label}\n\n# Header`: "prefix"-style
         - `# Header {#my-label}`: "inline"-style
@@ -113,12 +113,13 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 
 # Cli
 
-- [x] `pundoc -o bar.pdf bar.md`
+- [x] `heradoc -o bar.pdf bar.md`
 - [x] configuration file
 - [x] configuration directly in .md file similar to pandoc, but better :)
     - pandoc header renders bad in other markdown renderers
-    - ```` ```pundoc````
-- [x] `pundoc bar.md` (short for `pundoc -o bar.pdf bar.md`)
+    - ```` ```heradoc````
+    - ```` ```config````
+- [x] `heradoc bar.md` (short for `heradoc -o bar.pdf bar.md`)
 - [x] every cli option must be configurable in the header (except `-o` and similar)
 - [x] cli overrides header overrides config-file overrides defaults
 

@@ -1,9 +1,9 @@
-```pundoc
+```heradoc
 document_type = "article"
 lang = "en"
 titlepage = false
 title = "Test Markdown File"
-subtitle = "Showing pundoc's Features"
+subtitle = "Showing heradoc's Features"
 author = "Me"
 date = "\\today"
 publisher = "My Publisher"
@@ -200,7 +200,7 @@ Left | Center | Right
   ![](test-include.md)
   
 > From web:
-> [include https://raw.githubusercontent.com/oberien/pundoc/master/test-include.md]
+> [include https://raw.githubusercontent.com/oberien/heradoc/master/test-include.md]
 > -- [@foo]
 
 ![](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png)

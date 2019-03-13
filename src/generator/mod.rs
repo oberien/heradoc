@@ -52,11 +52,11 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     pub fn generate(&mut self, markdown: String) -> Result<()> {
         let events = self.get_events(markdown);
         if let Some(template) = self.template.take() {
-            let body_index = template.find("\nPUNDOCBODY\n")
-                .expect("PUNDOCBODY not found in template on");
+            let body_index = template.find("\nHERADOCBODY\n")
+                .expect("HERADOCBODY not found in template on");
             self.prim.get_out().write_all(&template.as_bytes()[..body_index])?;
             self.generate_body(events)?;
-            self.prim.get_out().write_all(&template.as_bytes()[body_index + "\nPUNDOCBODY\n".len()..])?;
+            self.prim.get_out().write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
             self.generate_with_events(events)?;
         }

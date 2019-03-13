@@ -39,7 +39,7 @@ pub enum SourceGroup {
 impl Source {
     pub fn new(url: Url, context: &Context) -> io::Result<Self> {
         let group = match url.scheme() {
-            "pundoc" => match url.domain() {
+            "heradoc" => match url.domain() {
                 Some("document") => {
                     let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
                     // url is "pandoc://document/path"
@@ -77,11 +77,11 @@ impl Source {
                     Ok(Include::Command(command))
                 } else {
                     Err(io::Error::new(io::ErrorKind::NotFound,
-                        format!("No pundoc implementation found for domain {:?}", domain)))
+                        format!("No heradoc implementation found for domain {:?}", domain)))
                 }
             } else {
                 Err(io::Error::new(io::ErrorKind::NotFound,
-                    "No pundoc implementation domain found"))
+                    "No heradoc implementation domain found"))
             }
             SourceGroup::LocalRelative(path) => {
                 let parent = path.parent().unwrap().to_owned();

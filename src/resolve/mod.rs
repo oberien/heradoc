@@ -35,7 +35,7 @@ struct Permissions {
 impl Resolver {
     pub fn new(workdir: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
-            base: Url::parse("pundoc://document/").unwrap(),
+            base: Url::parse("heradoc://document/").unwrap(),
             permissions: Permissions {
                 allowed_absolute_folders: vec![workdir],
             },
@@ -133,7 +133,7 @@ macro_rules! assert_match {
 }
 
     fn prepare() -> TempDir {
-        let dir = TempDir::new("pundoc-test")
+        let dir = TempDir::new("heradoc-test")
             .expect("Can't create tempdir");
         let _ = File::create(dir.path().join("main.md"))
             .expect("Can't create main.md");
@@ -182,7 +182,7 @@ macro_rules! assert_match {
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
         let external = resolver.resolve(&top, 
-                "https://raw.githubusercontent.com/oberien/pundoc/master/README.md")
+                "https://raw.githubusercontent.com/oberien/heradoc/master/README.md")
             .expect("Failed to download external document");
 
         assert_match!(external, Include::Markdown(_, Context::Remote));
