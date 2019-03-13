@@ -132,6 +132,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             (StackElement::Enumerate(s), Tag::Enumerate(_)) => s.finish(gen, peek),
             (StackElement::Item(s), Tag::Item) => s.finish(gen, peek),
             (StackElement::FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(gen, peek),
+            (StackElement::Figure(s), Tag::Figure(_)) => s.finish(gen, peek),
+            (StackElement::TableFigure(s), Tag::TableFigure(_)) => s.finish(gen, peek),
             (StackElement::Table(s), Tag::Table(_)) => s.finish(gen, peek),
             (StackElement::TableHead(s), Tag::TableHead) => s.finish(gen, peek),
             (StackElement::TableRow(s), Tag::TableRow) => s.finish(gen, peek),
