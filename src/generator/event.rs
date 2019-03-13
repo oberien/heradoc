@@ -66,6 +66,8 @@ pub enum Tag<'a> {
 pub struct Image<'a> {
     pub label: Option<Cow<'a, str>>,
     pub caption: Option<Cow<'a, str>>,
+    pub title: Option<Cow<'a, str>>,
+    pub alt_text: Option<String>,
     /// Path to read image from.
     pub path: PathBuf,
     pub scale: Option<Cow<'a, str>>,

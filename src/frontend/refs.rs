@@ -13,9 +13,10 @@ pub enum Link<'a> {
     BiberSingle(Cow<'a, str>, Option<Cow<'a, str>>),
     /// Vec<(reference, attributes)>
     BiberMultiple(Vec<(Cow<'a, str>, Option<Cow<'a, str>>)>),
-    Url(Cow<'a, str>),
-    /// destination, content (already converted)
-    UrlWithContent(Cow<'a, str>, String),
+    /// destination, title
+    Url(Cow<'a, str>, Option<Cow<'a, str>>),
+    /// destination, content (already converted), title
+    UrlWithContent(Cow<'a, str>, String, Option<Cow<'a, str>>),
     /// label, uppercase
     InterLink(Cow<'a, str>, bool),
     /// label, uppercase, content (already converted)
@@ -33,9 +34,10 @@ pub enum ReferenceParseResult<'a> {
 pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in title
     let mut dst = match typ {
-        LinkType::ShortcutUnknown | LinkType::ReferenceUnknown => title,
+        LinkType::ShortcutUnknown | LinkType::ReferenceUnknown => title.clone(),
         _ => dst,
     };
+    let title = if title.is_empty() { None } else { Some(title) };
 
     dst.trim_left_inplace();
 
@@ -105,11 +107,11 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
             LinkType::Autolink
             | LinkType::Shortcut | LinkType::ShortcutUnknown
             | LinkType::Collapsed | LinkType::CollapsedUnknown => {
-                ReferenceParseResult::Link(Link::Url(dst))
+                ReferenceParseResult::Link(Link::Url(dst, title))
             }
             LinkType::Reference | LinkType::ReferenceUnknown
             | LinkType::Inline => {
-                ReferenceParseResult::Link(Link::UrlWithContent(dst, content))
+                ReferenceParseResult::Link(Link::UrlWithContent(dst, content, title))
             }
         }
     }

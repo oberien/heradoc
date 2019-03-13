@@ -134,15 +134,17 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Ok(None)
             }
             Include::Image(path) => {
-                let (label, caption, scale, width, height) =
-                    if let Some(FeInclude { label, caption, dst: _dst, scale, width, height }) = image {
-                        (label, caption, scale, width, height)
+                let (label, caption, title, alt_text, scale, width, height) =
+                    if let Some(FeInclude { label, caption, title, alt_text, dst: _dst, scale, width, height }) = image {
+                        (label, caption, title, alt_text, scale, width, height)
                     } else {
                         Default::default()
                     };
                 Ok(Some(Event::Image(Image {
                     label,
                     caption,
+                    title,
+                    alt_text,
                     path,
                     scale,
                     width,

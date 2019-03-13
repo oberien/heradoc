@@ -77,8 +77,10 @@ impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
                     }
                 }
             }
-            Link::Url(dst) => write!(out, "\\url{{{}}}", dst)?,
-            Link::UrlWithContent(dst, content) => write!(out, "\\href{{{}}}{{{}}}", dst, content)?,
+            Link::Url(dst, None) => write!(out, "\\url{{{}}}", dst)?,
+            Link::Url(dst, Some(title)) => write!(out, "\\pdftooltip{{\\url{{{}}}}}{{{}}}", dst, title)?,
+            Link::UrlWithContent(dst, content, None) => write!(out, "\\href{{{}}}{{{}}}", dst, content)?,
+            Link::UrlWithContent(dst, content, Some(title)) => write!(out, "\\pdftooltip{{\\href{{{}}}{{{}}}}}{{{}}}", dst, content, title)?,
             Link::InterLink(label, uppercase) => match uppercase {
                 true => write!(out, "\\Cref{{{}}}", label)?,
                 false => write!(out, "\\cref{{{}}}", label)?,
@@ -94,11 +96,19 @@ pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
-        let Image { label, caption, path, scale, width, height } = image;
+        let Image { label, caption, title, alt_text, path, scale, width, height } = image;
         let inline_fig = InlineEnvironment::new_figure(label, caption);
         inline_fig.write_begin(&mut*out)?;
 
-        write!(out, "\\includegraphics[")?;
+        if title.is_some() {
+            writeln!(out, "\\pdftooltip{{")?;
+        }
+        if alt_text.is_some() {
+            write!(out, "\\imagewithtext[")?;
+        } else {
+            write!(out, "\\includegraphics[")?;
+        }
+
         if let Some(scale) = scale {
             write!(out, "scale={}", scale)?;
         }
@@ -108,7 +118,16 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
         if let Some(height) = height {
             write!(out, "height={},", height)?;
         }
-        writeln!(out, "]{{{}}}", path.display())?;
+
+        if let Some(alt_text) = alt_text {
+            writeln!(out, "]{{{}}}{{{}}}", path.display(), alt_text)?;
+        } else {
+            writeln!(out, "]{{{}}}", path.display())?;
+        }
+
+        if let Some(title) = title {
+            writeln!(out, "}}{{{}}}", title)?;
+        }
 
         inline_fig.write_end(out)?;
         Ok(())

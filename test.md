@@ -127,7 +127,7 @@ A collapsed link to a section [#fun-with-references][].
 This is hopefully an image with a title which is used as label, such that I can reference it here as [#placeholdit].
 
 {#placeholdit,nofigure, caption = "Caption with \\"quotes\\" and , comma"}
-![Foobar](https://placehold.it/100x100.png)
+![This is a fancy alt-text](https://placehold.it/100x100.png "placeholdit image")
 ![placeholditimage]
 
 [placeholditimage]: https://placehold.it/100x100.png
