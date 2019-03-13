@@ -1,6 +1,9 @@
 use std::io::{Result, Write};
 use std::borrow::Cow;
 
+use lazy_static::lazy_static;
+use regex::Regex;
+
 use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
 use crate::backend::latex::InlineEnvironment;
 use crate::generator::event::{FootnoteReference, Link, Image, Pdf};
@@ -22,10 +25,17 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
             a
         };
 
+        lazy_static! {
+            // https://stackoverflow.com/a/29218404
+            // modified to check for end of command (space or backslash (new command) or arguments
+            // or end of line)
+            static ref LATEX_COMMAND: Regex = Regex::new("\\\\(?:[^a-zA-Z]|[a-zA-Z]+[*=']?)(?:$|[\\{\\[ ])").unwrap();
+        }
+
         let in_inline_code = stack.iter().any(|e| e.is_inline_code());
         let in_code_or_math = stack.iter().any(|e| e.is_code() || e.is_math());
         let mut s = String::with_capacity(text.len() + 20);
-        for c in text.chars() {
+        for (i, c) in text.char_indices() {
             match c {
                 '_' if in_inline_code => s.push_str("\\char`_"),
                 '_' if !in_code_or_math => s.push_str("\\_"),
@@ -34,7 +44,10 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '{' if !in_code_or_math => s.push_str("\\{"),
                 '}' if !in_code_or_math => s.push_str("\\}"),
                 '\\' if in_inline_code => s.push_str("\\textbackslash{}"),
-                '\\' if !in_code_or_math => s.push_str("\\textbackslash{}"),
+                // make sure we don't have a latex command
+                '\\' if !in_code_or_math && !LATEX_COMMAND.is_match_at(&text[i..], 0) => {
+                    s.push_str("\\textbackslash{}")
+                },
                 c => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),
