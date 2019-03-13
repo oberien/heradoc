@@ -12,10 +12,12 @@ use structopt::StructOpt;
 use serde::{Deserialize, Deserializer, de};
 use tempdir::TempDir;
 use isolang::Language;
+use url::Url;
 
 mod geometry;
 
 use self::geometry::Geometry;
+use crate::resolve::remote::Remote;
 
 // TODO: VecOrSingle to allow `foo = "bar"` instead of `foo = ["bar"]` for single values
 
@@ -218,6 +220,7 @@ pub struct Config {
 impl Config {
     /// tempdir must live as long as Config
     pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, tempdir: &TempDir) -> Config {
+        let temp_dir = tempdir.path().to_owned();
         // verify input file
         match &args.input {
             FileOrStdio::StdIo => (),
@@ -273,12 +276,12 @@ impl Config {
                     None
                 }
             });
-        check_file_exists(&bibliography, "bibliography");
+        let bibliography = resolve_file(&input_dir, &temp_dir, bibliography, "bibliography");
         let template = args.fileconfig.template
             .or(infile.template)
             .or(file.template)
             .map(PathBuf::from);
-        check_file_exists(&template, "template");
+        let template = resolve_file(&input_dir, &temp_dir, template, "template");
 
         let lang = args.fileconfig.lang
             .or(infile.lang)
@@ -309,22 +312,22 @@ impl Config {
             .or(infile.logo_university)
             .or(file.logo_university)
             .map(PathBuf::from);
-        check_file_exists(&logo_university, "logo-university");
+        let logo_university = resolve_file(&input_dir, &temp_dir, logo_university, "logo_university");
         let logo_faculty = args.fileconfig.logo_faculty
             .or(infile.logo_faculty)
             .or(file.logo_faculty)
             .map(PathBuf::from);
-        check_file_exists(&logo_faculty, "logo-faculty");
+        let logo_faculty = resolve_file(&input_dir, &temp_dir, logo_faculty, "logo_faculty");
         let _abstract = args.fileconfig._abstract
             .or(infile._abstract)
             .or(file._abstract)
             .map(PathBuf::from);
-        check_file_exists(&_abstract, "abstract");
+        let _abstract = resolve_file(&input_dir, &temp_dir, _abstract, "abstract");
         let abstract2 = args.fileconfig.abstract2
             .or(infile.abstract2)
             .or(file.abstract2)
             .map(PathBuf::from);
-        check_file_exists(&abstract2, "abstract2");
+        let abstract2 = resolve_file(&input_dir, &temp_dir, abstract2, "abstract2");
 
         let document_type = args.fileconfig.document_type
                 .or(infile.document_type)
@@ -334,7 +337,7 @@ impl Config {
         Config {
             output,
             out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
-            temp_dir: tempdir.path().to_owned(),
+            temp_dir,
             input: args.input,
             input_dir,
             output_type,
@@ -421,16 +424,35 @@ impl Config {
     }
 }
 
-fn check_file_exists<P: AsRef<Path>>(path: &Option<P>, cfgoption: &str) {
-    if let Some(path) = path {
-        if !path.as_ref().exists() {
-            // TODO: better error handling
-            panic!("{} file doesn't exist: {:?}", cfgoption, path.as_ref());
-        }
-        if !path.as_ref().is_file() {
-            // TODO: better error handling
-            panic!("{} file isn't a file", cfgoption);
-        }
+/// Tries to resolve given input.
+///
+/// First the requested file will tried to be located relative to the input file.
+/// Then the requested file will tried to be located relative to the current working directory.
+/// Finally, if it's a URL, the content will be downloaded and a path to the downloaded file returned.
+fn resolve_file<P: AsRef<Path>>(input_dir: &Path, temp_dir: &Path, path: Option<P>, cfgoption: &str) -> Option<PathBuf> {
+    // TODO: error handling
+    let path = match path {
+        Some(path) => path,
+        None => return None,
+    };
+    // relative to input file
+    let file = input_dir.join(&path);
+    if file.exists() && file.is_file() {
+        return Some(file)
+    }
+
+    // relative to current working directory
+    let file = env::current_dir().unwrap().join(&path);
+    if file.exists() && file.is_file() {
+        return Some(file)
+    }
+
+    // try to download
+    let remote = Remote::new(temp_dir.to_owned()).unwrap();
+    match remote.http(Url::parse(path.as_ref().to_str().unwrap()).unwrap()) {
+        Err(_) => panic!("{} file doesn't exist or isn't a url: {:?}", cfgoption, path.as_ref()),
+        Ok(downloaded) => Some(downloaded.path().to_owned()),
+
     }
 }
 

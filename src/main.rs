@@ -68,7 +68,11 @@ fn main() {
 
     let tmpdir = TempDir::new("heradoc").expect("can't create tempdir");
     let cfg = Config::new(args, infile, file, &tmpdir);
-    clear_dir(&cfg.out_dir).expect("can't clear output directory");
+    if cfg.out_dir != cfg.temp_dir {
+        // While initializing the config, some files may already be downloaded.
+        // Thus we must only clear the output directory if it's not a temporary directory.
+        clear_dir(&cfg.out_dir).expect("can't clear output directory");
+    }
     println!("{:#?}", cfg);
 
     match cfg.output_type {
