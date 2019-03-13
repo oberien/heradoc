@@ -350,6 +350,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "heradoc"
+version = "0.1.0"
+dependencies = [
+ "boolinator 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
+ "isolang 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "mime 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pulldown-cmark 0.2.0 (git+https://github.com/raphlinus/pulldown-cmark?rev=07863e9e54cfcb108693ca1ab64967b5ad7bd952)",
+ "quoted-string 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "single 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "str-concat 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "structopt 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "strum 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "strum_macros 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "toml 0.4.6 (git+https://github.com/alexcrichton/toml-rs?rev=8181a7e645064426b43891b0f4c7fa86c2a2d154)",
+ "typed-arena 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "url 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "http"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -738,35 +767,6 @@ source = "git+https://github.com/raphlinus/pulldown-cmark?rev=07863e9e54cfcb1086
 dependencies = [
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "pundoc"
-version = "0.1.0"
-dependencies = [
- "boolinator 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
- "isolang 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "log 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
- "mime 0.3.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "pulldown-cmark 0.2.0 (git+https://github.com/raphlinus/pulldown-cmark?rev=07863e9e54cfcb108693ca1ab64967b5ad7bd952)",
- "quoted-string 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "regex 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "reqwest 0.9.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde_derive 1.0.80 (registry+https://github.com/rust-lang/crates.io-index)",
- "sha2 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "single 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "str-concat 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "structopt 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "strum 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "strum_macros 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "toml 0.4.6 (git+https://github.com/alexcrichton/toml-rs?rev=8181a7e645064426b43891b0f4c7fa86c2a2d154)",
- "typed-arena 1.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "url 1.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "void 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]

@@ -45,7 +45,7 @@ fn main() {
     let mut markdown = String::new();
     args.input.to_read().read_to_string(&mut markdown).unwrap();
 
-    let infile = if markdown.starts_with("```pundoc") || markdown.starts_with("```config") {
+    let infile = if markdown.starts_with("```heradoc") || markdown.starts_with("```config") {
         let start = markdown.find('\n')
             .expect("unclosed preamble (not even a newline in the whole document)");
         let end = markdown.find("\n```").expect("unclosed preamble");
@@ -66,7 +66,7 @@ fn main() {
         FileConfig::default()
     };
 
-    let tmpdir = TempDir::new("pundoc").expect("can't create tempdir");
+    let tmpdir = TempDir::new("heradoc").expect("can't create tempdir");
     let cfg = Config::new(args, infile, file, &tmpdir);
     clear_dir(&cfg.out_dir).expect("can't clear output directory");
     println!("{:#?}", cfg);

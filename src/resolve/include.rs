@@ -16,7 +16,7 @@ pub enum Include {
     Pdf(PathBuf),
 }
 
-/// A direct command to the pundoc processor.
+/// A direct command to the generator.
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
     /// Table of contents.

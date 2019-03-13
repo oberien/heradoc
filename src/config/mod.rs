@@ -20,7 +20,7 @@ use self::geometry::Geometry;
 // TODO: VecOrSingle to allow `foo = "bar"` instead of `foo = ["bar"]` for single values
 
 #[derive(StructOpt, Debug)]
-#[structopt(name = "pundoc", about = "Convert Markdown to LaTeX / PDF")]
+#[structopt(name = "heradoc", about = "Convert Markdown to LaTeX / PDF")]
 pub struct CliArgs {
     /// Output file. Use `-` for stdout.
     #[structopt(short = "o", long = "out", long = "output")]
@@ -67,7 +67,7 @@ pub struct FileConfig {
     #[structopt(long = "figures")]
     pub figures: Option<bool>,
 
-    /// File template to use. It must contain `PUNDOCBODY` on its own line without indentation,
+    /// File template to use. It must contain `HERADOCBODY` on its own line without indentation,
     /// which will be replaced with the rendered body.
     /// If this parameter is used, other header-configuration options will be discarded.
     #[structopt(long = "template")]
