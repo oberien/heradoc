@@ -167,10 +167,10 @@ b + b &= b\\
 
 [appendix]
 
-[listoflistings]
+[include examples/functionality/listoflistings.md]
 
-[listoftables]
+[include examples/functionality/listoftables.md]
 
-[listoffigures]
+[include examples/functionality/listoffigures.md]
 
-[bibliography]
+[include examples/functionality/bibliography.md]
