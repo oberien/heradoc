@@ -77,42 +77,9 @@ def foo():
 foo()
 ```
 
-## Fun with References
+[include examples/functionality/references.md]
 
-Link to non-existent reference without text [Nonexistent].  
-Link to non-existent reference with text [Text][Nonexistent].  
-Inline link without title [Text](Link).  
-Inline link with title [Text](Link "Title").  
-Link to existing reference without title without text [Existing-no-title].  
-Link to existing reference with title without text [Existing].  
-Link to existing reference without title with text [Text][Existing-no-title].  
-Link to existing reference with title with text [Text][Existing].  
-Capital link to [#Fun-with-references].  
-Small link to [#fun-with-references].  
-Link to [a section with custom tex][#fun-with-references].  
-Inline Link to [a section with custom tex](#fun-with-references).  
-A collapsed link to a section [#fun-with-references][].
-
-[existing-no-title]: Link
-[eXisting]: Link "Title"
-
-This is hopefully an image with a title which is used as label, such that I can reference it here as [#placeholdit].
-
-{#placeholdit,nofigure, caption = "Caption with \\"quotes\\" and , comma"}
-![This is a fancy alt-text](https://placehold.it/100x100.png "placeholdit image")
-![placeholditimage]
-
-[placeholditimage]: https://placehold.it/100x100.png
-
-A biber reference: [@foo].  
-A biber reference with page: [@foo 1337].  
-A biber reference with multiple pages: [@foo 42-69, 112].  
-A biber reference with chapter: [@foo Chapter 13].  
-Multiple collapsed biber references: [@foo, @bar].  
-Multiple collapsed biber references with pages: [@foo 21-23,25, @bar Chapters 10-15].  
-This a footnote[^foo].
-
-[^foo]: This is fancy text of a footnote
+[include examples/functionality/images.md]
 
 [include examples/functionality/lists.md]
     
