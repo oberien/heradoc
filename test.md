@@ -182,12 +182,7 @@ This is the second line without indentation."
 > Here is a new paragraph in the quote."
 > -- [@bar]
 
-## Tables
-
-Col 1 | Col 2 | Col 3
-:-- | :-: | --:
-Left | Center | Right
-**Foo** | *Bar* | `Baz`
+[include examples/functionality/tables.md]
 
 # Includes
 
