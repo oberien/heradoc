@@ -158,12 +158,7 @@ This a footnote[^foo].
     1. SubNumbered 2.1
     1. SubNumbered 2.2
     
-## Rule (the world)
-
-Text before rule
-
----
-Text after rule
+[include examples/functionality/hrule.md]
 
 ## Block Quote
 
