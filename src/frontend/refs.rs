@@ -28,6 +28,7 @@ pub enum ReferenceParseResult<'a> {
     Link(Link<'a>),
     Command(Command),
     ResolveInclude(Cow<'a, str>),
+    Text(Cow<'a, str>),
 }
 
 
@@ -53,7 +54,12 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     }
 
     // biber
-    if cfg.bibliography.is_some() && dst.trim_left().starts_with('@') && typ == LinkType::ShortcutUnknown {
+    if dst.trim_left().starts_with('@') && typ == LinkType::ShortcutUnknown {
+        if !cfg.bibliography.is_some() {
+            // todo: error
+            println!("Found biber link but no bibliography file found: {:?}", dst.trim_left());
+            return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));
+        }
         // TODO: parse biber file and warn on unknown references
         // TODO: don't clone here
         if iter_multiple_biber(dst.clone()).nth(1).is_some() {

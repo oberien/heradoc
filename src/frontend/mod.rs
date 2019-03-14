@@ -465,6 +465,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             ReferenceParseResult::Link(link) => Event::Link(link),
             ReferenceParseResult::Command(command) => Event::Command(command),
             ReferenceParseResult::ResolveInclude(resolve_include) => Event::ResolveInclude(resolve_include),
+            ReferenceParseResult::Text(text) => Event::Text(text),
         };
         self.buffer.push_back(evt);
     }
