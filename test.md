@@ -116,12 +116,7 @@ This a footnote[^foo].
 
 [include examples/functionality/lists.md]
     
-## Rule (the world)
-
-Text before rule
-
----
-Text after rule
+[include examples/functionality/hrule.md]
 
 ## Block Quote
 
