@@ -118,22 +118,7 @@ This a footnote[^foo].
     
 [include examples/functionality/hrule.md]
 
-## Block Quote
-
-> "Single-line block quote"
-
-> "Multi-line block quote without new tick in the beginning.
-This is the second line without indentation."
-
-> "Multi-line block quote without new tick in the beginning.
-  This is the second line with indentation."
-
-> "Multi-line block quote with new tick in the beginning.
-> This is the second line.  
-> **Bold text** *italic* in separate line.
->
-> Here is a new paragraph in the quote."
-> -- [@bar]
+[include examples/functionality/quotes.md]
 
 [include examples/functionality/tables.md]
 
