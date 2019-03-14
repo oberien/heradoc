@@ -42,8 +42,8 @@ impl Source {
             "heradoc" => match url.domain() {
                 Some("document") => {
                     let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
-                    // url is "pandoc://document/path"
-                    SourceGroup::LocalRelative(to_path(&url.as_str()[18..], workdir)?)
+                    // url is "heradoc://document/path"
+                    SourceGroup::LocalRelative(to_path(&url.as_str()[19..], workdir)?)
                 }
                 _ => SourceGroup::Implementation,
             }
