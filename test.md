@@ -13,7 +13,7 @@ citestyle = "ieee"
 geometry.margin = "2cm"
 ```
 
-[TOC]
+[include examples/functionality/tableofcontents.md]
 
 # Test
 
