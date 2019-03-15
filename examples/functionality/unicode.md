@@ -4,13 +4,22 @@ A → B ⇒ C ≤ D
 
 In math: `$ A ← B ⇐ C ∈ D ⊥ E`
 
+In inline-code: `f(x) ∈ O(g(x)) ⇔ ∃ c>0 ∃ ε>0 ∀ x≥ε : f(x) ≤ c * g(x)`
+
+In code blocks (doesn't work yet):
+```
+code with μπιςοδε
+```
+
 Multiline substitution ⊂∫∀∃ΞΛℂ∈ΣℕℝΔ  
 Check for linespacing EEEEEEEEEEEEEEE
 
-Text with # sharp.
-Text with \\{} backslash curly parentheses.
-Text with_underscore and `inline code with_underscore` and `$ math\ with_{subscript}`.
+Text with # $ % & ~ _ ^ \ { } metachars.
+`$ Inline\ math\ with_{subscript}`.
+```$
+Equation\ with_{subscript}`.
 ```
-code block with_underscore
 ```
-Inline code `with \ backslash`. Inline code `with # sharp`.
+Code block with # $ % & ~ _ ^ \ { } metachars.
+```
+Inline code `with # $ % & ~ _ ^ \ { } metachars`.
