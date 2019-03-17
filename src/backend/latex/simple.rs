@@ -42,10 +42,13 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '{' if !in_code_or_math => s.push_str("\\{"),
                 '}' if in_inline_code => s.push_str("\\char`}{}"),
                 '}' if !in_code_or_math => s.push_str("\\}"),
+                '✔' => s.push_str("\\checkmark{}"),
+                '✘' => s.push_str("\\text{X}"),
                 c if in_inline_code || !in_code_or_math => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),
                 }
+                c => s.push(c),
             }
         }
         write!(stack.get_out(), "{}", s)?;
