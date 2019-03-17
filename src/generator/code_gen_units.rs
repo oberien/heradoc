@@ -241,5 +241,12 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             _ => false,
         }
     }
+
+    pub fn is_table(&self) -> bool {
+        match self {
+            StackElement::Table(_) => true,
+            _ => false
+        }
+    }
 }
 

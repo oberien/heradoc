@@ -186,9 +186,17 @@ impl SimpleCodeGenUnit<()> for SoftBreakGen {
 #[derive(Debug)]
 pub struct HardBreakGen;
 
-impl SimpleCodeGenUnit<()> for HardBreakGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\\\")?;
+impl MediumCodeGenUnit<()> for HardBreakGen {
+    fn gen<'b, 'c>((): (), stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+        let in_table = stack.iter().any(|e| e.is_table());
+        let out = stack.get_out();
+
+        if in_table {
+            write!(out, "\\newline")?;
+        } else {
+            writeln!(out, "\\\\")?;
+        }
+
         Ok(())
     }
 }
