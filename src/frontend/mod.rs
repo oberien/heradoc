@@ -77,7 +77,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
 
     fn convert_event(&mut self, evt: CmarkEvent<'a>) {
         match evt {
-            CmarkEvent::Text(text) => self.buffer.push_back(Event::Text(text)),
+            CmarkEvent::Text(text) => self.convert_text(text),
             CmarkEvent::Html(html) => self.buffer.push_back(Event::Html(html)),
             CmarkEvent::InlineHtml(html) => self.buffer.push_back(Event::InlineHtml(html)),
             CmarkEvent::FootnoteReference(label) => self.buffer.push_back(Event::FootnoteReference(FootnoteReference {
@@ -143,6 +143,32 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | CmarkEvent::End(CmarkTag::Image(..)) => {
                 panic!("End tag should be consumed when handling the start tag: {:?}", evt)
             },
+        }
+    }
+
+    fn convert_text(&mut self, mut text: Cow<'a, str>) {
+        // test if the text contains a latex command
+        lazy_static! {
+            // latex actually isn't really parsable, so this is only a very rough estimate of common commands
+            // Expect: \commandname<arg>[arg]{arg}{arg}...
+            static ref LATEX_COMMAND: Regex = Regex::new(r"\\[a-zA-Z]+(?:$|<.*?>|\[.*?\]|\{.*?\})").unwrap();
+        }
+        if let Some(m) = LATEX_COMMAND.find(&text) {
+            let (start, end, len) = (m.start(), m.end(), m.as_str().len());
+            if start != 0 {
+                let (l, r) = text.split_at(start);
+                text = r;
+                self.buffer.push_back(Event::Text(l));
+            }
+            if len != text.len() {
+                let (l, r) = text.split_at(end);
+                self.buffer.push_back(Event::Latex(l));
+                self.buffer.push_back(Event::Text(r));
+            } else {
+                self.buffer.push_back(Event::Latex(text));
+            }
+        } else {
+            self.buffer.push_back(Event::Text(text))
         }
     }
 

@@ -53,6 +53,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             Some(Event::Text(text)) => B::Text::gen(text, &mut stack)?,
             Some(Event::Html(html)) => B::Text::gen(html, &mut stack)?,
             Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut stack)?,
+            Some(Event::Latex(latex)) => B::Latex::gen(latex, &mut stack)?,
             Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut stack)?,
             Some(Event::Link(link)) => B::Link::gen(link, &mut stack)?,
             Some(Event::Image(img)) => B::Image::gen(img, &mut stack)?,
