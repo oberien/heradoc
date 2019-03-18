@@ -42,7 +42,7 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '{' if !in_code_or_math => s.push_str("\\{"),
                 '}' if in_inline_code => s.push_str("\\char`}{}"),
                 '}' if !in_code_or_math => s.push_str("\\}"),
-                c => match replace(c) {
+                c if in_inline_code || !in_code_or_math => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),
                 }
