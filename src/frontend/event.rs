@@ -13,6 +13,7 @@ pub enum Event<'a> {
     Text(Cow<'a, str>),
     Html(Cow<'a, str>),
     InlineHtml(Cow<'a, str>),
+    Latex(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
     Link(Link<'a>),
     Include(Include<'a>),

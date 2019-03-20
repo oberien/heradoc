@@ -74,6 +74,8 @@ b + b &= b\\
 2 &= 1
 ```
 
+[include examples/functionality/inline-latex.md]
+
 [appendix]
 
 [include examples/functionality/listoflistings.md]

@@ -14,6 +14,7 @@ pub struct Thesis;
 
 impl<'a> Backend<'a> for Thesis {
     type Text = latex::TextGen;
+    type Latex = latex::LatexGen;
     type FootnoteReference = latex::FootnoteReferenceGen;
     type Link = latex::LinkGen;
     type Image = latex::ImageGen;

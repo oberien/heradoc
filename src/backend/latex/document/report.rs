@@ -9,6 +9,7 @@ pub struct Report;
 
 impl<'a> Backend<'a> for Report {
     type Text = latex::TextGen;
+    type Latex = latex::LatexGen;
     type FootnoteReference = latex::FootnoteReferenceGen;
     type Link = latex::LinkGen;
     type Image = latex::ImageGen;

@@ -271,6 +271,21 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 };
                 Tag::Graphviz(graphviz)
             }
+            "inlinelatex" => {
+                // code is just a single block of text
+                let latex = match self.parser.next().unwrap() {
+                    CmarkEvent::Text(text) => text,
+                    _ => unreachable!()
+                };
+                // consume end tag
+                match self.parser.next().unwrap() {
+                    CmarkEvent::End(CmarkTag::CodeBlock(_)) => (),
+                    _ => unreachable!()
+                }
+
+                self.buffer.push_back(Event::Latex(latex));
+                return;
+            }
             _ => {
                 Tag::CodeBlock(CodeBlock {
                     label: cskvp.take_label(),
