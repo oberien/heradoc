@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use url::Url;
 
 mod include;
-mod remote;
+pub mod remote;
 mod source;
 
 pub use self::include::*;
