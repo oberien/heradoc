@@ -42,10 +42,13 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '{' if !in_code_or_math => s.push_str("\\{"),
                 '}' if in_inline_code => s.push_str("\\char`}{}"),
                 '}' if !in_code_or_math => s.push_str("\\}"),
+                '✔' => s.push_str("\\checkmark{}"),
+                '✘' => s.push_str("\\text{X}"),
                 c if in_inline_code || !in_code_or_math => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),
                 }
+                c => s.push(c),
             }
         }
         write!(stack.get_out(), "{}", s)?;
@@ -186,9 +189,17 @@ impl SimpleCodeGenUnit<()> for SoftBreakGen {
 #[derive(Debug)]
 pub struct HardBreakGen;
 
-impl SimpleCodeGenUnit<()> for HardBreakGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\\\")?;
+impl MediumCodeGenUnit<()> for HardBreakGen {
+    fn gen<'b, 'c>((): (), stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+        let in_table = stack.iter().any(|e| e.is_table());
+        let out = stack.get_out();
+
+        if in_table {
+            write!(out, "\\newline")?;
+        } else {
+            writeln!(out, "\\\\")?;
+        }
+
         Ok(())
     }
 }

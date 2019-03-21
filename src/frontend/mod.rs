@@ -79,7 +79,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         match evt {
             CmarkEvent::Text(text) => self.buffer.push_back(Event::Text(text)),
             CmarkEvent::Html(html) => self.buffer.push_back(Event::Html(html)),
-            CmarkEvent::InlineHtml(html) => self.buffer.push_back(Event::InlineHtml(html)),
+            CmarkEvent::InlineHtml(html) => self.convert_inline_html(html),
             CmarkEvent::FootnoteReference(label) => self.buffer.push_back(Event::FootnoteReference(FootnoteReference {
                 label,
             })),
@@ -143,6 +143,14 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | CmarkEvent::End(CmarkTag::Image(..)) => {
                 panic!("End tag should be consumed when handling the start tag: {:?}", evt)
             },
+        }
+    }
+
+    fn convert_inline_html(&mut self, html: Cow<'a, str>) {
+        // TODO: proper HTML tag parsing
+        match html.as_ref() {
+            "<br>" | "<br/>" | "<br />" => self.buffer.push_back(Event::HardBreak),
+            _ => self.buffer.push_back(Event::InlineHtml(html)),
         }
     }
 

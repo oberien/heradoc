@@ -24,12 +24,13 @@ impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
         // TODO: merging columns
         // TODO: merging rows
         // TODO: easier custom formatting
-        write!(out, "\\begin{{tabular}}{{|")?;
+        write!(out, "\\begin{{tabularx}}{{\\textwidth}}{{|")?;
         for align in alignment {
             match align {
-                Alignment::None | Alignment::Left => write!(out, " l |")?,
-                Alignment::Center => write!(out, " c |")?,
-                Alignment::Right => write!(out, " r |")?,
+                Alignment::None => write!(out, " X |")?,
+                Alignment::Left => write!(out, " L |")?,
+                Alignment::Center => write!(out, " C |")?,
+                Alignment::Right => write!(out, " R |")?,
             }
         }
         write!(out, "}}")?;
@@ -40,7 +41,7 @@ impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
 
     fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
         let out = gen.get_out();
-        writeln!(out, "\\end{{tabular}}")?;
+        writeln!(out, "\\end{{tabularx}}")?;
         self.inline_table.write_end(out)?;
         Ok(())
     }

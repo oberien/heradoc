@@ -51,6 +51,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage[titletoc,toc,title]{{appendix}}")?;
     writeln!(out, "\\usepackage{{array}}")?;
     writeln!(out, "\\usepackage{{pdfcomment}}")?;
+    writeln!(out, "\\usepackage{{tabularx}}")?;
     writeln!(out)?;
     Ok(())
 }
@@ -66,6 +67,7 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "{}", FIX_INCLUDEGRAPHICS)?;
     writeln!(out, "{}", IMAGE_WITH_TEXT)?;
     writeln!(out, "{}", SCALE_TIKZ_PICTURE_TO_WIDTH)?;
+    writeln!(out, "{}", TABULARX)?;
     // TODO: figures inline? https://tex.stackexchange.com/a/11342 last codeblock
     // with package float and `[H]`
 
@@ -405,4 +407,13 @@ pub const REPORT_COVER: &'static str = r#"
     \includegraphics[height=20mm]{\getLogoFaculty}
   \fi
 \end{titlepage}
+"#;
+
+// https://tex.stackexchange.com/a/97188
+// https://tex.stackexchange.com/a/343329
+pub const TABULARX: &'static str = r#"
+\newcolumntype{L}{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}X}
+\newcolumntype{C}{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}X}
+\newcolumntype{R}{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}X}
+\renewcommand\tabularxcolumn[1]{m{#1}}
 "#;
