@@ -197,7 +197,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             peek = iter.next().map(|e| e.into());
         }
         String::from_utf8(out).expect("invalid utf8")
-
     }
 
     fn convert_inline_code(&mut self) {
@@ -211,9 +210,25 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             }
             e => unreachable!("InlineCode should always be followed by Text or End(Code) but was followed by {:?}", e),
         };
-        let tag = if text.starts_with("$ ") {
-            text.truncate_left(2);
-            Tag::InlineMath
+        let tag = if text.chars().nth(1).map(char::is_whitespace).unwrap_or(false) {
+            match text.chars().next().unwrap() {
+                '$' => {
+                    // math
+                    text.truncate_left(2);
+                    Tag::InlineMath
+                },
+                '\\' => {
+                    // latex
+                    text.truncate_left(2);
+                    match self.parser.next().unwrap() {
+                        CmarkEvent::End(CmarkTag::Code) => (),
+                        _ => unreachable!("InlineCode should only contain a single text event"),
+                    }
+                    self.buffer.push_back(Event::Latex(text));
+                    return;
+                }
+                _ => Tag::InlineCode,
+            }
         } else {
             Tag::InlineCode
         };

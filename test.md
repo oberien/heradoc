@@ -17,6 +17,8 @@ geometry.margin = "2cm"
 
 [include examples/functionality/paragraphs.md]
 
+[include examples/functionality/inline-formatting.md]
+
 [include examples/functionality/codeblocks.md]
 
 [include examples/functionality/references.md]
@@ -37,7 +39,7 @@ geometry.margin = "2cm"
 
 [include examples/functionality/math.md]
 
-[include examples/functionality/inline-latex.md]
+[include examples/functionality/latex-block.md]
 
 [appendix]
 
