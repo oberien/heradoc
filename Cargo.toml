@@ -17,8 +17,7 @@ url = "1.7.1"
 reqwest = "0.9.2"
 serde = "1.0.79"
 serde_derive = "1.0.79"
-# toml 0.5 isn't released yet but adds support for dotted keys
-toml = { git = "https://github.com/alexcrichton/toml-rs", rev = "8181a7e645064426b43891b0f4c7fa86c2a2d154" }
+toml = "0.5.0"
 log = "0.4.5"
 env_logger = "0.5.13"
 mime = "0.3"
