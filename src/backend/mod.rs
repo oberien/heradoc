@@ -20,6 +20,7 @@ pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<Str
 
 pub trait Backend<'a>: Debug {
     type Text: MediumCodeGenUnit<Cow<'a, str>>;
+    type Latex: MediumCodeGenUnit<Cow<'a, str>>;
     type FootnoteReference: MediumCodeGenUnit<FootnoteReference<'a>>;
     type Link: MediumCodeGenUnit<Link<'a>>;
     type Image: MediumCodeGenUnit<Image<'a>>;
