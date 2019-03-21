@@ -24,6 +24,7 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
 
         let in_inline_code = stack.iter().any(|e| e.is_inline_code());
         let in_code_or_math = stack.iter().any(|e| e.is_code() || e.is_math());
+        let in_graphviz = stack.iter().any(|e| e.is_graphviz());
         let mut s = String::with_capacity(text.len() + 20);
         for c in text.chars() {
             match c {
@@ -44,11 +45,11 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '}' if !in_code_or_math => s.push_str("\\}"),
                 '✔' => s.push_str("\\checkmark{}"),
                 '✘' => s.push_str("\\text{X}"),
-                c if in_inline_code || !in_code_or_math => match replace(c) {
+                c if in_graphviz => s.push(c),
+                c => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),
                 }
-                c => s.push(c),
             }
         }
         write!(stack.get_out(), "{}", s)?;

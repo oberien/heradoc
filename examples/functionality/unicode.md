@@ -16,8 +16,8 @@ Check for linespacing EEEEEEEEEEEEEEE
 
 Text with # $ % & ~ _ ^ \ { } metachars.
 `$ Inline\ math\ with_{subscript}`.
-```$
-Equation\ with_{subscript}`.
+```$$
+Equation\ with_{subscript}.
 ```
 ```
 Code block with # $ % & ~ _ ^ \ { } metachars.
