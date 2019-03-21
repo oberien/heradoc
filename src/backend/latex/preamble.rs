@@ -415,6 +415,5 @@ pub const TABULARX: &'static str = r#"
 \newcolumntype{L}{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}X}
 \newcolumntype{C}{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}X}
 \newcolumntype{R}{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}X}
-\newcolumntype{Z}{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}X}
 \renewcommand\tabularxcolumn[1]{m{#1}}
 "#;
