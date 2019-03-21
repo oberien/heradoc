@@ -36,6 +36,21 @@ impl<'a> CodeGenUnit<'a, ()> for InlineStrongGen {
 }
 
 #[derive(Debug)]
+pub struct InlineStrikethroughGen;
+
+impl<'a> CodeGenUnit<'a, ()> for InlineStrikethroughGen {
+    fn new(_cfg: &'a Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+        write!(gen.get_out(), "\\sout{{")?;
+        Ok(InlineStrikethroughGen)
+    }
+
+    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
+        write!(gen.get_out(), "}}")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct InlineCodeGen;
 
 impl<'a> CodeGenUnit<'a, ()> for InlineCodeGen {

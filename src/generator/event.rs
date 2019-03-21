@@ -24,6 +24,7 @@ pub enum Event<'a> {
     Pdf(Pdf),
     SoftBreak,
     HardBreak,
+    TaskListMarker(bool),
     TableOfContents,
     Bibliography,
     ListOfTables,
@@ -44,6 +45,7 @@ pub enum Tag<'a> {
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
+    HtmlBlock,
     Figure(Figure<'a>),
     TableFigure(Figure<'a>),
 
@@ -54,6 +56,7 @@ pub enum Tag<'a> {
 
     InlineEmphasis,
     InlineStrong,
+    InlineStrikethrough,
     InlineCode,
     InlineMath,
 
@@ -98,6 +101,7 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::Label(label) => Event::Label(label),
             FeEvent::SoftBreak => Event::SoftBreak,
             FeEvent::HardBreak => Event::HardBreak,
+            FeEvent::TaskListMarker(checked) => Event::TaskListMarker(checked),
 
             FeEvent::Command(command) => command.into(),
             FeEvent::ResolveInclude(_include) => unreachable!("ResolveInclude is handled by Generator"),
@@ -130,6 +134,7 @@ impl<'a> From<FeTag<'a>> for Tag<'a> {
             FeTag::Enumerate(e) => Tag::Enumerate(e),
             FeTag::Item => Tag::Item,
             FeTag::FootnoteDefinition(fnote) => Tag::FootnoteDefinition(fnote),
+            FeTag::HtmlBlock => Tag::HtmlBlock,
             FeTag::Figure(figure) => Tag::Figure(figure),
             FeTag::TableFigure(figure) => Tag::TableFigure(figure),
             FeTag::Table(table) => Tag::Table(table),
@@ -138,6 +143,7 @@ impl<'a> From<FeTag<'a>> for Tag<'a> {
             FeTag::TableCell => Tag::TableCell,
             FeTag::InlineEmphasis => Tag::InlineEmphasis,
             FeTag::InlineStrong => Tag::InlineStrong,
+            FeTag::InlineStrikethrough => Tag::InlineStrikethrough,
             FeTag::InlineCode => Tag::InlineCode,
             FeTag::InlineMath => Tag::InlineMath,
             FeTag::Equation(equation) => Tag::Equation(equation),

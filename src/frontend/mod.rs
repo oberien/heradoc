@@ -5,19 +5,20 @@ use std::marker::PhantomData;
 use std::iter::Peekable;
 use std::str::FromStr;
 
-use pulldown_cmark::{Event as CmarkEvent, Tag as CmarkTag, Parser as CmarkParser,
-    Options as CmarkOptions};
+use pulldown_cmark::{Parser as CmarkParser, Options as CmarkOptions};
 use regex::Regex;
 use lazy_static::lazy_static;
 
 mod refs;
 mod event;
+mod convert_cow;
 mod concat;
 
 pub use self::refs::*;
 pub use self::event::*;
 
 use self::concat::Concat;
+use self::convert_cow::{ConvertCow, Event as CmarkEvent, Tag as CmarkTag};
 use self::refs::ReferenceParseResult;
 use crate::config::Config;
 use crate::backend::{Backend};
@@ -28,7 +29,7 @@ use crate::resolve::Command;
 
 pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
-    parser: Peekable<Concat<'a, CmarkParser<'a>>>,
+    parser: Peekable<Concat<'a, ConvertCow<'a>>>,
     buffer: VecDeque<Event<'a>>,
     marker: PhantomData<B>,
 }
@@ -64,12 +65,13 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     pub fn new(cfg: &'a Config, markdown: &'a str) -> Frontend<'a, B> {
         let parser = CmarkParser::new_with_broken_link_callback(
             markdown,
-            CmarkOptions::ENABLE_FOOTNOTES | CmarkOptions::ENABLE_TABLES,
+            CmarkOptions::ENABLE_FOOTNOTES | CmarkOptions::ENABLE_TABLES
+                | CmarkOptions::ENABLE_STRIKETHROUGH | CmarkOptions::ENABLE_TASKLISTS,
             Some(&broken_link_callback)
         );
         Frontend {
             cfg,
-            parser: Concat::new(parser).peekable(),
+            parser: Concat::new(ConvertCow(parser)).peekable(),
             buffer: VecDeque::new(),
             marker: PhantomData,
         }
@@ -85,6 +87,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             })),
             CmarkEvent::SoftBreak => self.buffer.push_back(Event::SoftBreak),
             CmarkEvent::HardBreak => self.buffer.push_back(Event::HardBreak),
+            CmarkEvent::TaskListMarker(checked) => self.buffer.push_back(Event::TaskListMarker(checked)),
 
             // TODO: make this not duplicate
             CmarkEvent::Start(CmarkTag::Rule) => self.buffer.push_back(Event::Start(Tag::Rule)),
@@ -115,6 +118,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             CmarkEvent::End(CmarkTag::FootnoteDefinition(label)) => {
                 self.buffer.push_back(Event::End(Tag::FootnoteDefinition(FootnoteDefinition { label })))
             },
+            CmarkEvent::Start(CmarkTag::HtmlBlock) => self.buffer.push_back(Event::Start(Tag::HtmlBlock)),
+            CmarkEvent::End(CmarkTag::HtmlBlock) => self.buffer.push_back(Event::End(Tag::HtmlBlock)),
             CmarkEvent::Start(CmarkTag::TableHead) => self.buffer.push_back(Event::Start(Tag::TableHead)),
             CmarkEvent::End(CmarkTag::TableHead) => self.buffer.push_back(Event::End(Tag::TableHead)),
             CmarkEvent::Start(CmarkTag::TableRow) => self.buffer.push_back(Event::Start(Tag::TableRow)),
@@ -125,6 +130,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             CmarkEvent::End(CmarkTag::Emphasis) => self.buffer.push_back(Event::End(Tag::InlineEmphasis)),
             CmarkEvent::Start(CmarkTag::Strong) => self.buffer.push_back(Event::Start(Tag::InlineStrong)),
             CmarkEvent::End(CmarkTag::Strong) => self.buffer.push_back(Event::End(Tag::InlineStrong)),
+            CmarkEvent::Start(CmarkTag::Strikethrough) => self.buffer.push_back(Event::Start(Tag::InlineStrikethrough)),
+            CmarkEvent::End(CmarkTag::Strikethrough) => self.buffer.push_back(Event::End(Tag::InlineStrikethrough)),
 
             CmarkEvent::Start(CmarkTag::Code) => self.convert_inline_code(),
             CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, None),
@@ -516,7 +523,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | LinkType::Inline => if content.is_empty() { None } else { Some(content) },
             LinkType::Collapsed | LinkType::CollapsedUnknown
             | LinkType::Shortcut | LinkType::ShortcutUnknown => None,
-            LinkType::Autolink => unreachable!("Autolinks can be images???")
+            LinkType::Autolink | LinkType::Email => unreachable!("{:?} can be images???", typ)
         };
         let mut cskvp = cskvp.unwrap_or_default();
         self.buffer.push_back(Event::Include(Include {

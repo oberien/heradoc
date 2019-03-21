@@ -20,6 +20,7 @@ pub enum Event<'a> {
     Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
+    TaskListMarker(bool),
 
     Command(Command),
     /// Include to be resolved by the resolver
@@ -43,6 +44,7 @@ pub enum Tag<'a> {
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
+    HtmlBlock,
     Figure(Figure<'a>),
     TableFigure(Figure<'a>),
 
@@ -53,6 +55,7 @@ pub enum Tag<'a> {
 
     InlineEmphasis,
     InlineStrong,
+    InlineStrikethrough,
     InlineCode,
     InlineMath,
 

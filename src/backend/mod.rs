@@ -28,6 +28,7 @@ pub trait Backend<'a>: Debug {
     type Pdf: MediumCodeGenUnit<Pdf>;
     type SoftBreak: MediumCodeGenUnit<()>;
     type HardBreak: MediumCodeGenUnit<()>;
+    type TaskListMarker: MediumCodeGenUnit<bool>;
     type TableOfContents: MediumCodeGenUnit<()>;
     type Bibliography: MediumCodeGenUnit<()>;
     type ListOfTables: MediumCodeGenUnit<()>;
@@ -44,6 +45,7 @@ pub trait Backend<'a>: Debug {
     type Enumerate: CodeGenUnit<'a, Enumerate>;
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
+    type HtmlBlock: CodeGenUnit<'a, ()>;
     type Figure: CodeGenUnit<'a, Figure<'a>>;
     type TableFigure: CodeGenUnit<'a, Figure<'a>>;
 
@@ -54,6 +56,7 @@ pub trait Backend<'a>: Debug {
 
     type InlineEmphasis: CodeGenUnit<'a, ()>;
     type InlineStrong: CodeGenUnit<'a, ()>;
+    type InlineStrikethrough: CodeGenUnit<'a, ()>;
     type InlineCode: CodeGenUnit<'a, ()>;
     type InlineMath: CodeGenUnit<'a, ()>;
 

@@ -206,6 +206,19 @@ impl MediumCodeGenUnit<()> for HardBreakGen {
 }
 
 #[derive(Debug)]
+pub struct TaskListMarkerGen;
+
+impl SimpleCodeGenUnit<bool> for TaskListMarkerGen {
+    fn gen(checked: bool, out: &mut impl Write) -> Result<()> {
+        match checked {
+            true => write!(out, r"[$\boxtimes$] ")?,
+            false => write!(out, r"[$\square$] ")?,
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct TableOfContentsGen;
 
 impl SimpleCodeGenUnit<()> for TableOfContentsGen {

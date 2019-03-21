@@ -13,3 +13,7 @@
 2. Numbered 2
     1. SubNumbered 2.1
     1. SubNumbered 2.2
+    
+- [ ] Checklist
+- [x] Checked item
+- Normal bullet within checklist
