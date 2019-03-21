@@ -160,7 +160,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
 
     #[allow(dead_code)]
     pub fn is_code_block(&self) -> bool {
-        match self {
+        self.is_graphviz() || match self {
             StackElement::CodeBlock(_) => true,
             _ => false
         }
