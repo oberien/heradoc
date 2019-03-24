@@ -40,12 +40,12 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     };
     let title = if title.is_empty() { None } else { Some(title) };
 
-    dst.trim_left_inplace();
+    dst.trim_start_inplace();
 
     // possible include
     match typ {
         LinkType::ShortcutUnknown => if dst.starts_with_ignore_ascii_case("include ") {
-            dst.truncate_left(8);
+            dst.truncate_start(8);
             return ReferenceParseResult::ResolveInclude(dst);
         } else if let Ok(command) = Command::from_str(&dst) {
             return ReferenceParseResult::Command(command);
@@ -54,10 +54,10 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     }
 
     // biber
-    if dst.trim_left().starts_with('@') && typ == LinkType::ShortcutUnknown {
+    if dst.trim_start().starts_with('@') && typ == LinkType::ShortcutUnknown {
         if !cfg.bibliography.is_some() {
             // todo: error
-            println!("Found biber link but no bibliography file found: {:?}", dst.trim_left());
+            println!("Found biber link but no bibliography file found: {:?}", dst.trim_start());
             return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));
         }
         // TODO: parse biber file and warn on unknown references
@@ -71,7 +71,7 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     }
 
     // sanity check
-    if !dst.trim_left().starts_with('#') {
+    if !dst.trim_start().starts_with('#') {
         match typ {
             // these cases should already be handled above for anything except '#'
             LinkType::ShortcutUnknown
@@ -89,7 +89,7 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     assert_ne!(prefix, '^', "Footnotes should be handled by pulldown-cmark already");
     let mut uppercase = None;
     if prefix == '#' {
-        dst.truncate_left(1);
+        dst.truncate_start(1);
         // TODO: don't panic on invalid links (`#`)
         uppercase = Some(dst.chars().next().unwrap().is_uppercase());
         dst.make_ascii_lowercase_inplace();

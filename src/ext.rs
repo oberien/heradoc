@@ -28,10 +28,10 @@ impl<T> VecExt<T> for Vec<T> {
 
 pub trait CowExt<'a> {
     fn trim_inplace(&mut self);
-    fn trim_left_inplace(&mut self);
-    fn trim_right_inplace(&mut self);
-    fn truncate_left(&mut self, num: usize);
-    fn truncate_right(&mut self, num: usize);
+    fn trim_start_inplace(&mut self);
+    fn trim_end_inplace(&mut self);
+    fn truncate_start(&mut self, num: usize);
+    fn truncate_end(&mut self, num: usize);
     fn truncate(&mut self, len: usize);
     fn make_ascii_lowercase_inplace(&mut self);
     fn split_at(self, pos: usize) -> (Cow<'a, str>, Cow<'a, str>);
@@ -55,28 +55,28 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
         );
     }
 
-    fn trim_left_inplace(&mut self) {
+    fn trim_start_inplace(&mut self) {
         self.map_inplace(
-            |s| s.trim_left(),
-            |s| drop(s.drain(..s.len() - s.trim_left().len()))
+            |s| s.trim_start(),
+            |s| drop(s.drain(..s.len() - s.trim_start().len()))
         );
     }
 
-    fn trim_right_inplace(&mut self) {
+    fn trim_end_inplace(&mut self) {
         self.map_inplace(
-            |s| s.trim_right(),
-            |s| s.truncate(s.trim_right().len()),
+            |s| s.trim_end(),
+            |s| s.truncate(s.trim_end().len()),
         );
     }
 
-    fn truncate_left(&mut self, num: usize) {
+    fn truncate_start(&mut self, num: usize) {
         self.map_inplace(
             |s| &s[num..],
             |s| drop(s.drain(..num))
         );
     }
 
-    fn truncate_right(&mut self, num: usize) {
+    fn truncate_end(&mut self, num: usize) {
         self.truncate(self.len() - num);
     }
 
@@ -109,10 +109,10 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
     fn split_off(&mut self, pos: usize) -> Cow<'a, str> {
         match self {
             Cow::Borrowed(s) => {
-                let left = &s[..pos];
-                let right = &s[pos..];
-                *s = left;
-                Cow::Borrowed(right)
+                let start = &s[..pos];
+                let end = &s[pos..];
+                *s = start;
+                Cow::Borrowed(end)
             }
             Cow::Owned(s) => {
                 Cow::Owned(s.split_off(pos))

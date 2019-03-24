@@ -15,6 +15,8 @@ pub struct Remote {
 }
 
 pub struct Downloaded {
+    // TODO
+    #[allow(unused)]
     file: File,
     path: PathBuf,
     content_type: Option<ContentType>,

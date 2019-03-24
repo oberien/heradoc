@@ -229,12 +229,12 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             match text.chars().next().unwrap() {
                 '$' => {
                     // math
-                    text.truncate_left(2);
+                    text.truncate_start(2);
                     Tag::InlineMath
                 },
                 '\\' => {
                     // latex
-                    text.truncate_left(2);
+                    text.truncate_start(2);
                     match self.parser.next().unwrap() {
                         CmarkEvent::End(CmarkTag::Code) => (),
                         _ => unreachable!("InlineCode should only contain a single text event"),
@@ -390,8 +390,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
 
         // parse label
-        text.truncate_right(1);
-        text.truncate_left(1);
+        text.truncate_end(1);
+        text.truncate_start(1);
         let mut cskvp = Cskvp::new(text);
         // if next element could have a label, convert that element with the label
         // otherwise create label event

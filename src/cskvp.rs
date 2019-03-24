@@ -18,7 +18,7 @@ pub struct Cskvp<'a> {
 
 impl<'a> Cskvp<'a> {
     pub fn new(s: Cow<'a, str>) -> Cskvp<'a> {
-        let mut parser = Parser::new(s);
+        let parser = Parser::new(s);
 
         let mut single = Vec::new();
         let mut double = HashMap::new();
@@ -34,7 +34,7 @@ impl<'a> Cskvp<'a> {
                         println!("Found two labels, taking the last: {} and {}",
                                  label.as_ref().unwrap(), &value[1..]);
                     }
-                    value.truncate_left(1);
+                    value.truncate_start(1);
                     label = Some(value);
                 } else {
                     single.push(value);
@@ -88,17 +88,6 @@ impl<'a> Cskvp<'a> {
 
     pub fn take_caption(&mut self) -> Option<Cow<'a, str>> {
         self.caption.take()
-    }
-
-    pub fn take_single(&mut self, attr: &str) -> Option<Cow<'a, str>> {
-        self.single.remove_element(&attr)
-    }
-
-    pub fn take_single_by_index(&mut self, index: usize) -> Option<Cow<'a, str>> {
-        if index >= self.single.len() {
-            return None;
-        }
-        Some(self.single.remove(index))
     }
 
     pub fn take_double(&mut self, key: &str) -> Option<Cow<'a, str>> {
@@ -173,7 +162,7 @@ impl<'a> Parser<'a> {
                 Ok(parsed) => {
                     let content = quoted_string::to_content::<TestSpec>(parsed.quoted_string)
                         .unwrap().into_owned();
-                    self.rest.truncate_left(self.rest.len() - parsed.tail.len());
+                    self.rest.truncate_start(self.rest.len() - parsed.tail.len());
                     Cow::Owned(content)
                 }
             }
@@ -185,14 +174,14 @@ impl<'a> Parser<'a> {
             .filter_map(|delim| self.rest.find(delim))
             .min()
             .unwrap_or(self.rest.len());
-        let mut rest = self.rest.split_off(idx);
+        let rest = self.rest.split_off(idx);
         let mut val = mem::replace(&mut self.rest, rest);
         val.trim_inplace();
         val
     }
 
     fn next_single(&mut self, delimiters: &[char]) -> Cow<'a, str> {
-        self.rest.trim_left_inplace();
+        self.rest.trim_start_inplace();
         if self.rest.starts_with('"') {
             self.next_quoted()
         } else {
@@ -201,10 +190,10 @@ impl<'a> Parser<'a> {
     }
 
     fn skip_delimiter(&mut self) -> Option<char> {
-        self.rest.trim_left_inplace();
+        self.rest.trim_start_inplace();
         let delim = self.rest.chars().next();
         if delim.is_some() {
-            self.rest.truncate_left(1);
+            self.rest.truncate_start(1);
         }
         delim
 
