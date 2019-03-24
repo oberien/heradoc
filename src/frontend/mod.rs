@@ -87,7 +87,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             })),
             CmarkEvent::SoftBreak => self.buffer.push_back(Event::SoftBreak),
             CmarkEvent::HardBreak => self.buffer.push_back(Event::HardBreak),
-            CmarkEvent::TaskListMarker(checked) => self.buffer.push_back(Event::TaskListMarker(checked)),
+            CmarkEvent::TaskListMarker(checked) => self.buffer.push_back(Event::TaskListMarker(TaskListMarker { checked })),
 
             // TODO: make this not duplicate
             CmarkEvent::Start(CmarkTag::Rule) => self.buffer.push_back(Event::Start(Tag::Rule)),

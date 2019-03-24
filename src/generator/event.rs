@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 pub use pulldown_cmark::Alignment;
-pub use crate::frontend::{FootnoteReference, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
+pub use crate::frontend::{FootnoteReference, TaskListMarker, Link, Header, CodeBlock, Enumerate, FootnoteDefinition,
     Figure, Table, Graphviz, Equation};
 
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
@@ -24,7 +24,7 @@ pub enum Event<'a> {
     Pdf(Pdf),
     SoftBreak,
     HardBreak,
-    TaskListMarker(bool),
+    TaskListMarker(TaskListMarker),
     TableOfContents,
     Bibliography,
     ListOfTables,
@@ -101,7 +101,7 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::Label(label) => Event::Label(label),
             FeEvent::SoftBreak => Event::SoftBreak,
             FeEvent::HardBreak => Event::HardBreak,
-            FeEvent::TaskListMarker(checked) => Event::TaskListMarker(checked),
+            FeEvent::TaskListMarker(marker) => Event::TaskListMarker(marker),
 
             FeEvent::Command(command) => command.into(),
             FeEvent::ResolveInclude(_include) => unreachable!("ResolveInclude is handled by Generator"),

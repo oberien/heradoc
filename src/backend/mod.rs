@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use typed_arena::Arena;
 
 use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, Figure,
-    FootnoteReference, Table, Image, Graphviz, Link, Pdf, Equation};
+    FootnoteReference, TaskListMarker, Table, Image, Graphviz, Link, Pdf, Equation};
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
@@ -28,7 +28,7 @@ pub trait Backend<'a>: Debug {
     type Pdf: MediumCodeGenUnit<Pdf>;
     type SoftBreak: MediumCodeGenUnit<()>;
     type HardBreak: MediumCodeGenUnit<()>;
-    type TaskListMarker: MediumCodeGenUnit<bool>;
+    type TaskListMarker: MediumCodeGenUnit<TaskListMarker>;
     type TableOfContents: MediumCodeGenUnit<()>;
     type Bibliography: MediumCodeGenUnit<()>;
     type ListOfTables: MediumCodeGenUnit<()>;

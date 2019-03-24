@@ -3,7 +3,7 @@ use std::borrow::Cow;
 
 use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
 use crate::backend::latex::InlineEnvironment;
-use crate::generator::event::{FootnoteReference, Link, Image, Pdf};
+use crate::generator::event::{FootnoteReference, Link, Image, Pdf, TaskListMarker};
 use crate::generator::Stack;
 use super::replace::replace;
 
@@ -208,8 +208,9 @@ impl MediumCodeGenUnit<()> for HardBreakGen {
 #[derive(Debug)]
 pub struct TaskListMarkerGen;
 
-impl SimpleCodeGenUnit<bool> for TaskListMarkerGen {
-    fn gen(checked: bool, out: &mut impl Write) -> Result<()> {
+impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
+    fn gen(marker: TaskListMarker, out: &mut impl Write) -> Result<()> {
+        let TaskListMarker { checked } = marker;
         match checked {
             true => write!(out, r"[$\boxtimes$] ")?,
             false => write!(out, r"[$\square$] ")?,

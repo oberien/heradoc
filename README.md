@@ -1,5 +1,5 @@
 Heradoc is a markdown to LaTeX converter.
-It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) with a pinch of
+It is a very biased partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) with a pinch of
 [hackmd](https://hackmd.io/features?both).
 
 # Features
@@ -70,6 +70,7 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
     - [x] figure / nofigure / figure=true / figure=false
     - [x] caption
     - [x] scale / width / height for image / graphviz / ...
+- [x] tasklist: `- [ ] foo`
 - [ ] tables: merge columns
 - [ ] tables: merge rows
 - [ ] tables: merge columns and rows (e.g. 3x3 field)
@@ -80,14 +81,12 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [ ] ```` ```mermaid````
 - [ ] ```` ```abc````
 - [ ] citation style (.cs)
-- [ ] todolist (enumitem): `- [ ] foo`
 - [ ] label-list: ``* `label`: Description`` (escape hatch with double-space after list item dot)
 - [ ] description-list: ``* **description**: Description`` (escape hatch with double-space after list item dot)
 - [ ] includes of files other than images / md
 - [ ] alert area??? (success, info, warning, danger)
 - [ ] superscript (`foo^bar^`)
 - [ ] subscript (`foo~bar~`)
-- [ ] image size (common property parsing in general)
 
 # Config Options
 
@@ -99,17 +98,17 @@ It is a partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) wit
 - [x] header includes
 - [x] pdf metadata
     - [ ] compare with pandoc
-- [ ] figures (true / false): puts every listing / image / … inside figures
+- [x] figures (true / false): puts every listing / image / … inside figures
+- [x] oneside (true / false)
+    - [ ] pagebreak / newpage / clearpage
 - [ ] itemizespacing
 - [ ] use minted instead of lstlistings
 - [ ] lstset
-- [ ] graphicspath
+- [ ] graphicspath (probably not needed due to resolve)
 - [ ] cleveref options
 - [ ] let footnotes appear where they are first used vs where they are declared
 - [ ] make softbreaks (line breaks) hard brakes (line ends with 2 spaces)
-- [ ] oneside / twoside
-    - [ ] pagebreak / newpage / clearpage
-- [ ] typed config options per type
+- [ ] typed config options per type (instead of strings) where appropriate
 
 # Cli
 

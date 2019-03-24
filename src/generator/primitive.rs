@@ -61,7 +61,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
             Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut stack)?,
             Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut stack)?,
             Some(Event::HardBreak) => B::HardBreak::gen((), &mut stack)?,
-            Some(Event::TaskListMarker(checked)) => B::TaskListMarker::gen(checked, &mut stack)?,
+            Some(Event::TaskListMarker(marker)) => B::TaskListMarker::gen(marker, &mut stack)?,
             Some(Event::TableOfContents) => B::TableOfContents::gen((), &mut stack)?,
             Some(Event::Bibliography) => B::Bibliography::gen((), &mut stack)?,
             Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut stack)?,
