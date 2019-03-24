@@ -3,7 +3,7 @@ use std::io::Write;
 use crate::backend::Backend;
 use super::StackElement;
 
-pub struct Stack<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write + 'b> {
+pub struct Stack<'a: 'b, 'b, D: Backend<'a>, W: Write> {
     default_out: &'b mut W,
     stack: &'b mut [StackElement<'a, D>],
 }

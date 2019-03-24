@@ -71,7 +71,7 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
 pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
-    fn gen(fnote: FootnoteReference, out: &mut impl Write) -> Result<()> {
+    fn gen(fnote: FootnoteReference<'a>, out: &mut impl Write) -> Result<()> {
         let FootnoteReference { label } = fnote;
         write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", label)?;
         Ok(())

@@ -3,7 +3,7 @@ use std::fs;
 
 use typed_arena::Arena;
 
-use crate::backend::{Backend};
+use crate::backend::Backend;
 use crate::frontend::{Frontend, Event as FeEvent, Include as FeInclude};
 use crate::config::Config;
 use crate::resolve::{Resolver, Context, Include};

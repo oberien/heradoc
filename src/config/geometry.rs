@@ -3,7 +3,7 @@ use std::fmt;
 use std::collections::HashMap;
 use std::io;
 
-use serde::de::{self, Deserialize, Deserializer};
+use serde::{de, Deserialize, Deserializer};
 use structopt::StructOpt;
 
 use crate::config::MaybeUnknown;
@@ -208,7 +208,7 @@ impl FromStr for Papersize {
 }
 
 impl fmt::Display for Papersize {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Papersize::A0paper => write!(f, "a0paper"),
             Papersize::A1paper => write!(f, "a1paper"),
@@ -292,7 +292,7 @@ impl FromStr for Orientation {
 }
 
 impl fmt::Display for Orientation {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Orientation::Portrait => write!(f, "portrait"),
             Orientation::Landscape => write!(f, "landscape"),

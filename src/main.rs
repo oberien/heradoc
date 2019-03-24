@@ -1,21 +1,24 @@
-extern crate pulldown_cmark;
-extern crate str_concat;
-extern crate structopt;
-extern crate void;
-extern crate boolinator;
-extern crate tempdir;
-extern crate typed_arena;
-extern crate url;
-extern crate serde;
-#[macro_use]
-extern crate serde_derive;
-extern crate toml;
-extern crate mime;
-extern crate sha2;
-extern crate isolang;
-extern crate strum;
-#[macro_use]
-extern crate strum_macros;
+#![forbid(unsafe_code)]
+// groups
+#![warn(nonstandard_style)]
+#![warn(rust_2018_idioms)]
+#![warn(unused)]
+#![warn(future_incompatible)]
+// single lints not in groups from https://doc.rust-lang.org/rustc/lints/listing/allowed-by-default.html
+#![allow(box_pointers)]
+#![warn(elided_lifetimes_in_paths)]
+#![warn(missing_copy_implementations)]
+#![warn(missing_debug_implementations)]
+#![warn(trivial_casts)]
+#![warn(trivial_numeric_casts)]
+#![warn(unused_import_braces)]
+#![warn(unused_qualifications)]
+#![warn(variant_size_differences)]
+// for now
+#![allow(missing_docs)]
+// seems to have quite some unchangeable false positives
+// might need further inspection
+#![allow(single_use_lifetimes)]
 
 use std::fs::{self, File};
 use std::path::Path;

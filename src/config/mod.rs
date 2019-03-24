@@ -13,6 +13,7 @@ use serde::{Deserialize, Deserializer, de};
 use tempdir::TempDir;
 use isolang::Language;
 use url::Url;
+use strum_macros::{EnumString, Display};
 
 mod geometry;
 
@@ -480,7 +481,7 @@ impl<T: FromStr> FromStr for MaybeUnknown<T> {
 }
 
 impl<T: fmt::Display> fmt::Display for MaybeUnknown<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             MaybeUnknown::Known(t) => t.fmt(f),
             MaybeUnknown::Unknown(s) => s.fmt(f),
@@ -495,14 +496,14 @@ pub enum FileOrStdio {
 }
 
 impl FileOrStdio {
-    pub fn to_read(&self) -> Box<Read> {
+    pub fn to_read(&self) -> Box<dyn Read> {
         match self {
             FileOrStdio::StdIo => Box::new(Box::leak(Box::new(io::stdin())).lock()),
             FileOrStdio::File(path) => Box::new(File::open(path).expect("can't open input source")),
         }
     }
 
-    pub fn to_write(&self) -> Box<Write> {
+    pub fn to_write(&self) -> Box<dyn Write> {
         match self {
             FileOrStdio::StdIo => Box::new(Box::leak(Box::new(io::stdout())).lock()),
             FileOrStdio::File(path) => Box::new(File::create(path).expect("can't open output source")),
