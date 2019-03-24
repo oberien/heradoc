@@ -61,12 +61,12 @@ pub struct Geometry {
 
 pub fn parse_others(s: &str) -> Result<HashMap<String, String>, &'static str> {
     let errmsg = "Expected `key=value,key2=value2` format for others";
-    if !s.contains("=") {
+    if !s.contains('=') {
         return Err(errmsg);
     }
 
     s.split(',').map(|pair| {
-        let mut iter = pair.split("=");
+        let mut iter = pair.split('=');
         Ok((iter.next().ok_or(errmsg)?.to_string(), iter.next().ok_or(errmsg)?.to_string()))
     }).collect()
 }
@@ -196,7 +196,7 @@ impl FromStr for Papersize {
             "letter" | "letterpaper" => Papersize::Letterpaper,
             "executive" | "executivepaper" => Papersize::Executivepaper,
             "legal" | "legalpaper" => Papersize::Legalpaper,
-            s if s.starts_with("{") && s.ends_with("}") && s.contains(",") => {
+            s if s.starts_with('{') && s.ends_with('}') && s.contains(',') => {
                 let comma = s.find(',').unwrap();
                 let width = s[1..comma].to_string();
                 let height = s[(comma + 1)..s.len() - 1].trim().to_string();

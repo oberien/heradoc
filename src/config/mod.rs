@@ -269,7 +269,7 @@ impl Config {
         let bibliography = args.fileconfig.bibliography
             .or(infile.bibliography)
             .or(file.bibliography)
-            .map(|bib| PathBuf::from(bib))
+            .map(PathBuf::from)
             .or_else(|| {
                 if Path::new("references.bib").is_file() {
                     Some(PathBuf::from("references.bib"))
@@ -337,7 +337,7 @@ impl Config {
 
         Config {
             output,
-            out_dir: args.out_dir.unwrap_or(tempdir.path().to_owned()),
+            out_dir: args.out_dir.unwrap_or_else(|| tempdir.path().to_owned()),
             temp_dir,
             input: args.input,
             input_dir,

@@ -29,10 +29,10 @@ impl<'a> CodeGenUnit<'a, ()> for BlockQuoteGen {
 
         // check if last line of quote is source of quote
         let mut source = None;
-        if let Some(pos) = quote.trim_end().rfind("\n") {
+        if let Some(pos) = quote.trim_end().rfind('\n') {
             let src = &quote[pos+1..];
             if src.starts_with("--") {
-                let src = src.trim_start_matches("-");
+                let src = src.trim_start_matches('-');
                 source = Some(src.trim());
                 quote = &quote[..pos+1];
             }

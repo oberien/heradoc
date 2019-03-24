@@ -103,7 +103,7 @@ pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<(
 }
 
 // https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings
-pub const LSTSET: &'static str = r#"
+pub const LSTSET: &str = r#"
 \lstset{%
   numbers=left,
   numberstyle=\tiny\color{gray},
@@ -136,7 +136,7 @@ pub const LSTSET: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/questions/51645/
-pub const LST_DEFINE_ASM: &'static str = r#"
+pub const LST_DEFINE_ASM: &str = r#"
 %  x86-64-assembler-language-dialect-for-the-listings-package
 \lstdefinelanguage
    [x86_64]{Assembler}
@@ -150,7 +150,7 @@ pub const LST_DEFINE_ASM: &'static str = r#"
                   LR}}
 "#;
 
-pub const LST_DEFINE_RUST: &'static str = r#"
+pub const LST_DEFINE_RUST: &str = r#"
 \lstdefinelanguage{rust}{%
   keywords={%
     % strict keywords
@@ -181,7 +181,7 @@ pub const LST_DEFINE_RUST: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/13761
-pub const AQUOTE: &'static str = r#"
+pub const AQUOTE: &str = r#"
 \def\signed #1{{\leavevmode\unskip\nobreak\hfil\penalty50\hskip2em
   \hbox{}\nobreak\hfil(#1)%
   \parfillskip=0pt \finalhyphendemerits=0 \endgraf}}
@@ -193,7 +193,7 @@ pub const AQUOTE: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/41761
-pub const THICKHLINE: &'static str = r#"
+pub const THICKHLINE: &str = r#"
 \makeatletter
 \newcommand{\thickhline}{%
     \noalign {\ifnum 0=`}\fi \hrule height 1pt
@@ -204,7 +204,7 @@ pub const THICKHLINE: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/160022
-pub const FIX_INCLUDEGRAPHICS: &'static str = r#"
+pub const FIX_INCLUDEGRAPHICS: &str = r#"
 % Redefine \includegraphics so that, unless explicit options are
 % given, the image width will not exceed the width or the height of the page.
 % Images get their normal width if they fit onto the page, but
@@ -230,7 +230,7 @@ pub const FIX_INCLUDEGRAPHICS: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/a/75104
-pub const IMAGE_WITH_TEXT: &'static str = r#"
+pub const IMAGE_WITH_TEXT: &str = r#"
 \newsavebox\imagebox
 \newcommand*{\imagewithtext}[3][]{%
   \sbox\imagebox{\includegraphics[{#1}]{#2}}%
@@ -244,7 +244,7 @@ pub const IMAGE_WITH_TEXT: &'static str = r#"
 "#;
 
 // https://tex.stackexchange.com/q/183699
-pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &'static str = r#"
+pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &str = r#"
 \makeatletter
 \newsavebox{\measure@tikzpicture}
 \NewEnviron{scaletikzpicturetowidth}[1]{%
@@ -261,7 +261,7 @@ pub const SCALE_TIKZ_PICTURE_TO_WIDTH: &'static str = r#"
 
 // slightly modified from
 // https://github.com/jpbernius/tum-thesis-latex/blob/740e69c6a9671c7c0e3d74c0a70604a0ceddde56/pages/cover.tex
-pub const THESIS_COVER: &'static str = r#"
+pub const THESIS_COVER: &str = r#"
 \begin{titlepage}
   % HACK for two-sided documents: ignore binding correction for cover page.
   % Adapted from Markus Kohm's KOMA-Script titlepage=firstiscover handling.
@@ -305,7 +305,7 @@ pub const THESIS_COVER: &'static str = r#"
 // modified from
 // https://github.com/waltsims/TUM_Thesis_Template_CSE/blob/2a7a2f14f7b3de8873e50d2762206a78bd872470/components/cover.tex
 // TODO: l18n
-pub const THESIS_TITLE: &'static str = r#"
+pub const THESIS_TITLE: &str = r#"
 \begin{titlepage}
   \centering
 
@@ -348,7 +348,7 @@ pub const THESIS_TITLE: &'static str = r#"
 
 // modified from
 // https://github.com/jpbernius/tum-thesis-latex/blob/740e69c6a9671c7c0e3d74c0a70604a0ceddde56/pages/disclaimer.tex
-pub const THESIS_DISCLAIMER: &'static str = r#"
+pub const THESIS_DISCLAIMER: &str = r#"
 \thispagestyle{empty}
 \vspace*{0.75\textheight}
 \noindent
@@ -361,7 +361,7 @@ pub const THESIS_DISCLAIMER: &'static str = r#"
 
 // slightly modified from THESIS_COVER from
 // https://github.com/jpbernius/tum-thesis-latex/blob/740e69c6a9671c7c0e3d74c0a70604a0ceddde56/pages/cover.tex
-pub const REPORT_COVER: &'static str = r#"
+pub const REPORT_COVER: &str = r#"
 \begin{titlepage}
   % HACK for two-sided documents: ignore binding correction for cover page.
   % Adapted from Markus Kohm's KOMA-Script titlepage=firstiscover handling.
@@ -412,7 +412,7 @@ pub const REPORT_COVER: &'static str = r#"
 
 // https://tex.stackexchange.com/a/97188
 // https://tex.stackexchange.com/a/343329
-pub const TABULARX: &'static str = r#"
+pub const TABULARX: &str = r#"
 \newcolumntype{L}{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}X}
 \newcolumntype{C}{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}X}
 \newcolumntype{R}{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}X}

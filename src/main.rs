@@ -20,12 +20,15 @@
 // might need further inspection
 #![allow(single_use_lifetimes)]
 
+#![warn(clippy::all, clippy::nursery, clippy::pedantic/*, clippy::cargo*/)]
+#![allow(clippy::match_bool)]
+#![allow(clippy::range_plus_one)]
+
 use std::fs::{self, File};
 use std::path::Path;
 use std::process::Command;
 use std::io::{self, Write, Result};
 use std::env;
-use std::ffi::OsString;
 
 use structopt::StructOpt;
 use tempdir::TempDir;
@@ -119,7 +122,7 @@ fn pdflatex<P: AsRef<Path>>(tmpdir: P, cfg: &Config) {
         .arg(tmpdir.join("document.tex"));
     if let Some(template) = &cfg.template {
         if let Some(parent) = template.parent() {
-            let mut texinputs = env::var_os("TEXINPUTS").unwrap_or(OsString::new());
+            let mut texinputs = env::var_os("TEXINPUTS").unwrap_or_default();
             texinputs.push(":");
             texinputs.push(parent);
             pdflatex.env("TEXINPUTS", texinputs);

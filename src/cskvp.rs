@@ -28,7 +28,7 @@ impl<'a> Cskvp<'a> {
                 Value::Double(key, value) => {
                     double.insert(key, value);
                 },
-                Value::Single(mut value) => if value.starts_with("#") {
+                Value::Single(mut value) => if value.starts_with('#') {
                     if label.is_some() {
                         // TODO: warn
                         println!("Found two labels, taking the last: {} and {}",
@@ -54,7 +54,7 @@ impl<'a> Cskvp<'a> {
         let figure = single.remove_element(&"figure").map(|_| true);
         let nofigure = single.remove_element(&"nofigure").map(|_| false);
 
-        let figure = match [figure_double, figure, nofigure].into_iter().cloned().flatten().single() {
+        let figure = match [figure_double, figure, nofigure].iter().cloned().flatten().single() {
             Ok(val) => Some(val),
             Err(single::Error::NoElements) => None,
             Err(single::Error::MultipleElements) => {

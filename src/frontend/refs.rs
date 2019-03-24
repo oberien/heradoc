@@ -43,19 +43,18 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     dst.trim_start_inplace();
 
     // possible include
-    match typ {
-        LinkType::ShortcutUnknown => if dst.starts_with_ignore_ascii_case("include ") {
+    if let LinkType::ShortcutUnknown = typ {
+        if dst.starts_with_ignore_ascii_case("include ") {
             dst.truncate_start(8);
             return ReferenceParseResult::ResolveInclude(dst);
         } else if let Ok(command) = Command::from_str(&dst) {
             return ReferenceParseResult::Command(command);
         }
-        _ => (),
     }
 
     // biber
     if dst.trim_start().starts_with('@') && typ == LinkType::ShortcutUnknown {
-        if !cfg.bibliography.is_some() {
+        if cfg.bibliography.is_none() {
             // todo: error
             println!("Found biber link but no bibliography file found: {:?}", dst.trim_start());
             return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));

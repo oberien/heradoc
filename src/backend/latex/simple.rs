@@ -83,7 +83,7 @@ pub struct LinkGen;
 
 impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
     fn gen(link: Link<'a>, out: &mut impl Write) -> Result<()> {
-        Ok(match link {
+        match link {
             Link::BiberSingle(reference, rest) => match rest {
                 Some(rest) => write!(out, "\\cite[{}]{{{}}}", rest, reference)?,
                 None => write!(out, "\\cite{{{}}}", reference)?,
@@ -107,7 +107,8 @@ impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
             }
             Link::InterLinkWithContent(label, _uppercase, content)
                 => write!(out, "\\hyperref[{}]{{{}}}", label, content)?,
-        })
+        }
+        Ok(())
     }
 }
 

@@ -44,7 +44,7 @@ impl Resolver {
     }
 
     /// Make a request to an uri in the context of a document with the specified source.
-    pub fn resolve<'a>(&self, context: &Context, url: &str) -> io::Result<Include> {
+    pub fn resolve(&self, context: &Context, url: &str) -> io::Result<Include> {
         let url = self.base.join(url)
             .map_err(|err| io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
