@@ -22,6 +22,7 @@ impl<'a> Backend<'a> for Thesis {
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
+    type TaskListMarker = latex::TaskListMarkerGen;
     type TableOfContents = latex::TableOfContentsGen;
     type Bibliography = latex::BibliographyGen;
     type ListOfTables = latex::ListOfTablesGen;
@@ -38,6 +39,7 @@ impl<'a> Backend<'a> for Thesis {
     type Enumerate = latex::EnumerateGen;
     type Item = latex::ItemGen;
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
+    type HtmlBlock = latex::HtmlBlockGen;
     type Figure = latex::FigureGen<'a>;
     type TableFigure = latex::TableFigureGen<'a>;
     type Table = latex::TableGen<'a>;
@@ -46,6 +48,7 @@ impl<'a> Backend<'a> for Thesis {
     type TableCell = latex::TableCellGen;
     type InlineEmphasis = latex::InlineEmphasisGen;
     type InlineStrong = latex::InlineStrongGen;
+    type InlineStrikethrough = latex::InlineStrikethroughGen;
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
     type Equation = latex::EquationGen<'a>;

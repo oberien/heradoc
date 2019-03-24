@@ -20,6 +20,7 @@ pub enum Event<'a> {
     Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
+    TaskListMarker(TaskListMarker),
 
     Command(Command),
     /// Include to be resolved by the resolver
@@ -29,6 +30,11 @@ pub enum Event<'a> {
 #[derive(Debug)]
 pub struct FootnoteReference<'a> {
     pub label: Cow<'a, str>,
+}
+
+#[derive(Debug)]
+pub struct TaskListMarker {
+    pub checked: bool,
 }
 
 // extension of pulldown_cmark::Tag with custom types
@@ -43,6 +49,7 @@ pub enum Tag<'a> {
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
+    HtmlBlock,
     Figure(Figure<'a>),
     TableFigure(Figure<'a>),
 
@@ -53,6 +60,7 @@ pub enum Tag<'a> {
 
     InlineEmphasis,
     InlineStrong,
+    InlineStrikethrough,
     InlineCode,
     InlineMath,
 

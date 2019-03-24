@@ -78,7 +78,7 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
             | LinkType::ReferenceUnknown
             | LinkType::CollapsedUnknown => unreachable!(),
             LinkType::Inline
-            | LinkType::Autolink
+            | LinkType::Autolink | LinkType::Email
             | LinkType::Reference
             | LinkType::Collapsed
             | LinkType::Shortcut => (),
@@ -103,14 +103,14 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
                 ReferenceParseResult::Link(Link::InterLink(dst, uppercase.unwrap()))
             },
             LinkType::Reference | LinkType::ReferenceUnknown
-            | LinkType::Autolink
+            | LinkType::Autolink | LinkType::Email
             | LinkType::Inline => {
                 ReferenceParseResult::Link(Link::InterLinkWithContent(dst, uppercase.unwrap(), content))
             }
         }
         // url
         _ => match typ {
-            LinkType::Autolink
+            LinkType::Autolink | LinkType::Email
             | LinkType::Shortcut | LinkType::ShortcutUnknown
             | LinkType::Collapsed | LinkType::CollapsedUnknown => {
                 ReferenceParseResult::Link(Link::Url(dst, title))

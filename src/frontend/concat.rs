@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::borrow::Cow;
 
 use str_concat;
-use pulldown_cmark::Event;
+use super::convert_cow::Event;
 
 pub struct Concat<'a, I: Iterator<Item = Event<'a>>>(Peekable<I>);
 

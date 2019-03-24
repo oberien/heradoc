@@ -8,6 +8,10 @@ Markdown joke? That's **bold**!
 
 Part of this text *is italic*.
 
+## Strikethrough
+
+~~This is struck through text.~~
+
 ## Inline Code
 
 In rust, the entry point of a program with std is `fn main() {…}`.
