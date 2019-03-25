@@ -143,7 +143,7 @@ pub struct FileConfig {
     /// Path to markdown file containing the abstract.
     #[structopt(long = "abstract")]
     #[serde(rename = "abstract")]
-    pub _abstract: Option<String>,
+    pub abstract1: Option<String>,
     /// Path to a second file containing the abstract in a different language.
     pub abstract2: Option<String>,
 
@@ -209,7 +209,7 @@ pub struct Config {
     pub thesis_type: Option<String>,
     pub location: Option<String>,
     pub disclaimer: Option<String>,
-    pub _abstract: Option<PathBuf>,
+    pub abstract1: Option<PathBuf>,
     pub abstract2: Option<PathBuf>,
 
     pub header_includes: Vec<String>,
@@ -221,7 +221,7 @@ pub struct Config {
 impl Config {
     /// tempdir must live as long as Config
     pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, tempdir: &TempDir) -> Config {
-        let temp_dir = tempdir.path().to_owned();
+        let tempdir_path = tempdir.path().to_owned();
         // verify input file
         match &args.input {
             FileOrStdio::StdIo => (),
@@ -277,12 +277,12 @@ impl Config {
                     None
                 }
             });
-        let bibliography = resolve_file(&input_dir, &temp_dir, bibliography, "bibliography");
+        let bibliography = resolve_file(&input_dir, &tempdir_path, bibliography, "bibliography");
         let template = args.fileconfig.template
             .or(infile.template)
             .or(file.template)
             .map(PathBuf::from);
-        let template = resolve_file(&input_dir, &temp_dir, template, "template");
+        let template = resolve_file(&input_dir, &tempdir_path, template, "template");
 
         let lang = args.fileconfig.lang
             .or(infile.lang)
@@ -313,22 +313,22 @@ impl Config {
             .or(infile.logo_university)
             .or(file.logo_university)
             .map(PathBuf::from);
-        let logo_university = resolve_file(&input_dir, &temp_dir, logo_university, "logo_university");
+        let logo_university = resolve_file(&input_dir, &tempdir_path, logo_university, "logo_university");
         let logo_faculty = args.fileconfig.logo_faculty
             .or(infile.logo_faculty)
             .or(file.logo_faculty)
             .map(PathBuf::from);
-        let logo_faculty = resolve_file(&input_dir, &temp_dir, logo_faculty, "logo_faculty");
-        let _abstract = args.fileconfig._abstract
-            .or(infile._abstract)
-            .or(file._abstract)
+        let logo_faculty = resolve_file(&input_dir, &tempdir_path, logo_faculty, "logo_faculty");
+        let abstract1 = args.fileconfig.abstract1
+            .or(infile.abstract1)
+            .or(file.abstract1)
             .map(PathBuf::from);
-        let _abstract = resolve_file(&input_dir, &temp_dir, _abstract, "abstract");
+        let abstract1 = resolve_file(&input_dir, &tempdir_path, abstract1, "abstract");
         let abstract2 = args.fileconfig.abstract2
             .or(infile.abstract2)
             .or(file.abstract2)
             .map(PathBuf::from);
-        let abstract2 = resolve_file(&input_dir, &temp_dir, abstract2, "abstract2");
+        let abstract2 = resolve_file(&input_dir, &tempdir_path, abstract2, "abstract2");
 
         let document_type = args.fileconfig.document_type
                 .or(infile.document_type)
@@ -338,7 +338,7 @@ impl Config {
         Config {
             output,
             out_dir: args.out_dir.unwrap_or_else(|| tempdir.path().to_owned()),
-            temp_dir,
+            temp_dir: tempdir_path,
             input: args.input,
             input_dir,
             output_type,
@@ -361,8 +361,7 @@ impl Config {
                 .or(file.figures)
                 .unwrap_or_else(|| match document_type {
                     DocumentType::Article => false,
-                    DocumentType::Thesis => true,
-                    DocumentType::Report => true,
+                    DocumentType::Thesis | DocumentType::Report => true,
                 }),
             fontsize: args.fileconfig.fontsize
                 .or(infile.fontsize)
@@ -414,7 +413,7 @@ impl Config {
             disclaimer: args.fileconfig.disclaimer
                 .or(infile.disclaimer)
                 .or(file.disclaimer),
-            _abstract,
+            abstract1,
             abstract2,
             classoptions,
             header_includes,
@@ -450,7 +449,7 @@ fn resolve_file<P: AsRef<Path>>(input_dir: &Path, temp_dir: &Path, path: Option<
 
     // try to download
     let remote = Remote::new(temp_dir.to_owned()).unwrap();
-    match remote.http(Url::parse(path.as_ref().to_str().unwrap()).unwrap()) {
+    match remote.http(&Url::parse(path.as_ref().to_str().unwrap()).unwrap()) {
         Err(_) => panic!("{} file doesn't exist or isn't a url: {:?}", cfgoption, path.as_ref()),
         Ok(downloaded) => Some(downloaded.path().to_owned()),
 

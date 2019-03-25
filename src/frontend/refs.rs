@@ -7,6 +7,7 @@ use crate::config::Config;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
 
+#[allow(clippy::pub_enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum Link<'a> {
     /// reference, attributes
@@ -143,8 +144,7 @@ fn iter_multiple_biber(s: Cow<'_, str>) -> impl Iterator<Item = (Cow<'_, str>, O
             assert_eq!(&self.s[single_start..single_start+1], "@");
 
             let next_at = self.s[single_start + 1..].find('@')
-                .map(|i| i + single_start + 1)
-                .unwrap_or(self.s.len());
+                .map_or(self.s.len(), |i| i + single_start + 1);
             let single_end = self.s[single_start..next_at].rfind(',').unwrap_or(self.s.len());
             let single = self.s.map_inplace_return(
                 |s| {

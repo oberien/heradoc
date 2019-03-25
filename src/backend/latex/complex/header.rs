@@ -14,6 +14,7 @@ pub struct HeaderGen<'a> {
 impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
     fn new(_cfg: &'a Config, header: Header<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Header { label, level } = header;
+        assert!(level >= 0, "Header level should be positive, but is {}", level);
         write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
         Ok(HeaderGen {
             label,
@@ -34,6 +35,7 @@ pub struct BookHeaderGen<'a> {
 impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
     fn new(_cfg: &'a Config, header: Header<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Header { label, level } = header;
+        assert!(level >= 0, "Header level should be positive, but is {}", level);
         if level == 1 {
             write!(gen.get_out(), "\\chapter{{")?;
         } else {

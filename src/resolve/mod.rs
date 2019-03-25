@@ -102,8 +102,8 @@ pub enum Context {
 impl Context {
     fn path(&self) -> Option<&Path> {
         match self {
-            Context::LocalRelative(path) => Some(&path),
-            Context::LocalAbsolute(path) => Some(&path),
+            Context::LocalRelative(path)
+            | Context::LocalAbsolute(path) => Some(path),
             Context::Remote => None,
         }
     }

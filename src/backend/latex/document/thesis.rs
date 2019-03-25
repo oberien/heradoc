@@ -81,7 +81,7 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
-        preamble::write_university_commands(&cfg, out)?;
+        preamble::write_university_commands(cfg, out)?;
 
         writeln!(out, "\\pagenumbering{{alph}}")?;
         writeln!(out, "{}", preamble::THESIS_COVER)?;
@@ -97,8 +97,8 @@ impl<'a> Backend<'a> for Thesis {
 
         writeln!(out, "\\cleardoublepage{{}}")?;
 
-        if let Some(_abstract) = &cfg._abstract {
-            gen(_abstract, cfg, out)?;
+        if let Some(abstract1) = &cfg.abstract1 {
+            gen(abstract1, cfg, out)?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
             gen(abstract2, cfg, out)?;

@@ -62,7 +62,7 @@ impl Remote {
         })
     }
 
-    pub fn http(&self, url: Url) -> Result<Downloaded, Error> {
+    pub fn http(&self, url: &Url) -> Result<Downloaded, Error> {
         let mut response = self.client.get(url.as_ref())
             // TODO set headers: user agent, accepted content type, ...
             .send()
@@ -102,7 +102,7 @@ impl Remote {
         let file_hash = Sha256::new()
             .chain(key.host.as_str())
             .chain(key.path.to_str().unwrap())
-            .chain(key.mime.as_ref().map(Mime::as_ref).unwrap_or(""))
+            .chain(key.mime.as_ref().map_or("", Mime::as_ref))
             .result();
 
         let mut hash_name = format!("{:x}", file_hash);

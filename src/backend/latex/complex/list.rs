@@ -25,6 +25,8 @@ pub struct EnumerateGen;
 impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     fn new(_cfg: &'a Config, enumerate: Enumerate, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         let Enumerate { start_number } = enumerate;
+        assert!(std::mem::size_of::<usize>() >= 4);
+        assert!(start_number < i32::max_value() as usize);
         let start = start_number as i32 - 1;
         let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate()).count();
         writeln!(gen.get_out(), "\\begin{{enumerate}}")?;

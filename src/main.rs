@@ -23,6 +23,11 @@
 #![warn(clippy::all, clippy::nursery, clippy::pedantic/*, clippy::cargo*/)]
 #![allow(clippy::match_bool)]
 #![allow(clippy::range_plus_one)]
+#![allow(clippy::module_name_repetitions)]
+#![allow(clippy::use_self)]
+#![allow(clippy::result_map_unwrap_or_else)]
+#![allow(clippy::if_not_else)]
+#![allow(clippy::single_match_else)]
 
 use std::fs::{self, File};
 use std::path::Path;
@@ -63,7 +68,7 @@ fn main() {
         FileConfig::default()
     };
 
-    let cfgfile = args.configfile.as_ref().map(|p| p.as_path()).unwrap_or_else(|| Path::new("Config.toml"));
+    let cfgfile = args.configfile.as_ref().map_or_else(|| Path::new("Config.toml"), |p| p.as_path());
     let file = if cfgfile.is_file() {
         let content = fs::read_to_string(cfgfile)
             .expect("error reading existing config file");

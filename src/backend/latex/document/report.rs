@@ -109,7 +109,7 @@ impl<'a> Backend<'a> for Report {
             writeln!(out, "\\publishers{{{}}}", publisher)?;
         }
 
-        preamble::write_university_commands(&cfg, out)?;
+        preamble::write_university_commands(cfg, out)?;
         writeln!(out, "{}", preamble::REPORT_COVER)?;
         writeln!(out)?;
 

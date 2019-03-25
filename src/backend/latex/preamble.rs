@@ -79,7 +79,7 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
 }
 
 pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<()> {
-    fn get(o: &Option<String>) -> &str { o.as_ref().map(|s| s.as_str()).unwrap_or("") }
+    fn get(o: &Option<String>) -> &str { o.as_ref().map_or("", |s| s.as_str()) }
     writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
     writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
     writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;
@@ -123,7 +123,6 @@ pub const LSTSET: &str = r#"
   commentstyle=\itshape\color{Mahogany},
   stringstyle=\color{BrickRed},
   keywordstyle=[2]{\color{Cyan}},
-  escapechar=ß,
   xleftmargin=8pt,
   xrightmargin=3pt,
   basicstyle=\scriptsize,

@@ -92,7 +92,7 @@ impl Source {
                 to_include(path, Context::LocalAbsolute(parent))
             }
             SourceGroup::Remote => {
-                let downloaded = match remote.http(url) {
+                let downloaded = match remote.http(&url) {
                     Ok(downloaded) => downloaded,
                     Err(RemoteError::Io(io)) => return Err(io),
                     // TODO: proper error handling with failure

@@ -225,7 +225,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             }
             e => unreachable!("InlineCode should always be followed by Text or End(Code) but was followed by {:?}", e),
         };
-        let tag = if text.chars().nth(1).map(char::is_whitespace).unwrap_or(false) {
+        let tag = if text.chars().nth(1).map_or(false, char::is_whitespace) {
             match text.chars().next().unwrap() {
                 '$' => {
                     // math
