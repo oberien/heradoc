@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::PrimitiveGenerator;
+use crate::generator::Generator;
 
 use crate::generator::event::{Event, Figure};
 
@@ -43,8 +43,7 @@ pub struct AnyFigureGen<'a, T: Environment> {
 
 impl<'a, T: Environment + Debug> CodeGenUnit<'a, Figure<'a>> for AnyFigureGen<'a, T> {
     fn new(
-        _cfg: &'a Config, figure: Figure<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, figure: Figure<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Figure { label, caption } = figure;
         write!(gen.get_out(), "\\begin{{{}}}", T::to_str())?;
@@ -52,8 +51,7 @@ impl<'a, T: Environment + Debug> CodeGenUnit<'a, Figure<'a>> for AnyFigureGen<'a
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         let out = gen.get_out();
         match self.caption {

@@ -5,6 +5,7 @@ use std::io::{Result, Write};
 use typed_arena::Arena;
 
 use crate::generator::event::{
+    BiberReference,
     CodeBlock,
     Enumerate,
     Equation,
@@ -15,14 +16,13 @@ use crate::generator::event::{
     Graphviz,
     Header,
     Image,
+    InterLink,
     Pdf,
     Table,
     TaskListMarker,
-    BiberReference,
     Url,
-    InterLink,
 };
-use crate::generator::{Generator, PrimitiveGenerator, Stack};
+use crate::generator::{Generator, Stack};
 
 pub mod latex;
 
@@ -95,7 +95,7 @@ pub trait Backend<'a>: Debug {
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: T, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        cfg: &'a Config, tag: T, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
@@ -106,8 +106,7 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
         Ok(Some(e))
     }
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>,
     ) -> Result<()>;
 }
 

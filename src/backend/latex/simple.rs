@@ -4,7 +4,15 @@ use std::io::{Result, Write};
 use super::replace::replace;
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, MediumCodeGenUnit, SimpleCodeGenUnit};
-use crate::generator::event::{FootnoteReference, Image, Pdf, TaskListMarker, BiberReference, InterLink, Url};
+use crate::generator::event::{
+    BiberReference,
+    FootnoteReference,
+    Image,
+    InterLink,
+    Pdf,
+    TaskListMarker,
+    Url,
+};
 use crate::generator::Stack;
 
 #[derive(Debug)]

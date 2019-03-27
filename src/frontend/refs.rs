@@ -3,10 +3,10 @@ use std::str::FromStr;
 
 pub use pulldown_cmark::LinkType;
 
+use super::event::{BiberReference, InterLink, Url};
 use crate::config::Config;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
-use super::event::{BiberReference, Url, InterLink};
 
 #[derive(Debug)]
 pub enum ReferenceParseResult<'a> {
@@ -21,7 +21,7 @@ pub enum ReferenceParseResult<'a> {
 }
 
 pub fn parse_references<'a>(
-    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>
+    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
     // title
@@ -55,10 +55,8 @@ pub fn parse_references<'a>(
         if iter_multiple_biber(dst.clone()).nth(1).is_some() {
             return ReferenceParseResult::BiberReferences(
                 iter_multiple_biber(dst)
-                    .map(|(r, a)| BiberReference {
-                        reference: r,
-                        attributes: a,
-                    }).collect()
+                    .map(|(r, a)| BiberReference { reference: r, attributes: a })
+                    .collect(),
             );
         } else {
             let (r, a) = parse_single_biber(dst);
@@ -101,12 +99,10 @@ pub fn parse_references<'a>(
             LinkType::Shortcut
             | LinkType::ShortcutUnknown
             | LinkType::Collapsed
-            | LinkType::CollapsedUnknown => {
-                ReferenceParseResult::InterLink(InterLink {
-                    label: dst,
-                    uppercase: uppercase.unwrap()
-                })
-            },
+            | LinkType::CollapsedUnknown => ReferenceParseResult::InterLink(InterLink {
+                label: dst,
+                uppercase: uppercase.unwrap(),
+            }),
             LinkType::Reference
             | LinkType::ReferenceUnknown
             | LinkType::Autolink
@@ -123,15 +119,11 @@ pub fn parse_references<'a>(
             | LinkType::Shortcut
             | LinkType::ShortcutUnknown
             | LinkType::Collapsed
-            | LinkType::CollapsedUnknown => ReferenceParseResult::Url(Url {
-                destination: dst,
-                title,
-            }),
+            | LinkType::CollapsedUnknown => {
+                ReferenceParseResult::Url(Url { destination: dst, title })
+            },
             LinkType::Reference | LinkType::ReferenceUnknown | LinkType::Inline => {
-                ReferenceParseResult::UrlWithContent(Url {
-                    destination: dst,
-                    title,
-                })
+                ReferenceParseResult::UrlWithContent(Url { destination: dst, title })
             },
         },
     }

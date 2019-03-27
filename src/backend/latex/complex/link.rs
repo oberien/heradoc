@@ -1,10 +1,10 @@
-use std::io::{Result, Write};
 use std::borrow::Cow;
+use std::io::{Result, Write};
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::event::{Url, InterLink, Event};
-use crate::generator::PrimitiveGenerator;
+use crate::generator::event::{Event, InterLink, Url};
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct UrlWithContentGen<'a> {
@@ -13,8 +13,7 @@ pub struct UrlWithContentGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Url<'a>> for UrlWithContentGen<'a> {
     fn new(
-        _cfg: &'a Config, url: Url<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, url: Url<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Url { destination, title } = url;
         let out = gen.get_out();
@@ -28,8 +27,7 @@ impl<'a> CodeGenUnit<'a, Url<'a>> for UrlWithContentGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         let out = gen.get_out();
 
@@ -47,7 +45,7 @@ pub struct InterLinkWithContentGen;
 impl<'a> CodeGenUnit<'a, InterLink<'a>> for InterLinkWithContentGen {
     fn new(
         _cfg: &'a Config, interlink: InterLink<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let InterLink { label, uppercase: _ } = interlink;
         write!(gen.get_out(), "\\hyperref[{}]{{", label)?;
@@ -55,8 +53,7 @@ impl<'a> CodeGenUnit<'a, InterLink<'a>> for InterLinkWithContentGen {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())

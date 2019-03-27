@@ -8,7 +8,7 @@ impl<'a> Iterator for ConvertCow<'a> {
     type Item = Event<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        dbg!(self.0.next().map(Into::into))
+        self.0.next().map(Into::into)
     }
 }
 

@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{CodeBlock, Event};
-use crate::generator::PrimitiveGenerator;
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct CodeBlockGen;
@@ -11,7 +11,7 @@ pub struct CodeBlockGen;
 impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
     fn new(
         _cfg: &'a Config, code_block: CodeBlock<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let CodeBlock { label, caption, language } = code_block;
 
@@ -32,8 +32,7 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{lstlisting}}")?;
         Ok(())

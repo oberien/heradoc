@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 pub use crate::frontend::{
+    BiberReference,
     CodeBlock,
     Enumerate,
     Equation,
@@ -10,11 +11,10 @@ pub use crate::frontend::{
     FootnoteReference,
     Graphviz,
     Header,
+    InterLink,
     Table,
     TaskListMarker,
-    BiberReference,
     Url,
-    InterLink,
 };
 pub use pulldown_cmark::Alignment;
 

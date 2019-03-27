@@ -224,7 +224,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     fn consume_until_end_inclusive(&mut self) {
         let mut nest = 0;
         loop {
-            match dbg!(self.parser.next().unwrap()) {
+            match self.parser.next().unwrap() {
                 CmarkEvent::Start(_) => nest += 1,
                 CmarkEvent::End(_) if nest > 0 => nest -= 1,
                 CmarkEvent::End(_) => return,
@@ -591,7 +591,9 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             ReferenceParseResult::BiberReferences(biber) => Event::BiberReferences(biber),
             ReferenceParseResult::InterLink(interlink) => Event::InterLink(interlink),
             ReferenceParseResult::Url(url) => Event::Url(url),
-            ReferenceParseResult::InterLinkWithContent(interlink) => Event::Start(Tag::InterLink(interlink)),
+            ReferenceParseResult::InterLinkWithContent(interlink) => {
+                Event::Start(Tag::InterLink(interlink))
+            },
             ReferenceParseResult::UrlWithContent(url) => Event::Start(Tag::Url(url)),
             ReferenceParseResult::Command(command) => Event::Command(command),
             ReferenceParseResult::ResolveInclude(resolve_include) => {
@@ -602,15 +604,19 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         match evt {
             Event::Start(tag) => {
                 self.buffer.push_back(Event::Start(tag.clone()));
-                self.convert_until_end_inclusive(
-                    |t| if let CmarkTag::Link(..) = t { true } else { false },
-                );
+                self.convert_until_end_inclusive(|t| {
+                    if let CmarkTag::Link(..) = t {
+                        true
+                    } else {
+                        false
+                    }
+                });
                 self.buffer.push_back(Event::End(tag));
             },
             evt => {
                 self.buffer.push_back(evt);
                 self.consume_until_end_inclusive();
-            }
+            },
         }
     }
 
@@ -623,11 +629,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         let content = self.concat_until_end_inclusive();
         let alt_text = match typ {
             LinkType::Reference | LinkType::ReferenceUnknown | LinkType::Inline => {
-                if content.is_empty() {
-                    None
-                } else {
-                    Some(content)
-                }
+                if content.is_empty() { None } else { Some(content) }
             },
             LinkType::Collapsed
             | LinkType::CollapsedUnknown

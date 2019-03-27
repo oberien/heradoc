@@ -12,15 +12,14 @@ pub use self::document::{Article, Report, Thesis};
 
 use self::simple::{
     AppendixGen,
+    BiberReferencesGen,
     BibliographyGen,
     FootnoteReferenceGen,
     HardBreakGen,
     ImageGen,
+    InterLinkGen,
     LabelGen,
     LatexGen,
-    BiberReferencesGen,
-    UrlGen,
-    InterLinkGen,
     ListOfFiguresGen,
     ListOfListingsGen,
     ListOfTablesGen,
@@ -29,6 +28,7 @@ use self::simple::{
     TableOfContentsGen,
     TaskListMarkerGen,
     TextGen,
+    UrlGen,
 };
 
 use self::complex::{
@@ -39,8 +39,6 @@ use self::complex::{
     EquationGen,
     FigureGen,
     FootnoteDefinitionGen,
-    UrlWithContentGen,
-    InterLinkWithContentGen,
     GraphvizGen,
     HeaderGen,
     HtmlBlockGen,
@@ -49,6 +47,7 @@ use self::complex::{
     InlineMathGen,
     InlineStrikethroughGen,
     InlineStrongGen,
+    InterLinkWithContentGen,
     ItemGen,
     ListGen,
     NumberedEquationGen,
@@ -59,6 +58,7 @@ use self::complex::{
     TableGen,
     TableHeadGen,
     TableRowGen,
+    UrlWithContentGen,
 };
 
 /// Used for inline elements (not wrapped in a floating figure) that want a label or caption.

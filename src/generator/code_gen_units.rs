@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{Event, Tag};
-use crate::generator::{PrimitiveGenerator, Stack};
+use crate::generator::{Generator, Stack};
 use crate::resolve::Context;
 
 #[derive(Debug)]
@@ -41,7 +41,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
 
 #[rustfmt::skip]
 impl<'a, D: Backend<'a>> StackElement<'a, D> {
-    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, D, impl Write>) -> Result<Self> {
+    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
         match tag {
             Tag::Paragraph => Ok(StackElement::Paragraph(D::Paragraph::new(cfg, (), gen)?)),
             Tag::Rule => Ok(StackElement::Rule(D::Rule::new(cfg, (), gen)?)),
@@ -138,7 +138,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         match (self, tag) {
             (StackElement::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (StackElement::Rule(s), Tag::Rule) => s.finish(gen, peek),
