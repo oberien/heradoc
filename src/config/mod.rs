@@ -1,19 +1,19 @@
-use std::path::{PathBuf, Path};
-use std::fs::File;
-use std::str::FromStr;
-use std::io::{self, Read, Write};
-use std::fmt;
 use std::collections::HashSet;
 use std::env;
+use std::fmt;
+use std::fs::File;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
-use void::Void;
 use boolinator::Boolinator;
-use structopt::StructOpt;
-use serde::{Deserialize, Deserializer, de};
-use tempdir::TempDir;
 use isolang::Language;
+use serde::{de, Deserialize, Deserializer};
+use structopt::StructOpt;
+use strum_macros::{Display, EnumString};
+use tempdir::TempDir;
 use url::Url;
-use strum_macros::{EnumString, Display};
+use void::Void;
 
 mod geometry;
 
@@ -29,7 +29,7 @@ pub struct CliArgs {
     #[structopt(short = "o", long = "out", long = "output")]
     pub output: Option<FileOrStdio>,
     /// Output directory for itermediate files. Defaults to a tempdir.
-    #[structopt(long="outdir", parse(from_os_str))]
+    #[structopt(long = "outdir", parse(from_os_str))]
     pub out_dir: Option<PathBuf>,
     /// Input markdown file. Use `-` for stdin.
     #[structopt()]
@@ -94,7 +94,8 @@ pub struct FileConfig {
     pub classoptions: Vec<String>,
 
     // titlepage
-    /// For article if true, the titlepage will be its own page. Otherwise text will start on the first page.
+    /// For article if true, the titlepage will be its own page. Otherwise text will start on the
+    /// first page.
     #[structopt(long = "titlepage")]
     pub titlepage: Option<bool>,
     /// Title of document, used for titlepage
@@ -229,20 +230,22 @@ impl Config {
             FileOrStdio::File(path) => panic!("Invalid File {:?}", path),
         }
         // cli > infile > configfile
-        let output_type = match args.fileconfig.output_type.or(infile.output_type).or(file.output_type) {
-            Some(typ) => typ,
-            None => match &args.output {
-                Some(FileOrStdio::StdIo) => OutType::Latex,
-                Some(FileOrStdio::File(path)) => path.extension()
-                    .and_then(|ext| ext.to_str())
-                    .and_then(|ext| {
-                        (ext.eq_ignore_ascii_case("tex") || ext.eq_ignore_ascii_case("latex"))
-                            .as_some(OutType::Latex)
-                    })
-                    .unwrap_or(OutType::Pdf),
-                None => OutType::Pdf,
-            }
-        };
+        let output_type =
+            match args.fileconfig.output_type.or(infile.output_type).or(file.output_type) {
+                Some(typ) => typ,
+                None => match &args.output {
+                    Some(FileOrStdio::StdIo) => OutType::Latex,
+                    Some(FileOrStdio::File(path)) => path
+                        .extension()
+                        .and_then(|ext| ext.to_str())
+                        .and_then(|ext| {
+                            (ext.eq_ignore_ascii_case("tex") || ext.eq_ignore_ascii_case("latex"))
+                                .as_some(OutType::Latex)
+                        })
+                        .unwrap_or(OutType::Pdf),
+                    None => OutType::Pdf,
+                },
+            };
         let output = match args.output {
             Some(fos) => fos,
             None => {
@@ -255,18 +258,24 @@ impl Config {
                     OutType::Pdf => assert!(filename.set_extension("pdf")),
                 }
                 FileOrStdio::File(filename)
-            }
+            },
         };
 
         let input_dir = match &args.input {
-            FileOrStdio::StdIo => env::current_dir()
-                .expect("Can't use stdin without a current working directory"),
-            FileOrStdio::File(file) => file.canonicalize()
+            FileOrStdio::StdIo => {
+                env::current_dir().expect("Can't use stdin without a current working directory")
+            },
+            FileOrStdio::File(file) => file
+                .canonicalize()
                 .expect("error canonicalising input file path")
-                .parent().unwrap().to_owned(),
+                .parent()
+                .unwrap()
+                .to_owned(),
         };
 
-        let bibliography = args.fileconfig.bibliography
+        let bibliography = args
+            .fileconfig
+            .bibliography
             .or(infile.bibliography)
             .or(file.bibliography)
             .map(PathBuf::from)
@@ -278,22 +287,18 @@ impl Config {
                 }
             });
         let bibliography = resolve_file(&input_dir, &tempdir_path, bibliography, "bibliography");
-        let template = args.fileconfig.template
-            .or(infile.template)
-            .or(file.template)
-            .map(PathBuf::from);
+        let template =
+            args.fileconfig.template.or(infile.template).or(file.template).map(PathBuf::from);
         let template = resolve_file(&input_dir, &tempdir_path, template, "template");
 
-        let lang = args.fileconfig.lang
-            .or(infile.lang)
-            .or(file.lang);
+        let lang = args.fileconfig.lang.or(infile.lang).or(file.lang);
         let lang = match lang {
             None => Language::Eng,
             Some(lang) => Language::from_639_1(&lang)
                 .or_else(|| Language::from_639_3(&lang))
                 .or_else(|| Language::from_locale(&lang))
                 // TODO: improve error message (with origin and value)
-                .expect("Unknown language parameter")
+                .expect("Unknown language parameter"),
         };
 
         let mut classoptions = HashSet::new();
@@ -305,35 +310,37 @@ impl Config {
         header_includes.extend(infile.header_includes);
         header_includes.extend(file.header_includes);
 
-        let citationstyle = args.fileconfig.citationstyle
-            .or(infile.citationstyle)
-            .or(file.citationstyle);
+        let citationstyle =
+            args.fileconfig.citationstyle.or(infile.citationstyle).or(file.citationstyle);
 
-        let logo_university = args.fileconfig.logo_university
+        let logo_university = args
+            .fileconfig
+            .logo_university
             .or(infile.logo_university)
             .or(file.logo_university)
             .map(PathBuf::from);
-        let logo_university = resolve_file(&input_dir, &tempdir_path, logo_university, "logo_university");
-        let logo_faculty = args.fileconfig.logo_faculty
+        let logo_university =
+            resolve_file(&input_dir, &tempdir_path, logo_university, "logo_university");
+        let logo_faculty = args
+            .fileconfig
+            .logo_faculty
             .or(infile.logo_faculty)
             .or(file.logo_faculty)
             .map(PathBuf::from);
         let logo_faculty = resolve_file(&input_dir, &tempdir_path, logo_faculty, "logo_faculty");
-        let abstract1 = args.fileconfig.abstract1
-            .or(infile.abstract1)
-            .or(file.abstract1)
-            .map(PathBuf::from);
+        let abstract1 =
+            args.fileconfig.abstract1.or(infile.abstract1).or(file.abstract1).map(PathBuf::from);
         let abstract1 = resolve_file(&input_dir, &tempdir_path, abstract1, "abstract");
-        let abstract2 = args.fileconfig.abstract2
-            .or(infile.abstract2)
-            .or(file.abstract2)
-            .map(PathBuf::from);
+        let abstract2 =
+            args.fileconfig.abstract2.or(infile.abstract2).or(file.abstract2).map(PathBuf::from);
         let abstract2 = resolve_file(&input_dir, &tempdir_path, abstract2, "abstract2");
 
-        let document_type = args.fileconfig.document_type
-                .or(infile.document_type)
-                .or(file.document_type)
-                .unwrap_or(DocumentType::Article);
+        let document_type = args
+            .fileconfig
+            .document_type
+            .or(infile.document_type)
+            .or(file.document_type)
+            .unwrap_or(DocumentType::Article);
 
         Config {
             output,
@@ -346,80 +353,58 @@ impl Config {
             bibliography,
             template,
             lang,
-            citestyle: args.fileconfig.citestyle
+            citestyle: args
+                .fileconfig
+                .citestyle
                 .or(infile.citestyle)
                 .or(file.citestyle)
                 .or_else(|| citationstyle.as_ref().cloned())
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::NumericComp)),
-            bibstyle: args.fileconfig.bibstyle
+            bibstyle: args
+                .fileconfig
+                .bibstyle
                 .or(infile.bibstyle)
                 .or(file.bibstyle)
                 .or(citationstyle)
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
-            figures: args.fileconfig.figures
-                .or(infile.figures)
-                .or(file.figures)
-                .unwrap_or_else(|| match document_type {
+            figures: args.fileconfig.figures.or(infile.figures).or(file.figures).unwrap_or_else(
+                || match document_type {
                     DocumentType::Article => false,
                     DocumentType::Thesis | DocumentType::Report => true,
-                }),
-            fontsize: args.fileconfig.fontsize
+                },
+            ),
+            fontsize: args
+                .fileconfig
+                .fontsize
                 .or(infile.fontsize)
                 .or(file.fontsize)
                 .unwrap_or_else(|| "11pt".to_string()),
-            oneside: args.fileconfig.oneside
-                .or(infile.oneside)
-                .or(file.oneside)
-                .unwrap_or(false),
-            titlepage: args.fileconfig.titlepage
+            oneside: args.fileconfig.oneside.or(infile.oneside).or(file.oneside).unwrap_or(false),
+            titlepage: args
+                .fileconfig
+                .titlepage
                 .or(infile.titlepage)
                 .or(file.titlepage)
                 .unwrap_or(true),
-            title: args.fileconfig.title
-                .or(infile.title)
-                .or(file.title),
-            subtitle: args.fileconfig.subtitle
-                .or(infile.subtitle)
-                .or(file.subtitle),
-            author: args.fileconfig.author
-                .or(infile.author)
-                .or(file.author),
-            date: args.fileconfig.date
-                .or(infile.date)
-                .or(file.date),
-            publisher: args.fileconfig.publisher
-                .or(infile.publisher)
-                .or(file.publisher),
-            advisor: args.fileconfig.advisor
-                .or(infile.advisor)
-                .or(file.advisor),
-            supervisor: args.fileconfig.supervisor
-                .or(infile.supervisor)
-                .or(file.supervisor),
+            title: args.fileconfig.title.or(infile.title).or(file.title),
+            subtitle: args.fileconfig.subtitle.or(infile.subtitle).or(file.subtitle),
+            author: args.fileconfig.author.or(infile.author).or(file.author),
+            date: args.fileconfig.date.or(infile.date).or(file.date),
+            publisher: args.fileconfig.publisher.or(infile.publisher).or(file.publisher),
+            advisor: args.fileconfig.advisor.or(infile.advisor).or(file.advisor),
+            supervisor: args.fileconfig.supervisor.or(infile.supervisor).or(file.supervisor),
             logo_university,
             logo_faculty,
-            university: args.fileconfig.university
-                .or(infile.university)
-                .or(file.university),
-            faculty: args.fileconfig.faculty
-                .or(infile.faculty)
-                .or(file.faculty),
-            thesis_type: args.fileconfig.thesis_type
-                .or(infile.thesis_type)
-                .or(file.thesis_type),
-            location: args.fileconfig.location
-                .or(infile.location)
-                .or(file.location),
-            disclaimer: args.fileconfig.disclaimer
-                .or(infile.disclaimer)
-                .or(file.disclaimer),
+            university: args.fileconfig.university.or(infile.university).or(file.university),
+            faculty: args.fileconfig.faculty.or(infile.faculty).or(file.faculty),
+            thesis_type: args.fileconfig.thesis_type.or(infile.thesis_type).or(file.thesis_type),
+            location: args.fileconfig.location.or(infile.location).or(file.location),
+            disclaimer: args.fileconfig.disclaimer.or(infile.disclaimer).or(file.disclaimer),
             abstract1,
             abstract2,
             classoptions,
             header_includes,
-            geometry: args.fileconfig.geometry
-                .merge(infile.geometry)
-                .merge(file.geometry),
+            geometry: args.fileconfig.geometry.merge(infile.geometry).merge(file.geometry),
         }
     }
 }
@@ -428,8 +413,11 @@ impl Config {
 ///
 /// First the requested file will tried to be located relative to the input file.
 /// Then the requested file will tried to be located relative to the current working directory.
-/// Finally, if it's a URL, the content will be downloaded and a path to the downloaded file returned.
-fn resolve_file<P: AsRef<Path>>(input_dir: &Path, temp_dir: &Path, path: Option<P>, cfgoption: &str) -> Option<PathBuf> {
+/// Finally, if it's a URL, the content will be downloaded and a path to the downloaded file
+/// returned.
+fn resolve_file<P: AsRef<Path>>(
+    input_dir: &Path, temp_dir: &Path, path: Option<P>, cfgoption: &str,
+) -> Option<PathBuf> {
     // TODO: error handling
     let path = match path {
         Some(path) => path,
@@ -438,13 +426,13 @@ fn resolve_file<P: AsRef<Path>>(input_dir: &Path, temp_dir: &Path, path: Option<
     // relative to input file
     let file = input_dir.join(&path);
     if file.exists() && file.is_file() {
-        return Some(file)
+        return Some(file);
     }
 
     // relative to current working directory
     let file = env::current_dir().unwrap().join(&path);
     if file.exists() && file.is_file() {
-        return Some(file)
+        return Some(file);
     }
 
     // try to download
@@ -452,7 +440,6 @@ fn resolve_file<P: AsRef<Path>>(input_dir: &Path, temp_dir: &Path, path: Option<
     match remote.http(&Url::parse(path.as_ref().to_str().unwrap()).unwrap()) {
         Err(_) => panic!("{} file doesn't exist or isn't a url: {:?}", cfgoption, path.as_ref()),
         Ok(downloaded) => Some(downloaded.path().to_owned()),
-
     }
 }
 
@@ -505,7 +492,9 @@ impl FileOrStdio {
     pub fn to_write(&self) -> Box<dyn Write> {
         match self {
             FileOrStdio::StdIo => Box::new(Box::leak(Box::new(io::stdout())).lock()),
-            FileOrStdio::File(path) => Box::new(File::create(path).expect("can't open output source")),
+            FileOrStdio::File(path) => {
+                Box::new(File::create(path).expect("can't open output source"))
+            },
         }
     }
 }

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use mime::Mime;
 use sha2::{Digest, Sha256};
 // TODO: The error representation is awkward with reqwest, evaluate cHTTP instead.
-use reqwest::{Client, Error as RequestError, RedirectPolicy, Response, header};
+use reqwest::{header, Client, Error as RequestError, RedirectPolicy, Response};
 use url::Url;
 
 /// Provide access to remotely hosted resources.
@@ -56,10 +56,7 @@ impl Remote {
             .redirect(RedirectPolicy::none())
             .build()?;
 
-        Ok(Remote {
-            temp: download_folder,
-            client,
-        })
+        Ok(Remote { temp: download_folder, client })
     }
 
     pub fn http(&self, url: &Url) -> Result<Downloaded, Error> {
@@ -79,20 +76,13 @@ impl Remote {
         // processes that already own the old file handle. The old file is merely unlinked.
         // TODO: proper caching
         let _ = fs::remove_file(&path);
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)?;
+        let mut file = OpenOptions::new().write(true).create_new(true).open(&path)?;
 
         io::copy(&mut response, &mut file)?;
 
         let content_type = key.content_type();
 
-        Ok(Downloaded {
-            file,
-            path,
-            content_type,
-        })
+        Ok(Downloaded { file, path, content_type })
     }
 
     /// Injectively map urls to paths in the download directory.
@@ -122,7 +112,9 @@ impl Remote {
 
 impl FileKey {
     fn from(response: &Response) -> Self {
-        let mime = response.headers().get(header::CONTENT_TYPE)
+        let mime = response
+            .headers()
+            .get(header::CONTENT_TYPE)
             .and_then(|raw| raw.to_str().ok())
             .and_then(|string| string.parse::<Mime>().ok());
 
@@ -133,11 +125,7 @@ impl FileKey {
         let host = url.host_str().unwrap().to_owned();
         let path = Path::new(url.path()).to_owned();
 
-        FileKey {
-            host,
-            path,
-            mime,
-        }
+        FileKey { host, path, mime }
     }
 
     fn content_type(&self) -> Option<ContentType> {
@@ -184,19 +172,22 @@ mod tests {
 
     #[test]
     fn download_paths() {
-        let dir = TempDir::new("heradoc-remote-test")
-            .expect("Can't create tempdir");
+        let dir = TempDir::new("heradoc-remote-test").expect("Can't create tempdir");
         let remote = Remote::new(dir.path().to_path_buf()).unwrap();
-        let top_level_path = remote.target_path(
-            &FileKey::from_parts(&"https://example.com/".parse().unwrap(), None));
-        let some_file = remote.target_path(
-            &FileKey::from_parts(&"https://example.com/index.html".parse().unwrap(), None));
-        let path_with_dir = remote.target_path(
-            &FileKey::from_parts(&"https://example.com/subsite/index.html".parse().unwrap(), None));
-        
+        let top_level_path = remote
+            .target_path(&FileKey::from_parts(&"https://example.com/".parse().unwrap(), None));
+        let some_file = remote.target_path(&FileKey::from_parts(
+            &"https://example.com/index.html".parse().unwrap(),
+            None,
+        ));
+        let path_with_dir = remote.target_path(&FileKey::from_parts(
+            &"https://example.com/subsite/index.html".parse().unwrap(),
+            None,
+        ));
+
         // Ensure that the temp dir has a parent relationship with downloaded file.
         assert!(top_level_path.parent().unwrap().starts_with(dir.path()));
-        
+
         // Make sure that even the top level was placed in the same directory as other files.
         assert_eq!(top_level_path.parent(), some_file.parent());
 

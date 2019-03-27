@@ -132,4 +132,3 @@ pub struct Graphviz<'a> {
     pub width: Option<Cow<'a, str>>,
     pub height: Option<Cow<'a, str>>,
 }
-

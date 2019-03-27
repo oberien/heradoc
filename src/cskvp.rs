@@ -1,11 +1,11 @@
-use std::collections::HashMap;
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::mem;
 
-use single::{self, Single};
 use quoted_string::test_utils::TestSpec;
+use single::{self, Single};
 
-use crate::ext::{VecExt, CowExt};
+use crate::ext::{CowExt, VecExt};
 
 #[derive(Debug, Default)]
 pub struct Cskvp<'a> {
@@ -28,29 +28,33 @@ impl<'a> Cskvp<'a> {
                 Value::Double(key, value) => {
                     double.insert(key, value);
                 },
-                Value::Single(mut value) => if value.starts_with('#') {
-                    if label.is_some() {
-                        // TODO: warn
-                        println!("Found two labels, taking the last: {} and {}",
-                                 label.as_ref().unwrap(), &value[1..]);
+                Value::Single(mut value) => {
+                    if value.starts_with('#') {
+                        if label.is_some() {
+                            // TODO: warn
+                            println!(
+                                "Found two labels, taking the last: {} and {}",
+                                label.as_ref().unwrap(),
+                                &value[1..]
+                            );
+                        }
+                        value.truncate_start(1);
+                        label = Some(value);
+                    } else {
+                        single.push(value);
                     }
-                    value.truncate_start(1);
-                    label = Some(value);
-                } else {
-                    single.push(value);
-                }
+                },
             }
         }
 
-        let figure_double = double.remove("figure")
-            .and_then(|s| match s.parse() {
-                Ok(val) => Some(val),
-                Err(_) => {
-                    // TODO: warn
-                    println!("cannot parse `figure={}`, only `true` and `false` are allowed", s);
-                    None
-                }
-            });
+        let figure_double = double.remove("figure").and_then(|s| match s.parse() {
+            Ok(val) => Some(val),
+            Err(_) => {
+                // TODO: warn
+                println!("cannot parse `figure={}`, only `true` and `false` are allowed", s);
+                None
+            },
+        });
         let figure = single.remove_element(&"figure").map(|_| true);
         let nofigure = single.remove_element(&"nofigure").map(|_| false);
 
@@ -59,19 +63,15 @@ impl<'a> Cskvp<'a> {
             Err(single::Error::NoElements) => None,
             Err(single::Error::MultipleElements) => {
                 // TODO: warn
-                println!("only one of `figure=true`, `figure=false`, `figure` and `nofigure` \
-                    allowed, found multiple");
+                println!(
+                    "only one of `figure=true`, `figure=false`, `figure` and `nofigure` allowed, \
+                     found multiple"
+                );
                 None
-            }
+            },
         };
 
-        Cskvp {
-            label,
-            caption: double.remove("caption"),
-            figure,
-            single,
-            double,
-        }
+        Cskvp { label, caption: double.remove("caption"), figure, single, double }
     }
 
     pub fn has_label(&self) -> bool {
@@ -139,9 +139,7 @@ enum Value<'a> {
 
 impl<'a> Parser<'a> {
     fn new(s: Cow<'a, str>) -> Parser<'a> {
-        Parser {
-            rest: s,
-        }
+        Parser { rest: s }
     }
 
     fn next_quoted(&mut self) -> Cow<'a, str> {
@@ -154,23 +152,26 @@ impl<'a> Parser<'a> {
                 Ok(parsed) => {
                     self.rest = Cow::Borrowed(parsed.tail);
                     quoted_string::to_content::<TestSpec>(parsed.quoted_string).unwrap()
-                }
-            }
+                },
+            },
             Cow::Owned(rest) => match quoted_string::parse::<TestSpec>(rest) {
                 // TODO: error handling
                 Err(e) => panic!("Invalid double-quoted string: {:?}", e),
                 Ok(parsed) => {
                     let content = quoted_string::to_content::<TestSpec>(parsed.quoted_string)
-                        .unwrap().into_owned();
+                        .unwrap()
+                        .into_owned();
                     self.rest.truncate_start(self.rest.len() - parsed.tail.len());
                     Cow::Owned(content)
-                }
-            }
+                },
+            },
         }
     }
 
     fn next_unquoted(&mut self, delimiters: &[char]) -> Cow<'a, str> {
-        let idx = delimiters.iter().cloned()
+        let idx = delimiters
+            .iter()
+            .cloned()
             .filter_map(|delim| self.rest.find(delim))
             .min()
             .unwrap_or(self.rest.len());
@@ -182,11 +183,7 @@ impl<'a> Parser<'a> {
 
     fn next_single(&mut self, delimiters: &[char]) -> Cow<'a, str> {
         self.rest.trim_start_inplace();
-        if self.rest.starts_with('"') {
-            self.next_quoted()
-        } else {
-            self.next_unquoted(delimiters)
-        }
+        if self.rest.starts_with('"') { self.next_quoted() } else { self.next_unquoted(delimiters) }
     }
 
     fn skip_delimiter(&mut self) -> Option<char> {
@@ -196,7 +193,6 @@ impl<'a> Parser<'a> {
             self.rest.truncate_start(1);
         }
         delim
-
     }
 }
 
@@ -235,7 +231,10 @@ mod test {
     fn test_parser() {
         let mut parser = Parser::new(Cow::Borrowed(r#"foo, bar = " baz, \"qux\"", quux"#));
         assert_eq!(parser.next(), Some(Value::Single(Cow::Borrowed("foo"))));
-        assert_eq!(parser.next(), Some(Value::Double(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string()))));
+        assert_eq!(
+            parser.next(),
+            Some(Value::Double(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string())))
+        );
         assert_eq!(parser.next(), Some(Value::Single(Cow::Borrowed("quux"))));
     }
 

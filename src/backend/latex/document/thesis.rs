@@ -1,17 +1,18 @@
-use std::io::{Write, Result};
 use std::fs;
+use std::io::{Result, Write};
 use std::path::Path;
 
 use typed_arena::Arena;
 
-use crate::backend::Backend;
 use crate::backend::latex::{self, preamble};
+use crate::backend::Backend;
 use crate::config::Config;
 use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct Thesis;
 
+#[rustfmt::skip]
 impl<'a> Backend<'a> for Thesis {
     type Text = latex::TextGen;
     type Latex = latex::LatexGen;
@@ -41,16 +42,19 @@ impl<'a> Backend<'a> for Thesis {
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
     type HtmlBlock = latex::HtmlBlockGen;
     type Figure = latex::FigureGen<'a>;
+
     type TableFigure = latex::TableFigureGen<'a>;
     type Table = latex::TableGen<'a>;
     type TableHead = latex::TableHeadGen;
     type TableRow = latex::TableRowGen;
     type TableCell = latex::TableCellGen;
+
     type InlineEmphasis = latex::InlineEmphasisGen;
     type InlineStrong = latex::InlineStrongGen;
     type InlineStrikethrough = latex::InlineStrikethroughGen;
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
+
     type Equation = latex::EquationGen<'a>;
     type NumberedEquation = latex::NumberedEquationGen<'a>;
     type Graphviz = latex::GraphvizGen<'a>;
@@ -127,5 +131,4 @@ fn gen<P: AsRef<Path>>(path: P, cfg: &Config, out: &mut impl Write) -> Result<()
     let events = gen.get_events(markdown);
     gen.generate_body(events)?;
     Ok(())
-
 }

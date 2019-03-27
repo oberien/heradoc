@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use pulldown_cmark::{Parser, Event as CmarkEvent, Tag as CmarkTag, CowStr, LinkType, Alignment};
+use pulldown_cmark::{Alignment, CowStr, Event as CmarkEvent, LinkType, Parser, Tag as CmarkTag};
 
 pub struct ConvertCow<'a>(pub Parser<'a>);
 
@@ -64,7 +64,7 @@ pub enum Tag<'a> {
     CodeBlock(Cow<'a, str>),
 
     /// A list. If the list is ordered the field indicates the number of the first item.
-    List(Option<usize>),  // TODO: add delim and tight for ast (not needed for html)
+    List(Option<usize>), // TODO: add delim and tight for ast (not needed for html)
     Item,
     FootnoteDefinition(Cow<'a, str>),
     HtmlBlock,
@@ -81,10 +81,12 @@ pub enum Tag<'a> {
     Strikethrough,
     Code,
 
-    /// A link. The first field is the link type, the second the destination URL and the third is a title
+    /// A link. The first field is the link type, the second the destination URL and the third is a
+    /// title
     Link(LinkType, Cow<'a, str>, Cow<'a, str>),
 
-    /// An image. The first field is the link type, the second the destination URL and the third is a title
+    /// An image. The first field is the link type, the second the destination URL and the third is
+    /// a title
     Image(LinkType, Cow<'a, str>, Cow<'a, str>),
 }
 

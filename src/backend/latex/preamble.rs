@@ -1,4 +1,4 @@
-use std::io::{Write, Result};
+use std::io::{Result, Write};
 
 use isolang::Language;
 
@@ -24,7 +24,11 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
 
     // TODO: biblatex options (natbib?)
     if let Some(bibliography) = &cfg.bibliography {
-        writeln!(out, "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}", cfg.citestyle, cfg.bibstyle)?;
+        writeln!(
+            out,
+            "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}",
+            cfg.citestyle, cfg.bibstyle
+        )?;
         writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
     }
 
@@ -79,7 +83,9 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
 }
 
 pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<()> {
-    fn get(o: &Option<String>) -> &str { o.as_ref().map_or("", |s| s.as_str()) }
+    fn get(o: &Option<String>) -> &str {
+        o.as_ref().map_or("", |s| s.as_str())
+    }
     writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
     writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
     writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;

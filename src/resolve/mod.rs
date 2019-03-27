@@ -36,20 +36,19 @@ impl Resolver {
     pub fn new(workdir: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
             base: Url::parse("heradoc://document/").unwrap(),
-            permissions: Permissions {
-                allowed_absolute_folders: vec![workdir],
-            },
+            permissions: Permissions { allowed_absolute_folders: vec![workdir] },
             remote: Remote::new(tempdir).unwrap(),
         }
     }
 
     /// Make a request to an uri in the context of a document with the specified source.
     pub fn resolve(&self, context: &Context, url: &str) -> io::Result<Include> {
-        let url = self.base.join(url)
-            .map_err(|err| io::Error::new(
+        let url = self.base.join(url).map_err(|err| {
+            io::Error::new(
                 io::ErrorKind::AddrNotAvailable,
                 format!("Malformed reference: {:?}", err),
-            ))?;
+            )
+        })?;
 
         let target = Source::new(url, context)?;
         // check if context is allowed to access target
@@ -71,23 +70,28 @@ impl Resolver {
 
             (Context::LocalAbsolute(_), SourceGroup::Implementation) => Ok(()),
             (Context::LocalAbsolute(_), SourceGroup::LocalRelative(_))
-            | (Context::LocalAbsolute(_), SourceGroup::Remote)
-                => Err(io::Error::new(io::ErrorKind::PermissionDenied,
-                    "Local absolute path not allowed to access remote file")),
+            | (Context::LocalAbsolute(_), SourceGroup::Remote) => Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Local absolute path not allowed to access remote file",
+            )),
 
             (_, SourceGroup::LocalAbsolute(path)) => {
                 if self.permissions.allowed_absolute_folders.contains(path) {
                     Ok(())
                 } else {
-                    Err(io::Error::new(io::ErrorKind::PermissionDenied,
-                        format!("Not allowed to access absolute path {:?}", path)))
+                    Err(io::Error::new(
+                        io::ErrorKind::PermissionDenied,
+                        format!("Not allowed to access absolute path {:?}", path),
+                    ))
                 }
-            }
+            },
 
             // TODO: think about proper remote rules
             (Context::Remote, SourceGroup::Remote) => Ok(()),
-            (Context::Remote, _) => Err(io::Error::new(io::ErrorKind::PermissionDenied,
-                "Remote can only access remote")),
+            (Context::Remote, _) => Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Remote can only access remote",
+            )),
         }
     }
 }
@@ -102,8 +106,7 @@ pub enum Context {
 impl Context {
     fn path(&self) -> Option<&Path> {
         match self {
-            Context::LocalRelative(path)
-            | Context::LocalAbsolute(path) => Some(path),
+            Context::LocalRelative(path) | Context::LocalAbsolute(path) => Some(path),
             Context::Remote => None,
         }
     }
@@ -115,7 +118,7 @@ mod tests {
     use std::fs::File;
     use tempdir::TempDir;
 
-macro_rules! assert_match {
+    macro_rules! assert_match {
     ($left:expr, $right:pat if $cond:expr) => ({
         let left_val = $left;
         match &left_val {
@@ -133,16 +136,11 @@ macro_rules! assert_match {
 }
 
     fn prepare() -> TempDir {
-        let dir = TempDir::new("heradoc-test")
-            .expect("Can't create tempdir");
-        let _ = File::create(dir.path().join("main.md"))
-            .expect("Can't create main.md");
-        let _ = File::create(dir.path().join("test.md"))
-            .expect("Can't create main.md");
-        let _ = File::create(dir.path().join("image.png"))
-            .expect("Can't create image.png");
-        let _ = File::create(dir.path().join("pdf.pdf"))
-            .expect("Can't create pdf.pdf");
+        let dir = TempDir::new("heradoc-test").expect("Can't create tempdir");
+        let _ = File::create(dir.path().join("main.md")).expect("Can't create main.md");
+        let _ = File::create(dir.path().join("test.md")).expect("Can't create main.md");
+        let _ = File::create(dir.path().join("image.png")).expect("Can't create image.png");
+        let _ = File::create(dir.path().join("pdf.pdf")).expect("Can't create pdf.pdf");
         dir
     }
 
@@ -152,10 +150,8 @@ macro_rules! assert_match {
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
-        let main = resolver.resolve(&top, "main.md")
-            .expect("Failed to resolve direct path");
-        let sibling = resolver.resolve(&top, "image.png")
-            .expect("Failed to resolve sibling file");
+        let main = resolver.resolve(&top, "main.md").expect("Failed to resolve direct path");
+        let sibling = resolver.resolve(&top, "image.png").expect("Failed to resolve sibling file");
 
         assert_match!(main, Include::Markdown(path, _) if path == &dir.path().join("main.md"));
         assert_match!(sibling, Include::Image(path) if path == &dir.path().join("image.png"));
@@ -168,8 +164,8 @@ macro_rules! assert_match {
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
-        let toc = resolver.resolve(&top, "//toc")
-            .expect("Failed to resolve path in different domain");
+        let toc =
+            resolver.resolve(&top, "//toc").expect("Failed to resolve path in different domain");
 
         assert_eq!(toc, Include::Command(Command::Toc));
         drop(dir);
@@ -181,8 +177,8 @@ macro_rules! assert_match {
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
-        let external = resolver.resolve(&top, 
-                "https://raw.githubusercontent.com/oberien/heradoc/master/README.md")
+        let external = resolver
+            .resolve(&top, "https://raw.githubusercontent.com/oberien/heradoc/master/README.md")
             .expect("Failed to download external document");
 
         assert_match!(external, Include::Markdown(_, Context::Remote));

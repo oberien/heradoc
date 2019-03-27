@@ -19,7 +19,6 @@
 // seems to have quite some unchangeable false positives
 // might need further inspection
 #![allow(single_use_lifetimes)]
-
 #![warn(clippy::all, clippy::nursery, clippy::pedantic/*, clippy::cargo*/)]
 #![allow(clippy::match_bool)]
 #![allow(clippy::range_plus_one)]
@@ -29,26 +28,26 @@
 #![allow(clippy::if_not_else)]
 #![allow(clippy::single_match_else)]
 
+use std::env;
 use std::fs::{self, File};
+use std::io::{self, Result, Write};
 use std::path::Path;
 use std::process::Command;
-use std::io::{self, Write, Result};
-use std::env;
 
 use structopt::StructOpt;
 use tempdir::TempDir;
 use typed_arena::Arena;
 
-mod ext;
+mod backend;
 mod config;
-mod resolve;
+mod cskvp;
+mod ext;
 mod frontend;
 mod generator;
-mod backend;
-mod cskvp;
+mod resolve;
 
-use crate::config::{Config, CliArgs, FileConfig, OutType, DocumentType};
 use crate::backend::latex::{Article, Report, Thesis};
+use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
 
 fn main() {
     let args = CliArgs::from_args();
@@ -57,7 +56,8 @@ fn main() {
     args.input.to_read().read_to_string(&mut markdown).unwrap();
 
     let infile = if markdown.starts_with("```heradoc") || markdown.starts_with("```config") {
-        let start = markdown.find('\n')
+        let start = markdown
+            .find('\n')
             .expect("unclosed preamble (not even a newline in the whole document)");
         let end = markdown.find("\n```").expect("unclosed preamble");
         let content = &markdown[(start + 1)..(end + 1)];
@@ -68,10 +68,10 @@ fn main() {
         FileConfig::default()
     };
 
-    let cfgfile = args.configfile.as_ref().map_or_else(|| Path::new("Config.toml"), |p| p.as_path());
+    let cfgfile =
+        args.configfile.as_ref().map_or_else(|| Path::new("Config.toml"), |p| p.as_path());
     let file = if cfgfile.is_file() {
-        let content = fs::read_to_string(cfgfile)
-            .expect("error reading existing config file");
+        let content = fs::read_to_string(cfgfile).expect("error reading existing config file");
         toml::from_str(&content).expect("invalid config")
     } else {
         FileConfig::default()
@@ -90,8 +90,7 @@ fn main() {
         OutType::Latex => gen(&cfg, markdown, cfg.output.to_write()),
         OutType::Pdf => {
             let tex_path = tmpdir.path().join("document.tex");
-            let tex_file = File::create(&tex_path)
-                .expect("can't create temporary tex file");
+            let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
             gen(&cfg, markdown, tex_file);
 
             pdflatex(tmpdir.path(), &cfg);
@@ -103,27 +102,32 @@ fn main() {
             let mut pdf = File::open(tmpdir.path().join("document.pdf"))
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
-        }
+        },
     }
 }
 
 fn gen(cfg: &Config, markdown: String, out: impl Write) {
     match cfg.document_type {
-        DocumentType::Article =>
-            backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap(),
-        DocumentType::Report =>
-            backend::generate(cfg, Report, &Arena::new(), markdown, out).unwrap(),
-        DocumentType::Thesis =>
-            backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap(),
+        DocumentType::Article => {
+            backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap()
+        },
+        DocumentType::Report => {
+            backend::generate(cfg, Report, &Arena::new(), markdown, out).unwrap()
+        },
+        DocumentType::Thesis => {
+            backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap()
+        },
     }
 }
 
 fn pdflatex<P: AsRef<Path>>(tmpdir: P, cfg: &Config) {
     let tmpdir = tmpdir.as_ref();
     let mut pdflatex = Command::new("pdflatex");
-    pdflatex.arg("-halt-on-error")
+    pdflatex
+        .arg("-halt-on-error")
         .args(&["-interaction", "nonstopmode"])
-        .arg("-output-directory").arg(tmpdir)
+        .arg("-output-directory")
+        .arg(tmpdir)
         .arg(tmpdir.join("document.tex"));
     if let Some(template) = &cfg.template {
         if let Some(parent) = template.parent() {
@@ -135,28 +139,30 @@ fn pdflatex<P: AsRef<Path>>(tmpdir: P, cfg: &Config) {
     }
     let out = pdflatex.output().expect("can't execute pdflatex");
     if !out.status.success() {
-        let _ = File::create("pdflatex_stdout.log")
-            .map(|mut f| f.write_all(&out.stdout));
-        let _ = File::create("pdflatex_stderr.log")
-            .map(|mut f| f.write_all(&out.stderr));
+        let _ = File::create("pdflatex_stdout.log").map(|mut f| f.write_all(&out.stdout));
+        let _ = File::create("pdflatex_stderr.log").map(|mut f| f.write_all(&out.stderr));
         // TODO: provide better info about signals
-        panic!("Pdflatex returned error code {:?}. Logs written to pdflatex_stdout.log and pdflatex_stderr.log", out.status.code());
+        panic!(
+            "Pdflatex returned error code {:?}. Logs written to pdflatex_stdout.log and \
+             pdflatex_stderr.log",
+            out.status.code()
+        );
     }
 }
 
 fn biber<P: AsRef<Path>>(tmpdir: P) {
     let tmpdir = tmpdir.as_ref();
     let mut biber = Command::new("biber");
-    biber.arg("--output-directory").arg(tmpdir)
-        .arg("document.bcf");
+    biber.arg("--output-directory").arg(tmpdir).arg("document.bcf");
     let out = biber.output().expect("can't execute biber");
     if !out.status.success() {
-        let _ = File::create("biber_stdout.log")
-            .map(|mut f| f.write_all(&out.stdout));
-        let _ = File::create("biber_stderr.log")
-            .map(|mut f| f.write_all(&out.stderr));
+        let _ = File::create("biber_stdout.log").map(|mut f| f.write_all(&out.stdout));
+        let _ = File::create("biber_stderr.log").map(|mut f| f.write_all(&out.stderr));
         // TODO: provide better info about signals
-        panic!("Biber returned error code {:?}. Logs written to biber_stdout.log and biber_stderr.log", out.status.code());
+        panic!(
+            "Biber returned error code {:?}. Logs written to biber_stdout.log and biber_stderr.log",
+            out.status.code()
+        );
     }
 }
 

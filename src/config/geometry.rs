@@ -1,7 +1,7 @@
-use std::str::FromStr;
-use std::fmt;
 use std::collections::HashMap;
+use std::fmt;
 use std::io;
+use std::str::FromStr;
 
 use serde::{de, Deserialize, Deserializer};
 use structopt::StructOpt;
@@ -65,10 +65,12 @@ pub fn parse_others(s: &str) -> Result<HashMap<String, String>, &'static str> {
         return Err(errmsg);
     }
 
-    s.split(',').map(|pair| {
-        let mut iter = pair.split('=');
-        Ok((iter.next().ok_or(errmsg)?.to_string(), iter.next().ok_or(errmsg)?.to_string()))
-    }).collect()
+    s.split(',')
+        .map(|pair| {
+            let mut iter = pair.split('=');
+            Ok((iter.next().ok_or(errmsg)?.to_string(), iter.next().ok_or(errmsg)?.to_string()))
+        })
+        .collect()
 }
 
 impl Geometry {
@@ -77,10 +79,10 @@ impl Geometry {
             (Some(mut s), Some(o)) => {
                 s.extend(o);
                 Some(s)
-            }
+            },
             (Some(s), None) => Some(s),
             (None, Some(o)) => Some(o),
-            (None, None) => None
+            (None, None) => None,
         };
         Geometry {
             papersize: self.papersize.or(g.papersize),
@@ -110,10 +112,28 @@ impl Geometry {
 
     pub fn write_latex_options<W: io::Write>(&self, mut out: W) -> io::Result<()> {
         let Geometry {
-            papersize, orientation,
-            margin, textwidth, textheight, total, left, lmargin, inner, right,
-            rmargin, outer, top, tmargin, bottom, bmargin, headheight, footsep,
-            footskip, marginparwidth, marginpar, others,
+            papersize,
+            orientation,
+            margin,
+            textwidth,
+            textheight,
+            total,
+            left,
+            lmargin,
+            inner,
+            right,
+            rmargin,
+            outer,
+            top,
+            tmargin,
+            bottom,
+            bmargin,
+            headheight,
+            footsep,
+            footskip,
+            marginparwidth,
+            marginpar,
+            others,
         } = self;
         if let Some(papersize) = papersize {
             write!(out, "{},", papersize)?;
@@ -134,7 +154,7 @@ impl Geometry {
             footskip, marginparwidth, marginpar,
         }
         if let Some(others) = others {
-            for (k,v) in others {
+            for (k, v) in others {
                 write!(out, "{}={},", k, v)?;
             }
         }
@@ -144,14 +164,44 @@ impl Geometry {
 
 #[derive(Debug, Clone)]
 pub enum Papersize {
-    A0paper, A1paper, A2paper, A3paper, A4paper, A5paper, A6paper,
-    B0paper, B1paper, B2paper, B3paper, B4paper, B5paper, B6paper,
-    C0paper, C1paper, C2paper, C3paper, C4paper, C5paper, C6paper,
-    B0j, B1j, B2j, B3j, B4j, B5j, B6j,
-    AnsiAPaper, AnsiBPaper, AnsiCPaper, AnsiDPaper, AnsiEPaper,
-    Letterpaper, Executivepaper, Legalpaper,
+    A0paper,
+    A1paper,
+    A2paper,
+    A3paper,
+    A4paper,
+    A5paper,
+    A6paper,
+    B0paper,
+    B1paper,
+    B2paper,
+    B3paper,
+    B4paper,
+    B5paper,
+    B6paper,
+    C0paper,
+    C1paper,
+    C2paper,
+    C3paper,
+    C4paper,
+    C5paper,
+    C6paper,
+    B0j,
+    B1j,
+    B2j,
+    B3j,
+    B4j,
+    B5j,
+    B6j,
+    AnsiAPaper,
+    AnsiBPaper,
+    AnsiCPaper,
+    AnsiDPaper,
+    AnsiEPaper,
+    Letterpaper,
+    Executivepaper,
+    Legalpaper,
     // `papersize = "{30cm, 15cm}"`
-    Custom(String, String)
+    Custom(String, String),
 }
 
 impl FromStr for Papersize {
@@ -201,8 +251,8 @@ impl FromStr for Papersize {
                 let width = s[1..comma].to_string();
                 let height = s[(comma + 1)..s.len() - 1].trim().to_string();
                 Papersize::Custom(width, height)
-            }
-            _ => return Err(format!("unknown papersize {:?}", s))
+            },
+            _ => return Err(format!("unknown papersize {:?}", s)),
         })
     }
 }

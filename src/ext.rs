@@ -16,11 +16,18 @@ impl StrExt for str {
 
 // https://github.com/rust-lang/rust/issues/40062
 pub trait VecExt<T> {
-    fn remove_element<U>(&mut self, element: &U) -> Option<T> where T: PartialEq<U>, U: ?Sized;
+    fn remove_element<U>(&mut self, element: &U) -> Option<T>
+    where
+        T: PartialEq<U>,
+        U: ?Sized;
 }
 
 impl<T> VecExt<T> for Vec<T> {
-    fn remove_element<U>(&mut self, element: &U) -> Option<T> where T: PartialEq<U>, U: ?Sized {
+    fn remove_element<U>(&mut self, element: &U) -> Option<T>
+    where
+        T: PartialEq<U>,
+        U: ?Sized,
+    {
         let pos = self.iter().position(|s| *s == *element)?;
         Some(self.remove(pos))
     }
@@ -36,8 +43,13 @@ pub trait CowExt<'a> {
     fn make_ascii_lowercase_inplace(&mut self);
     fn split_at(self, pos: usize) -> (Cow<'a, str>, Cow<'a, str>);
     fn split_off(&mut self, pos: usize) -> Cow<'a, str>;
-    fn map_inplace(&mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String));
-    fn map_inplace_return<R>(&mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R), owned: impl FnOnce(&mut String) -> R) -> R;
+    fn map_inplace(
+        &mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String),
+    );
+    fn map_inplace_return<R>(
+        &mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R),
+        owned: impl FnOnce(&mut String) -> R,
+    ) -> R;
     fn map<R: 'a>(self, borrowed: impl FnOnce(&'a str) -> R, owned: impl FnOnce(String) -> R) -> R;
 }
 
@@ -51,29 +63,20 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
                 let end = start + trimmed.len();
                 s.truncate(end);
                 s.drain(..start);
-            }
+            },
         );
     }
 
     fn trim_start_inplace(&mut self) {
-        self.map_inplace(
-            |s| s.trim_start(),
-            |s| drop(s.drain(..s.len() - s.trim_start().len()))
-        );
+        self.map_inplace(|s| s.trim_start(), |s| drop(s.drain(..s.len() - s.trim_start().len())));
     }
 
     fn trim_end_inplace(&mut self) {
-        self.map_inplace(
-            |s| s.trim_end(),
-            |s| s.truncate(s.trim_end().len()),
-        );
+        self.map_inplace(|s| s.trim_end(), |s| s.truncate(s.trim_end().len()));
     }
 
     fn truncate_start(&mut self, num: usize) {
-        self.map_inplace(
-            |s| &s[num..],
-            |s| drop(s.drain(..num))
-        );
+        self.map_inplace(|s| &s[num..], |s| drop(s.drain(..num)));
     }
 
     fn truncate_end(&mut self, num: usize) {
@@ -81,17 +84,16 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
     }
 
     fn truncate(&mut self, len: usize) {
-        self.map_inplace(
-            |s| &s[..len],
-            |s| s.truncate(len),
-        )
+        self.map_inplace(|s| &s[..len], |s| s.truncate(len))
     }
 
     fn make_ascii_lowercase_inplace(&mut self) {
         match self {
-            Cow::Borrowed(s) => if !s.bytes().all(|b| b.is_ascii_lowercase()) {
-                *self = Cow::Owned(s.to_ascii_lowercase());
-            }
+            Cow::Borrowed(s) => {
+                if !s.bytes().all(|b| b.is_ascii_lowercase()) {
+                    *self = Cow::Owned(s.to_ascii_lowercase());
+                }
+            },
             Cow::Owned(s) => s.as_mut_str().make_ascii_lowercase(),
         }
     }
@@ -102,7 +104,7 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
             Cow::Owned(mut s) => {
                 let s2 = s.split_off(pos);
                 (Cow::Owned(s), Cow::Owned(s2))
-            }
+            },
         }
     }
 
@@ -113,21 +115,24 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
                 let end = &s[pos..];
                 *s = start;
                 Cow::Borrowed(end)
-            }
-            Cow::Owned(s) => {
-                Cow::Owned(s.split_off(pos))
-            }
+            },
+            Cow::Owned(s) => Cow::Owned(s.split_off(pos)),
         }
     }
 
-    fn map_inplace(&mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String)) {
+    fn map_inplace(
+        &mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String),
+    ) {
         match self {
             Cow::Borrowed(s) => *self = borrowed(s).into(),
             Cow::Owned(ref mut s) => owned(s),
         }
     }
 
-    fn map_inplace_return<R>(&mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R), owned: impl FnOnce(&mut String) -> R) -> R {
+    fn map_inplace_return<R>(
+        &mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R),
+        owned: impl FnOnce(&mut String) -> R,
+    ) -> R {
         match self {
             Cow::Borrowed(s) => {
                 let (val, ret) = borrowed(s);
