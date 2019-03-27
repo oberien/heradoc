@@ -2,7 +2,6 @@ use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::marker::PhantomData;
-use std::mem;
 use std::str::FromStr;
 
 use lazy_static::lazy_static;
@@ -15,7 +14,7 @@ mod event;
 mod refs;
 
 pub use self::event::*;
-pub use self::refs::{Link, LinkType};
+pub use self::refs::LinkType;
 
 use self::concat::Concat;
 use self::convert_cow::{ConvertCow, Event as CmarkEvent, Tag as CmarkTag};
@@ -24,7 +23,6 @@ use crate::backend::Backend;
 use crate::config::Config;
 use crate::cskvp::Cskvp;
 use crate::ext::{CowExt, StrExt};
-use crate::generator::PrimitiveGenerator;
 use crate::resolve::Command;
 
 pub struct Frontend<'a, B: Backend<'a>> {
@@ -221,31 +219,39 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
     }
 
-    /// Consumes all events, rendering their result.
-    // TODO: don't render content but return Vec<Event> instead (less coupling with generator)
-    fn render_until_end_inclusive(&mut self, f: impl Fn(&CmarkTag<'_>) -> bool) -> String {
-        let mut out = Vec::new();
-        let mut gen: PrimitiveGenerator<'a, B, _> =
-            PrimitiveGenerator::without_context(self.cfg, &mut out);
-        let buffer = mem::replace(&mut self.buffer, VecDeque::new());
+    /// Consumes all elements until the End event is received.
+    #[inline]
+    fn consume_until_end_inclusive(&mut self) {
+        let mut nest = 0;
         loop {
-            let evt = self.parser.next().unwrap();
-            match &evt {
-                CmarkEvent::End(tag) if f(tag) => break,
-                _ => {},
+            match dbg!(self.parser.next().unwrap()) {
+                CmarkEvent::Start(_) => nest += 1,
+                CmarkEvent::End(_) if nest > 0 => nest -= 1,
+                CmarkEvent::End(_) => return,
+                _ => (),
             }
-            self.convert_event(evt);
         }
-        let buffer = mem::replace(&mut self.buffer, buffer);
-        let mut iter = buffer.into_iter();
-        let mut next = iter.next().map(|e| e.into());
-        let mut peek = iter.next().map(|e| e.into());
-        while let Some(evt) = next {
-            gen.visit_event(evt, peek.as_ref()).expect("writing to Vec<u8> shouldn't fail");
-            next = peek;
-            peek = iter.next().map(|e| e.into());
+    }
+
+    /// Consumes all events until the End event, concatenating any text-like events.
+    #[inline]
+    fn concat_until_end_inclusive(&mut self) -> String {
+        let mut s = String::with_capacity(100);
+        let mut nest = 0;
+        loop {
+            match self.parser.next().unwrap() {
+                CmarkEvent::Start(_) => nest += 1,
+                CmarkEvent::End(_) if nest > 0 => nest -= 1,
+                CmarkEvent::End(_) => break,
+                CmarkEvent::Text(text) => s += &text,
+                CmarkEvent::Html(_) => (),
+                CmarkEvent::InlineHtml(html) => s += &html,
+                CmarkEvent::SoftBreak | CmarkEvent::HardBreak => s += " ",
+                CmarkEvent::FootnoteReference(_) => (),
+                CmarkEvent::TaskListMarker(_) => (),
+            }
         }
-        String::from_utf8(out).expect("invalid utf8")
+        s
     }
 
     fn convert_inline_code(&mut self) {
@@ -581,29 +587,40 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     }
 
     fn convert_link(&mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>) {
-        let content =
-            self.render_until_end_inclusive(
-                |t| if let CmarkTag::Link(..) = t { true } else { false },
-            );
-        let evt = match refs::parse_references(self.cfg, typ, dst, title, content) {
-            ReferenceParseResult::Link(link) => Event::Link(link),
+        let evt = match refs::parse_references(self.cfg, typ, dst, title) {
+            ReferenceParseResult::BiberReferences(biber) => Event::BiberReferences(biber),
+            ReferenceParseResult::InterLink(interlink) => Event::InterLink(interlink),
+            ReferenceParseResult::Url(url) => Event::Url(url),
+            ReferenceParseResult::InterLinkWithContent(interlink) => Event::Start(Tag::InterLink(interlink)),
+            ReferenceParseResult::UrlWithContent(url) => Event::Start(Tag::Url(url)),
             ReferenceParseResult::Command(command) => Event::Command(command),
             ReferenceParseResult::ResolveInclude(resolve_include) => {
                 Event::ResolveInclude(resolve_include)
             },
             ReferenceParseResult::Text(text) => Event::Text(text),
         };
-        self.buffer.push_back(evt);
+        match evt {
+            Event::Start(tag) => {
+                self.buffer.push_back(Event::Start(tag.clone()));
+                self.convert_until_end_inclusive(
+                    |t| if let CmarkTag::Link(..) = t { true } else { false },
+                );
+                self.buffer.push_back(Event::End(tag));
+            },
+            evt => {
+                self.buffer.push_back(evt);
+                self.consume_until_end_inclusive();
+            }
+        }
     }
 
     fn convert_image(
         &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, cskvp: Option<Cskvp<'a>>,
     ) {
-        let content =
-            self.render_until_end_inclusive(
-                |t| if let CmarkTag::Image(..) = t { true } else { false },
-            );
-        // TODO: do something with title and alt-text (see issue #18)
+        // TODO: maybe not concat all text-like events but actually forward events
+        // The CommonMark spec says that the parser should produce the correct events, while
+        // the html renderer should only render it as text.
+        let content = self.concat_until_end_inclusive();
         let alt_text = match typ {
             LinkType::Reference | LinkType::ReferenceUnknown | LinkType::Inline => {
                 if content.is_empty() {

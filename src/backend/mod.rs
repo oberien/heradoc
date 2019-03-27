@@ -15,10 +15,12 @@ use crate::generator::event::{
     Graphviz,
     Header,
     Image,
-    Link,
     Pdf,
     Table,
     TaskListMarker,
+    BiberReference,
+    Url,
+    InterLink,
 };
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
@@ -40,7 +42,9 @@ pub trait Backend<'a>: Debug {
     type Text: MediumCodeGenUnit<Cow<'a, str>>;
     type Latex: MediumCodeGenUnit<Cow<'a, str>>;
     type FootnoteReference: MediumCodeGenUnit<FootnoteReference<'a>>;
-    type Link: MediumCodeGenUnit<Link<'a>>;
+    type BiberReferences: MediumCodeGenUnit<Vec<BiberReference<'a>>>;
+    type Url: MediumCodeGenUnit<Url<'a>>;
+    type InterLink: MediumCodeGenUnit<InterLink<'a>>;
     type Image: MediumCodeGenUnit<Image<'a>>;
     type Label: MediumCodeGenUnit<Cow<'a, str>>;
     type Pdf: MediumCodeGenUnit<Pdf>;
@@ -63,6 +67,8 @@ pub trait Backend<'a>: Debug {
     type Enumerate: CodeGenUnit<'a, Enumerate>;
     type Item: CodeGenUnit<'a, ()>;
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
+    type UrlWithContent: CodeGenUnit<'a, Url<'a>>;
+    type InterLinkWithContent: CodeGenUnit<'a, InterLink<'a>>;
     type HtmlBlock: CodeGenUnit<'a, ()>;
     type Figure: CodeGenUnit<'a, Figure<'a>>;
 

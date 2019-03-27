@@ -12,7 +12,9 @@ impl<'a> Backend<'a> for Report {
     type Text = latex::TextGen;
     type Latex = latex::LatexGen;
     type FootnoteReference = latex::FootnoteReferenceGen;
-    type Link = latex::LinkGen;
+    type BiberReferences = latex::BiberReferencesGen;
+    type Url = latex::UrlGen;
+    type InterLink = latex::InterLinkGen;
     type Image = latex::ImageGen;
     type Label = latex::LabelGen;
     type Pdf = latex::PdfGen;
@@ -35,6 +37,8 @@ impl<'a> Backend<'a> for Report {
     type Enumerate = latex::EnumerateGen;
     type Item = latex::ItemGen;
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
+    type UrlWithContent = latex::UrlWithContentGen<'a>;
+    type InterLinkWithContent = latex::InterLinkWithContentGen;
     type HtmlBlock = latex::HtmlBlockGen;
     type Figure = latex::FigureGen<'a>;
 

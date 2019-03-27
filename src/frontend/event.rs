@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 pub use pulldown_cmark::Alignment;
 
-use super::Link;
 use crate::resolve::Command;
 
 // extension of pulldown_cmark::Event with custom types
@@ -15,7 +14,11 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
-    Link(Link<'a>),
+    BiberReferences(Vec<BiberReference<'a>>),
+    /// Url without content
+    Url(Url<'a>),
+    /// InterLink without content
+    InterLink(InterLink<'a>),
     Include(Include<'a>),
     Label(Cow<'a, str>),
     SoftBreak,
@@ -27,12 +30,30 @@ pub enum Event<'a> {
     ResolveInclude(Cow<'a, str>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FootnoteReference<'a> {
     pub label: Cow<'a, str>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct BiberReference<'a> {
+    pub reference: Cow<'a, str>,
+    pub attributes: Option<Cow<'a, str>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Url<'a> {
+    pub destination: Cow<'a, str>,
+    pub title: Option<Cow<'a, str>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct InterLink<'a> {
+    pub label: Cow<'a, str>,
+    pub uppercase: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct TaskListMarker {
     pub checked: bool,
 }
@@ -50,9 +71,13 @@ pub enum Tag<'a> {
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
     HtmlBlock,
+    /// Url with content
+    Url(Url<'a>),
+    /// InterLink with content
+    InterLink(InterLink<'a>),
     Figure(Figure<'a>),
-    TableFigure(Figure<'a>),
 
+    TableFigure(Figure<'a>),
     Table(Table<'a>),
     TableHead,
     TableRow,
