@@ -319,9 +319,9 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     .error("Code has both prefix and inline style labels / config")
                     .with_section(&code_block_cskvp_range, "config specified here")
                     .with_section(cskvp_range, "but config also specified here")
+                    .note("ignoring both")
+                    .help("try removing one of them")
                     .emit();
-                self.diagnostics.note("ignoring both").emit();
-                self.diagnostics.help("try removing one of them").emit();
                 c.clear();
             } else {
                 let cskvp = Cskvp::new(Cow::Borrowed(&lang[pos + 1..]));

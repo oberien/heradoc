@@ -3,17 +3,37 @@
 use std::rc::Rc;
 use std::ops::Range;
 use std::path::PathBuf;
-use url::Url;
+use std::fmt;
+use std::io::Write;
 
+use url::Url;
 use codespan::{FileMap, FileName, ByteOffset, Span};
 use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
 use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 
 use crate::resolve::Context;
 
-#[derive(Clone, Debug)]
 pub struct Diagnostics<'a> {
     file_map: Rc<FileMap<&'a str>>,
+    out: StandardStream,
+}
+
+impl<'a> Clone for Diagnostics<'a> {
+    fn clone(&self) -> Self {
+        Diagnostics {
+            file_map: self.file_map.clone(),
+            out: Diagnostics::out_stream(),
+        }
+    }
+}
+
+impl<'a> fmt::Debug for Diagnostics<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Diagnostics")
+            .field("file_map", &self.file_map)
+            .field("out", &"Rc(StandardStream)")
+            .finish()
+    }
 }
 
 pub enum Input {
@@ -23,6 +43,11 @@ pub enum Input {
 }
 
 impl<'a> Diagnostics<'a> {
+    fn out_stream() -> StandardStream {
+        // TODO: make this configurable
+        StandardStream::stderr(ColorChoice::Auto)
+    }
+
     pub fn new(markdown: &'a str, input: Input) -> Diagnostics<'a> {
         let source = match input {
             Input::File(path) => FileName::real(path),
@@ -33,6 +58,7 @@ impl<'a> Diagnostics<'a> {
 
         Diagnostics {
             file_map,
+            out: Diagnostics::out_stream(),
         }
     }
 
@@ -48,9 +74,11 @@ impl<'a> Diagnostics<'a> {
         }
     }
 
-    fn diagnostic(&self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
+    fn diagnostic(&mut self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
         DiagnosticBuilder {
             file_map: &self.file_map,
+            out: &mut self.out,
+            diagnostics: Vec::new(),
             severity,
             message,
             code: None,
@@ -58,19 +86,19 @@ impl<'a> Diagnostics<'a> {
         }
     }
 
-    pub fn bug<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn bug<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Bug, message.into())
     }
-    pub fn error<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn error<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Error, message.into())
     }
-    pub fn warning<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn warning<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Warning, message.into())
     }
-    pub fn note<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn note<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Note, message.into())
     }
-    pub fn help<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn help<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Help, message.into())
     }
 }
@@ -78,6 +106,9 @@ impl<'a> Diagnostics<'a> {
 #[must_use = "call `emit` to emit the diagnostic"]
 pub struct DiagnosticBuilder<'a: 'b, 'b> {
     file_map: &'b FileMap<&'a str>,
+    out: &'b mut StandardStream,
+    diagnostics: Vec<Diagnostic>,
+
     severity: Severity,
     message: String,
     code: Option<String>,
@@ -85,6 +116,48 @@ pub struct DiagnosticBuilder<'a: 'b, 'b> {
 }
 
 impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
+    pub fn emit(self) {
+        let Self { file_map, out, mut diagnostics, severity, message, code, labels } = self;
+        diagnostics.push(Diagnostic { severity, message, code, labels });
+
+        // ignore output errors, because where would we log them anyway?!
+        for diagnostic in diagnostics {
+            let _ = codespan_reporting::emit_single(&mut *out, file_map, &diagnostic);
+        }
+        writeln!(out);
+    }
+
+    fn diagnostic(self, new_severity: Severity, new_message: String) -> Self {
+        let Self { file_map, out, mut diagnostics, severity, message, code, labels } = self;
+        diagnostics.push(Diagnostic { severity, message, code, labels });
+
+        Self {
+            file_map,
+            out,
+            diagnostics,
+            severity: new_severity,
+            message: new_message,
+            code: None,
+            labels: Vec::new(),
+        }
+    }
+
+    pub fn bug<S: Into<String>>(self, message: S) -> Self {
+        self.diagnostic(Severity::Bug, message.into())
+    }
+    pub fn error<S: Into<String>>(self, message: S) -> Self {
+        self.diagnostic(Severity::Error, message.into())
+    }
+    pub fn warning<S: Into<String>>(self, message: S) -> Self {
+        self.diagnostic(Severity::Warning, message.into())
+    }
+    pub fn note<S: Into<String>>(self, message: S) -> Self {
+        self.diagnostic(Severity::Note, message.into())
+    }
+    pub fn help<S: Into<String>>(self, message: S) -> Self {
+        self.diagnostic(Severity::Help, message.into())
+    }
+
     pub fn with_error_code(mut self, code: String) -> Self {
         self.code = Some(code);
         self
@@ -106,19 +179,5 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
         };
         self.labels.push(Label { span, message, style });
         self
-    }
-
-    pub fn emit(self) {
-        let Self { file_map, severity, message, code, labels } = self;
-        // TODO: make this configurable
-        let out = StandardStream::stderr(ColorChoice::Auto);
-
-        // ignore output errors, because where would we log them anyway?!
-        let _ = codespan_reporting::emit_single(out, file_map, &Diagnostic {
-            severity,
-            code,
-            message,
-            labels,
-        });
     }
 }
