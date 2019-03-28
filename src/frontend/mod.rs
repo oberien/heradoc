@@ -321,6 +321,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     .with_section(cskvp_range, "but config also specified here")
                     .emit();
                 self.diagnostics.note("ignoring both").emit();
+                self.diagnostics.help("try removing one of them").emit();
                 c.clear();
             } else {
                 let cskvp = Cskvp::new(Cow::Borrowed(&lang[pos + 1..]));
@@ -379,8 +380,10 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                     language: if language.is_empty() {
                         None
                     } else if language == "sequence" {
-                        // TODO
-                        println!("sequence is not yet implemented");
+                        self.diagnostics
+                            .warning("sequence is not yet implemented")
+                            .with_section(&range, "")
+                            .emit();
                         None
                     } else {
                         Some(Cow::Borrowed(language))
@@ -466,26 +469,27 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         text.truncate_end(1);
         text.truncate_start(1);
         let mut cskvp = Cskvp::new(text);
-        let cskvp_range = Range { start: text_range.start + 1, end: text_range.end - 1 };
+        let cskvp_range = Range { start: text_range.start, end: text_range.end };
         // if next element could have a label, convert that element with the label
         // otherwise create label event
-        match self.parser.peek().map(_0) {
-            Some(CmarkEvent::Start(CmarkTag::Header(_)))
-            | Some(CmarkEvent::Start(CmarkTag::CodeBlock(_)))
-            | Some(CmarkEvent::Start(CmarkTag::Table(_)))
-            | Some(CmarkEvent::Start(CmarkTag::Image(..))) => {
+        match self.parser.peek().unwrap() {
+            (CmarkEvent::Start(CmarkTag::Header(_)), _)
+            | (CmarkEvent::Start(CmarkTag::CodeBlock(_)), _)
+            | (CmarkEvent::Start(CmarkTag::Table(_)), _)
+            | (CmarkEvent::Start(CmarkTag::Image(..)), _) => {
                 let (next_element, next_range) = self.parser.next().unwrap();
                 self.handle_cskvp(cskvp, cskvp_range, next_element, next_range)
             },
-            _ => {
+            (_, next_range) => {
                 if !cskvp.has_label() {
-                    // TODO error
-                    println!(
-                        "got element config, but there wasn't an element to apply it to: {:?}",
-                        cskvp
-                    );
+                    self.diagnostics
+                        .error("found element config, but there wasn't an element ot apply it to")
+                        .with_section(&cskvp_range, "found element config here")
+                        .with_section(next_range, "but it can't be applied to this element")
+                        .emit();
+                } else {
+                    self.buffer.push_back((Event::Label(cskvp.take_label().unwrap()), text_range));
                 }
-                self.buffer.push_back((Event::Label(cskvp.take_label().unwrap()), text_range));
             },
         }
 
