@@ -1,12 +1,12 @@
+use std::env;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::env;
 use std::str::FromStr;
 
 use url::Url;
 
-use crate::resolve::{Context, Include, Command};
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
+use crate::resolve::{Command, Context, Include};
 
 /// Differentiate between sources based on their access right characteristics.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -24,7 +24,7 @@ pub enum SourceGroup {
     Implementation,
     /// Local file relative to (without backrefs) or inside of context directory.
     ///
-    ///Ex: `![](/foo.md)`, `![](foo.md)`, `![](file:///absolute/path/to/workdir/foo.md)`
+    /// Ex: `![](/foo.md)`, `![](foo.md)`, `![](file:///absolute/path/to/workdir/foo.md)`
     LocalRelative(PathBuf),
     /// Absolute file, not within context directory.
     ///
@@ -44,15 +44,15 @@ impl Source {
                     let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
                     // url is "heradoc://document/path"
                     SourceGroup::LocalRelative(to_path(&url.as_str()[19..], workdir)?)
-                }
+                },
                 _ => SourceGroup::Implementation,
-            }
+            },
             "file" => {
                 let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
                 let path = to_path(url.path(), workdir)?;
                 let is_relative = match context {
                     Context::LocalRelative(workdir) => path.starts_with(workdir),
-                    _ => false
+                    _ => false,
                 };
                 if is_relative {
                     SourceGroup::LocalRelative(path)
@@ -63,40 +63,45 @@ impl Source {
             _ => SourceGroup::Remote,
         };
 
-        Ok(Source {
-            url,
-            group,
-        })
+        Ok(Source { url, group })
     }
 
     pub fn into_include(self, remote: &Remote) -> io::Result<Include> {
         let Source { url, group } = self;
         match group {
-            SourceGroup::Implementation => if let Some(domain) = url.domain() {
-                if let Ok(command) = Command::from_str(domain) {
-                    Ok(Include::Command(command))
+            SourceGroup::Implementation => {
+                if let Some(domain) = url.domain() {
+                    if let Ok(command) = Command::from_str(domain) {
+                        Ok(Include::Command(command))
+                    } else {
+                        Err(io::Error::new(
+                            io::ErrorKind::NotFound,
+                            format!("No heradoc implementation found for domain {:?}", domain),
+                        ))
+                    }
                 } else {
-                    Err(io::Error::new(io::ErrorKind::NotFound,
-                        format!("No heradoc implementation found for domain {:?}", domain)))
+                    Err(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        "No heradoc implementation domain found",
+                    ))
                 }
-            } else {
-                Err(io::Error::new(io::ErrorKind::NotFound,
-                    "No heradoc implementation domain found"))
-            }
+            },
             SourceGroup::LocalRelative(path) => {
                 let parent = path.parent().unwrap().to_owned();
                 to_include(path, Context::LocalRelative(parent))
-            }
+            },
             SourceGroup::LocalAbsolute(path) => {
                 let parent = path.parent().unwrap().to_owned();
                 to_include(path, Context::LocalAbsolute(parent))
-            }
+            },
             SourceGroup::Remote => {
-                let downloaded = match remote.http(url) {
+                let downloaded = match remote.http(&url) {
                     Ok(downloaded) => downloaded,
                     Err(RemoteError::Io(io)) => return Err(io),
                     // TODO: proper error handling with failure
-                    Err(RemoteError::Request(_req)) => return Err(io::ErrorKind::ConnectionAborted.into()),
+                    Err(RemoteError::Request(_req)) => {
+                        return Err(io::ErrorKind::ConnectionAborted.into());
+                    },
                 };
 
                 let path = downloaded.path().to_owned();
@@ -124,10 +129,10 @@ fn to_include(path: PathBuf, context: Context) -> io::Result<Include> {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
         Some("pdf") => Ok(Include::Pdf(path)),
-        Some(ext) => Err(io::Error::new(io::ErrorKind::NotFound,
-            format!("Unknown file format `{:?}`", ext))),
-        None => Err(io::Error::new(io::ErrorKind::NotFound,
-            "no file extension")),
+        Some(ext) => {
+            Err(io::Error::new(io::ErrorKind::NotFound, format!("Unknown file format `{:?}`", ext)))
+        },
+        None => Err(io::Error::new(io::ErrorKind::NotFound, "no file extension")),
     }
 }
 

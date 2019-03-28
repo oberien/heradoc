@@ -37,9 +37,7 @@ impl FromStr for Command {
     type Err = ();
 
     fn from_str(domain: &str) -> Result<Self, ()> {
-        if domain.eq_ignore_ascii_case("toc")
-            || domain.eq_ignore_ascii_case("tableofcontents")
-        {
+        if domain.eq_ignore_ascii_case("toc") || domain.eq_ignore_ascii_case("tableofcontents") {
             Ok(Command::Toc)
         } else if domain.eq_ignore_ascii_case("bibliography")
             || domain.eq_ignore_ascii_case("references")

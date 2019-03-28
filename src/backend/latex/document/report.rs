@@ -1,12 +1,13 @@
-use std::io::{Write, Result};
+use std::io::{Result, Write};
 
-use crate::backend::Backend;
 use crate::backend::latex::{self, preamble};
+use crate::backend::Backend;
 use crate::config::Config;
 
 #[derive(Debug)]
 pub struct Report;
 
+#[rustfmt::skip]
 impl<'a> Backend<'a> for Report {
     type Text = latex::TextGen;
     type Latex = latex::LatexGen;
@@ -36,16 +37,19 @@ impl<'a> Backend<'a> for Report {
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
     type HtmlBlock = latex::HtmlBlockGen;
     type Figure = latex::FigureGen<'a>;
+
     type TableFigure = latex::TableFigureGen<'a>;
     type Table = latex::TableGen<'a>;
     type TableHead = latex::TableHeadGen;
     type TableRow = latex::TableRowGen;
     type TableCell = latex::TableCellGen;
+
     type InlineEmphasis = latex::InlineEmphasisGen;
     type InlineStrong = latex::InlineStrongGen;
     type InlineStrikethrough = latex::InlineStrikethroughGen;
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
+
     type Equation = latex::EquationGen<'a>;
     type NumberedEquation = latex::NumberedEquationGen<'a>;
     type Graphviz = latex::GraphvizGen<'a>;
@@ -109,7 +113,7 @@ impl<'a> Backend<'a> for Report {
             writeln!(out, "\\publishers{{{}}}", publisher)?;
         }
 
-        preamble::write_university_commands(&cfg, out)?;
+        preamble::write_university_commands(cfg, out)?;
         writeln!(out, "{}", preamble::REPORT_COVER)?;
         writeln!(out)?;
 
@@ -121,4 +125,3 @@ impl<'a> Backend<'a> for Report {
         Ok(())
     }
 }
-

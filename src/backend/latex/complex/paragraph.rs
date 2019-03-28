@@ -1,19 +1,24 @@
 use std::io::{Result, Write};
 
-use crate::backend::{CodeGenUnit, Backend};
-use crate::generator::PrimitiveGenerator;
+use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{Event, Tag};
+use crate::generator::PrimitiveGenerator;
 
 #[derive(Debug)]
 pub struct ParagraphGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
-    fn new(_cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(
+        _cfg: &'a Config, _tag: (), _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+    ) -> Result<Self> {
         Ok(ParagraphGen)
     }
 
-    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(
+        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        peek: Option<&Event<'a>>,
+    ) -> Result<()> {
         // TODO: improve latex readability (e.g. no newline between list items)
         // TODO: fix too many linebreaks (e.g. after placeholditimage)
         match peek {

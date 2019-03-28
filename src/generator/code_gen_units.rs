@@ -1,9 +1,9 @@
-use std::io::{Write, Result};
+use std::io::{Result, Write};
 
 use crate::backend::{Backend, CodeGenUnit};
-use crate::generator::{PrimitiveGenerator, Stack};
 use crate::config::Config;
 use crate::generator::event::{Event, Tag};
+use crate::generator::{PrimitiveGenerator, Stack};
 use crate::resolve::Context;
 
 #[derive(Debug)]
@@ -37,6 +37,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
     Context(Context),
 }
 
+#[rustfmt::skip]
 impl<'a, D: Backend<'a>> StackElement<'a, D> {
     pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, D, impl Write>) -> Result<Self> {
         match tag {
@@ -259,4 +260,3 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 }
-

@@ -1,9 +1,9 @@
-use std::io::{Write, Result};
+use std::io::{Result, Write};
 
+use super::{Stack, StackElement};
 use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::Event;
-use super::{Stack, StackElement};
 use crate::resolve::Context;
 
 pub struct PrimitiveGenerator<'a, B: Backend<'a>, W: Write> {
@@ -20,11 +20,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
     }
 
     pub fn without_context(cfg: &'a Config, default_out: W) -> Self {
-        PrimitiveGenerator {
-            cfg,
-            default_out,
-            stack: Vec::new(),
-        }
+        PrimitiveGenerator { cfg, default_out, stack: Vec::new() }
     }
 
     pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
@@ -73,7 +69,7 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
         Ok(())
     }
 
-    pub fn iter_stack(&self) -> impl Iterator<Item=&StackElement<'a, B>> {
+    pub fn iter_stack(&self) -> impl Iterator<Item = &StackElement<'a, B>> {
         self.stack.iter().rev()
     }
 
@@ -86,8 +82,11 @@ impl<'a, B: Backend<'a>, W: Write> PrimitiveGenerator<'a, B, W> {
     }
 
     pub fn get_out<'s: 'b, 'b>(&'s mut self) -> &'b mut dyn Write {
-        self.stack.iter_mut().rev()
-            .filter_map(|state| state.output_redirect()).next()
+        self.stack
+            .iter_mut()
+            .rev()
+            .filter_map(|state| state.output_redirect())
+            .next()
             .unwrap_or(&mut self.default_out)
     }
 }

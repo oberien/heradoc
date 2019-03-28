@@ -7,6 +7,7 @@ use crate::config::Config;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
 
+#[allow(clippy::pub_enum_variant_names)]
 #[derive(Debug, Clone)]
 pub enum Link<'a> {
     /// reference, attributes
@@ -31,39 +32,42 @@ pub enum ReferenceParseResult<'a> {
     Text(Cow<'a, str>),
 }
 
-
-pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String) -> ReferenceParseResult<'a> {
-    // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in title
+pub fn parse_references<'a>(
+    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String,
+) -> ReferenceParseResult<'a> {
+    // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
+    // title
     let mut dst = match typ {
         LinkType::ShortcutUnknown | LinkType::ReferenceUnknown => title.clone(),
         _ => dst,
     };
     let title = if title.is_empty() { None } else { Some(title) };
 
-    dst.trim_left_inplace();
+    dst.trim_start_inplace();
 
     // possible include
-    match typ {
-        LinkType::ShortcutUnknown => if dst.starts_with_ignore_ascii_case("include ") {
-            dst.truncate_left(8);
+    if let LinkType::ShortcutUnknown = typ {
+        if dst.starts_with_ignore_ascii_case("include ") {
+            dst.truncate_start(8);
             return ReferenceParseResult::ResolveInclude(dst);
         } else if let Ok(command) = Command::from_str(&dst) {
             return ReferenceParseResult::Command(command);
         }
-        _ => (),
     }
 
     // biber
-    if dst.trim_left().starts_with('@') && typ == LinkType::ShortcutUnknown {
-        if !cfg.bibliography.is_some() {
+    if dst.trim_start().starts_with('@') && typ == LinkType::ShortcutUnknown {
+        if cfg.bibliography.is_none() {
             // todo: error
-            println!("Found biber link but no bibliography file found: {:?}", dst.trim_left());
+            println!("Found biber link but no bibliography file found: {:?}", dst.trim_start());
             return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));
         }
         // TODO: parse biber file and warn on unknown references
         // TODO: don't clone here
         if iter_multiple_biber(dst.clone()).nth(1).is_some() {
-            return ReferenceParseResult::Link(Link::BiberMultiple(iter_multiple_biber(dst).collect()));
+            return ReferenceParseResult::Link(Link::BiberMultiple(
+                iter_multiple_biber(dst).collect(),
+            ));
         } else {
             let (r, a) = parse_single_biber(dst);
             return ReferenceParseResult::Link(Link::BiberSingle(r, a));
@@ -71,14 +75,15 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     }
 
     // sanity check
-    if !dst.trim_left().starts_with('#') {
+    if !dst.trim_start().starts_with('#') {
         match typ {
             // these cases should already be handled above for anything except '#'
-            LinkType::ShortcutUnknown
-            | LinkType::ReferenceUnknown
-            | LinkType::CollapsedUnknown => unreachable!(),
+            LinkType::ShortcutUnknown | LinkType::ReferenceUnknown | LinkType::CollapsedUnknown => {
+                unreachable!()
+            },
             LinkType::Inline
-            | LinkType::Autolink | LinkType::Email
+            | LinkType::Autolink
+            | LinkType::Email
             | LinkType::Reference
             | LinkType::Collapsed
             | LinkType::Shortcut => (),
@@ -89,7 +94,7 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     assert_ne!(prefix, '^', "Footnotes should be handled by pulldown-cmark already");
     let mut uppercase = None;
     if prefix == '#' {
-        dst.truncate_left(1);
+        dst.truncate_start(1);
         // TODO: don't panic on invalid links (`#`)
         uppercase = Some(dst.chars().next().unwrap().is_uppercase());
         dst.make_ascii_lowercase_inplace();
@@ -98,32 +103,40 @@ pub fn parse_references<'a>(cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, t
     match prefix {
         // cref / Cref / hyperlink
         '#' => match typ {
-            LinkType::Shortcut | LinkType::ShortcutUnknown
-            | LinkType::Collapsed | LinkType::CollapsedUnknown => {
+            LinkType::Shortcut
+            | LinkType::ShortcutUnknown
+            | LinkType::Collapsed
+            | LinkType::CollapsedUnknown => {
                 ReferenceParseResult::Link(Link::InterLink(dst, uppercase.unwrap()))
             },
-            LinkType::Reference | LinkType::ReferenceUnknown
-            | LinkType::Autolink | LinkType::Email
-            | LinkType::Inline => {
-                ReferenceParseResult::Link(Link::InterLinkWithContent(dst, uppercase.unwrap(), content))
-            }
-        }
+            LinkType::Reference
+            | LinkType::ReferenceUnknown
+            | LinkType::Autolink
+            | LinkType::Email
+            | LinkType::Inline => ReferenceParseResult::Link(Link::InterLinkWithContent(
+                dst,
+                uppercase.unwrap(),
+                content,
+            )),
+        },
         // url
         _ => match typ {
-            LinkType::Autolink | LinkType::Email
-            | LinkType::Shortcut | LinkType::ShortcutUnknown
-            | LinkType::Collapsed | LinkType::CollapsedUnknown => {
-                ReferenceParseResult::Link(Link::Url(dst, title))
-            }
-            LinkType::Reference | LinkType::ReferenceUnknown
-            | LinkType::Inline => {
+            LinkType::Autolink
+            | LinkType::Email
+            | LinkType::Shortcut
+            | LinkType::ShortcutUnknown
+            | LinkType::Collapsed
+            | LinkType::CollapsedUnknown => ReferenceParseResult::Link(Link::Url(dst, title)),
+            LinkType::Reference | LinkType::ReferenceUnknown | LinkType::Inline => {
                 ReferenceParseResult::Link(Link::UrlWithContent(dst, content, title))
-            }
-        }
+            },
+        },
     }
 }
 
-fn iter_multiple_biber(s: Cow<'_, str>) -> impl Iterator<Item = (Cow<'_, str>, Option<Cow<'_, str>>)> {
+fn iter_multiple_biber(
+    s: Cow<'_, str>,
+) -> impl Iterator<Item = (Cow<'_, str>, Option<Cow<'_, str>>)> {
     struct Iter<'a> {
         s: Cow<'a, str>,
     }
@@ -137,15 +150,12 @@ fn iter_multiple_biber(s: Cow<'_, str>) -> impl Iterator<Item = (Cow<'_, str>, O
             }
 
             // skip leading whitespace at first reference (`[ @foo...`)
-            let leading_whitespace = self.s.chars()
-                .take_while(|c| c.is_whitespace())
-                .count();
+            let leading_whitespace = self.s.chars().take_while(|c| c.is_whitespace()).count();
             let single_start = leading_whitespace;
-            assert_eq!(&self.s[single_start..single_start+1], "@");
+            assert_eq!(&self.s[single_start..single_start + 1], "@");
 
-            let next_at = self.s[single_start + 1..].find('@')
-                .map(|i| i + single_start + 1)
-                .unwrap_or(self.s.len());
+            let next_at =
+                self.s[single_start + 1..].find('@').map_or(self.s.len(), |i| i + single_start + 1);
             let single_end = self.s[single_start..next_at].rfind(',').unwrap_or(self.s.len());
             let single = self.s.map_inplace_return(
                 |s| {
@@ -158,15 +168,13 @@ fn iter_multiple_biber(s: Cow<'_, str>) -> impl Iterator<Item = (Cow<'_, str>, O
                     single.drain(..single_start);
                     s.drain(..next_at - single_end);
                     Cow::Owned(single)
-                }
+                },
             );
             Some(parse_single_biber(single))
         }
     }
 
-    Iter {
-        s,
-    }
+    Iter { s }
 }
 
 /// Returns (reference, Option<options>)
@@ -189,6 +197,6 @@ fn parse_single_biber(mut s: Cow<'_, str>) -> (Cow<'_, str>, Option<Cow<'_, str>
             }
             reference.drain(..1);
             (Cow::Owned(reference), rest)
-        }
+        },
     )
 }

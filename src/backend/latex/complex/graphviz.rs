@@ -1,13 +1,13 @@
-use std::io::{Result, Write};
 use std::fs::File;
+use std::io::{Result, Write};
 use std::path::PathBuf;
 use std::process::Command;
 
-use crate::config::Config;
-use crate::backend::{Backend, CodeGenUnit};
 use crate::backend::latex::InlineEnvironment;
-use crate::generator::PrimitiveGenerator;
+use crate::backend::{Backend, CodeGenUnit};
+use crate::config::Config;
 use crate::generator::event::{Event, Graphviz};
+use crate::generator::PrimitiveGenerator;
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {
@@ -17,7 +17,10 @@ pub struct GraphvizGen<'a> {
 }
 
 impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
-    fn new(cfg: &Config, graphviz: Graphviz<'a>, _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(
+        cfg: &Config, graphviz: Graphviz<'a>,
+        _gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+    ) -> Result<Self> {
         let mut i = 0;
         let (file, path) = loop {
             let p = cfg.out_dir.join(format!("graphviz_{}", i));
@@ -26,34 +29,36 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             }
             i += 1;
         };
-        Ok(GraphvizGen {
-            file,
-            path,
-            graphviz,
-        })
+        Ok(GraphvizGen { file, path, graphviz })
     }
 
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         Some(&mut self.file)
     }
 
-
-    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>) -> Result<()> {
+    fn finish(
+        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<&Event<'a>>,
+    ) -> Result<()> {
         drop(self.file);
         let Graphviz { label, caption, scale, width, height } = self.graphviz;
-        let out = Command::new("dot").args(&["-T", "pdf", "-O"]).arg(&self.path).output()
+        let out = Command::new("dot")
+            .args(&["-T", "pdf", "-O"])
+            .arg(&self.path)
+            .output()
             .expect("Error executing `dot` to generate graphviz output");
         if !out.status.success() {
-            let _ = File::create("dot_stdout.log")
-                .map(|mut f| f.write_all(&out.stdout));
-            let _ = File::create("dot_stderr.log")
-                .map(|mut f| f.write_all(&out.stderr));
+            let _ = File::create("dot_stdout.log").map(|mut f| f.write_all(&out.stdout));
+            let _ = File::create("dot_stderr.log").map(|mut f| f.write_all(&out.stderr));
             // TODO: provide better info about signals
-            panic!("dot returned error code {:?}. Logs written to dot_stdout.log and dot_stderr.log", out.status.code());
+            panic!(
+                "dot returned error code {:?}. Logs written to dot_stdout.log and dot_stderr.log",
+                out.status.code()
+            );
         }
         let out = gen.get_out();
         let inline_fig = InlineEnvironment::new_figure(label, caption);
-        inline_fig.write_begin(&mut*out)?;
+        inline_fig.write_begin(&mut *out)?;
 
         write!(out, "\\includegraphics[")?;
         if let Some(scale) = scale {

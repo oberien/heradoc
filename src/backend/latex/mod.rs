@@ -1,60 +1,60 @@
-use std::io::{Write, Result};
 use std::borrow::Cow;
+use std::io::{Result, Write};
 
+mod complex;
 mod document;
-mod presentation;
 mod preamble;
+mod presentation;
 mod replace;
 mod simple;
-mod complex;
 
 pub use self::document::{Article, Report, Thesis};
 
 use self::simple::{
-    TextGen,
-    LatexGen,
+    AppendixGen,
+    BibliographyGen,
     FootnoteReferenceGen,
-    LinkGen,
+    HardBreakGen,
     ImageGen,
     LabelGen,
-    PdfGen,
-    SoftBreakGen,
-    HardBreakGen,
-    TaskListMarkerGen,
-    TableOfContentsGen,
-    BibliographyGen,
-    ListOfTablesGen,
+    LatexGen,
+    LinkGen,
     ListOfFiguresGen,
     ListOfListingsGen,
-    AppendixGen,
+    ListOfTablesGen,
+    PdfGen,
+    SoftBreakGen,
+    TableOfContentsGen,
+    TaskListMarkerGen,
+    TextGen,
 };
 
 use self::complex::{
+    BlockQuoteGen,
+    BookHeaderGen,
+    CodeBlockGen,
+    EnumerateGen,
+    EquationGen,
+    FigureGen,
+    FootnoteDefinitionGen,
+    GraphvizGen,
+    HeaderGen,
+    HtmlBlockGen,
+    InlineCodeGen,
+    InlineEmphasisGen,
+    InlineMathGen,
+    InlineStrikethroughGen,
+    InlineStrongGen,
+    ItemGen,
+    ListGen,
+    NumberedEquationGen,
     ParagraphGen,
     RuleGen,
-    HeaderGen,
-    BookHeaderGen,
-    BlockQuoteGen,
-    CodeBlockGen,
-    ListGen,
-    EnumerateGen,
-    ItemGen,
-    FootnoteDefinitionGen,
-    HtmlBlockGen,
-    FigureGen,
+    TableCellGen,
     TableFigureGen,
     TableGen,
     TableHeadGen,
     TableRowGen,
-    TableCellGen,
-    InlineEmphasisGen,
-    InlineStrongGen,
-    InlineStrikethroughGen,
-    InlineCodeGen,
-    InlineMathGen,
-    EquationGen,
-    NumberedEquationGen,
-    GraphvizGen,
 };
 
 /// Used for inline elements (not wrapped in a floating figure) that want a label or caption.
@@ -72,20 +72,16 @@ struct InlineEnvironment<'a> {
 }
 
 impl<'a> InlineEnvironment<'a> {
-    pub fn new_figure(label: Option<Cow<'a, str>>, caption: Option<Cow<'a, str>>) -> InlineEnvironment<'a> {
-        InlineEnvironment {
-            label,
-            caption,
-            environment: "figure",
-        }
+    pub fn new_figure(
+        label: Option<Cow<'a, str>>, caption: Option<Cow<'a, str>>,
+    ) -> InlineEnvironment<'a> {
+        InlineEnvironment { label, caption, environment: "figure" }
     }
 
-    pub fn new_table(label: Option<Cow<'a, str>>, caption: Option<Cow<'a, str>>) -> InlineEnvironment<'a> {
-        InlineEnvironment {
-            label,
-            caption,
-            environment: "table",
-        }
+    pub fn new_table(
+        label: Option<Cow<'a, str>>, caption: Option<Cow<'a, str>>,
+    ) -> InlineEnvironment<'a> {
+        InlineEnvironment { label, caption, environment: "table" }
     }
 
     pub fn write_begin(&self, mut out: impl Write) -> Result<()> {
@@ -119,4 +115,3 @@ impl<'a> InlineEnvironment<'a> {
         Ok(())
     }
 }
-

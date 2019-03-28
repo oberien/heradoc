@@ -1,23 +1,41 @@
-use std::io::{Write, Result};
-use std::fmt::Debug;
 use std::borrow::Cow;
+use std::fmt::Debug;
+use std::io::{Result, Write};
 
 use typed_arena::Arena;
 
-use crate::generator::event::{Event, Header, CodeBlock, Enumerate, FootnoteDefinition, Figure,
-    FootnoteReference, TaskListMarker, Table, Image, Graphviz, Link, Pdf, Equation};
+use crate::generator::event::{
+    CodeBlock,
+    Enumerate,
+    Equation,
+    Event,
+    Figure,
+    FootnoteDefinition,
+    FootnoteReference,
+    Graphviz,
+    Header,
+    Image,
+    Link,
+    Pdf,
+    Table,
+    TaskListMarker,
+};
 use crate::generator::{Generator, PrimitiveGenerator, Stack};
 
 pub mod latex;
 
 use crate::config::Config;
 
-pub fn generate<'a>(cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String, out: impl Write) -> Result<()> {
+pub fn generate<'a>(
+    cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
+    out: impl Write,
+) -> Result<()> {
     let mut gen = Generator::new(cfg, doc, out, arena);
     gen.generate(markdown)?;
     Ok(())
 }
 
+#[rustfmt::skip]
 pub trait Backend<'a>: Debug {
     type Text: MediumCodeGenUnit<Cow<'a, str>>;
     type Latex: MediumCodeGenUnit<Cow<'a, str>>;
@@ -47,8 +65,8 @@ pub trait Backend<'a>: Debug {
     type FootnoteDefinition: CodeGenUnit<'a, FootnoteDefinition<'a>>;
     type HtmlBlock: CodeGenUnit<'a, ()>;
     type Figure: CodeGenUnit<'a, Figure<'a>>;
-    type TableFigure: CodeGenUnit<'a, Figure<'a>>;
 
+    type TableFigure: CodeGenUnit<'a, Figure<'a>>;
     type Table: CodeGenUnit<'a, Table<'a>>;
     type TableHead: CodeGenUnit<'a, ()>;
     type TableRow: CodeGenUnit<'a, ()>;
@@ -70,14 +88,21 @@ pub trait Backend<'a>: Debug {
 }
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
-    fn new(cfg: &'a Config, tag: T, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>) -> Result<Self>;
+    fn new(
+        cfg: &'a Config, tag: T, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+    ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }
-    fn intercept_event<'b>(&mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
+    fn intercept_event<'b>(
+        &mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>,
+    ) -> Result<Option<Event<'a>>> {
         Ok(Some(e))
     }
-    fn finish(self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()>;
+    fn finish(
+        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        peek: Option<&Event<'a>>,
+    ) -> Result<()>;
 }
 
 pub trait SimpleCodeGenUnit<T> {

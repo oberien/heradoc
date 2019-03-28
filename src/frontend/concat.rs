@@ -1,8 +1,8 @@
-use std::iter::Peekable;
 use std::borrow::Cow;
+use std::iter::Peekable;
 
-use str_concat;
 use super::convert_cow::Event;
+use str_concat;
 
 pub struct Concat<'a, I: Iterator<Item = Event<'a>>>(Peekable<I>);
 
@@ -25,7 +25,7 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Concat<'a, I> {
         while let Some(Event::Text(_)) = self.0.peek() {
             let next = match self.0.next() {
                 Some(Event::Text(t)) => t,
-                _ => unreachable!()
+                _ => unreachable!(),
             };
 
             match t {
@@ -33,12 +33,12 @@ impl<'a, I: Iterator<Item = Event<'a>>> Iterator for Concat<'a, I> {
                     Cow::Borrowed(next) => match str_concat::concat(b, next) {
                         Ok(res) => t = Cow::Borrowed(res),
                         Err(_) => t = Cow::Owned(b.to_string() + next),
-                    }
+                    },
                     Cow::Owned(mut next) => {
                         next.insert_str(0, b);
                         t = Cow::Owned(next);
-                    }
-                }
+                    },
+                },
                 Cow::Owned(ref mut o) => o.push_str(&next),
             }
         }

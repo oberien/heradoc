@@ -1,24 +1,30 @@
-use std::io::{Result, Write};
 use std::borrow::Cow;
+use std::io::{Result, Write};
 
-use crate::backend::{SimpleCodeGenUnit, MediumCodeGenUnit, Backend};
-use crate::backend::latex::InlineEnvironment;
-use crate::generator::event::{FootnoteReference, Link, Image, Pdf, TaskListMarker};
-use crate::generator::Stack;
 use super::replace::replace;
+use crate::backend::latex::InlineEnvironment;
+use crate::backend::{Backend, MediumCodeGenUnit, SimpleCodeGenUnit};
+use crate::generator::event::{FootnoteReference, Image, Link, Pdf, TaskListMarker};
+use crate::generator::Stack;
 
 #[derive(Debug)]
 pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
-    fn gen<'b, 'c>(text: Cow<'a, str>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+    fn gen<'b, 'c>(
+        text: Cow<'a, str>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+    ) -> Result<()> {
         // TODO: make code-blocks containing unicode allow inline-math
         // handle unicode
         let strfn = if stack.iter().any(|e| e.is_math()) {
-            fn a(s: &str) -> &str { &s[1..s.len() - 1] }
+            fn a(s: &str) -> &str {
+                &s[1..s.len() - 1]
+            }
             a
         } else {
-            fn a(s: &str) -> &str { s }
+            fn a(s: &str) -> &str {
+                s
+            }
             a
         };
 
@@ -49,7 +55,7 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 c => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
                     None => s.push(c),
-                }
+                },
             }
         }
         write!(stack.get_out(), "{}", s)?;
@@ -71,7 +77,7 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
 pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
-    fn gen(fnote: FootnoteReference, out: &mut impl Write) -> Result<()> {
+    fn gen(fnote: FootnoteReference<'a>, out: &mut impl Write) -> Result<()> {
         let FootnoteReference { label } = fnote;
         write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", label)?;
         Ok(())
@@ -83,11 +89,11 @@ pub struct LinkGen;
 
 impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
     fn gen(link: Link<'a>, out: &mut impl Write) -> Result<()> {
-        Ok(match link {
+        match link {
             Link::BiberSingle(reference, rest) => match rest {
                 Some(rest) => write!(out, "\\cite[{}]{{{}}}", rest, reference)?,
                 None => write!(out, "\\cite{{{}}}", reference)?,
-            }
+            },
             Link::BiberMultiple(vec) => {
                 write!(out, "\\cites")?;
                 for (reference, rest) in vec {
@@ -96,18 +102,26 @@ impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
                         None => write!(out, "{{{}}}", reference)?,
                     }
                 }
-            }
+            },
             Link::Url(dst, None) => write!(out, "\\url{{{}}}", dst)?,
-            Link::Url(dst, Some(title)) => write!(out, "\\pdftooltip{{\\url{{{}}}}}{{{}}}", dst, title)?,
-            Link::UrlWithContent(dst, content, None) => write!(out, "\\href{{{}}}{{{}}}", dst, content)?,
-            Link::UrlWithContent(dst, content, Some(title)) => write!(out, "\\pdftooltip{{\\href{{{}}}{{{}}}}}{{{}}}", dst, content, title)?,
+            Link::Url(dst, Some(title)) => {
+                write!(out, "\\pdftooltip{{\\url{{{}}}}}{{{}}}", dst, title)?
+            },
+            Link::UrlWithContent(dst, content, None) => {
+                write!(out, "\\href{{{}}}{{{}}}", dst, content)?
+            },
+            Link::UrlWithContent(dst, content, Some(title)) => {
+                write!(out, "\\pdftooltip{{\\href{{{}}}{{{}}}}}{{{}}}", dst, content, title)?
+            },
             Link::InterLink(label, uppercase) => match uppercase {
                 true => write!(out, "\\Cref{{{}}}", label)?,
                 false => write!(out, "\\cref{{{}}}", label)?,
-            }
-            Link::InterLinkWithContent(label, _uppercase, content)
-                => write!(out, "\\hyperref[{}]{{{}}}", label, content)?,
-        })
+            },
+            Link::InterLinkWithContent(label, _uppercase, content) => {
+                write!(out, "\\hyperref[{}]{{{}}}", label, content)?
+            },
+        }
+        Ok(())
     }
 }
 
@@ -118,7 +132,7 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
         let Image { label, caption, title, alt_text, path, scale, width, height } = image;
         let inline_fig = InlineEnvironment::new_figure(label, caption);
-        inline_fig.write_begin(&mut*out)?;
+        inline_fig.write_begin(&mut *out)?;
 
         if title.is_some() {
             writeln!(out, "\\pdftooltip{{")?;

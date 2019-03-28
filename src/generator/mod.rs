@@ -1,20 +1,20 @@
-use std::io::{Write, Result};
 use std::fs;
+use std::io::{Result, Write};
 
 use typed_arena::Arena;
 
-use crate::backend::{Backend};
-use crate::frontend::{Frontend, Event as FeEvent, Include as FeInclude};
+use crate::backend::Backend;
 use crate::config::Config;
-use crate::resolve::{Resolver, Context, Include};
+use crate::frontend::{Event as FeEvent, Frontend, Include as FeInclude};
+use crate::resolve::{Context, Include, Resolver};
 
-mod stack;
-mod primitive;
 mod code_gen_units;
 pub mod event;
+mod primitive;
+mod stack;
 
-pub use self::stack::Stack;
 pub use self::primitive::PrimitiveGenerator;
+pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
 use self::event::{Event, Image, Pdf};
@@ -29,11 +29,15 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     pub fn new(cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>) -> Self {
-        let prim = PrimitiveGenerator::new(cfg, default_out, Context::LocalRelative(cfg.input_dir.clone()));
-        let template = cfg.template.as_ref().map(|path| {
-            fs::read_to_string(path)
-                .expect("can't read template")
-        });
+        let prim = PrimitiveGenerator::new(
+            cfg,
+            default_out,
+            Context::LocalRelative(cfg.input_dir.clone()),
+        );
+        let template = cfg
+            .template
+            .as_ref()
+            .map(|path| fs::read_to_string(path).expect("can't read template"));
         Generator {
             arena,
             doc,
@@ -52,18 +56,22 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     pub fn generate(&mut self, markdown: String) -> Result<()> {
         let events = self.get_events(markdown);
         if let Some(template) = self.template.take() {
-            let body_index = template.find("\nHERADOCBODY\n")
-                .expect("HERADOCBODY not found in template on");
+            let body_index =
+                template.find("\nHERADOCBODY\n").expect("HERADOCBODY not found in template on");
             self.prim.get_out().write_all(&template.as_bytes()[..body_index])?;
             self.generate_body(events)?;
-            self.prim.get_out().write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
+            self.prim
+                .get_out()
+                .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
             self.generate_with_events(events)?;
         }
         Ok(())
     }
 
-    pub fn generate_with_events(&mut self, events: impl Iterator<Item = FeEvent<'a>>) -> Result<()> {
+    pub fn generate_with_events(
+        &mut self, events: impl Iterator<Item = FeEvent<'a>>,
+    ) -> Result<()> {
         self.doc.gen_preamble(self.prim.cfg, &mut self.prim.default_out)?;
         self.generate_body(events)?;
         assert!(self.prim.pop().is_none());
@@ -76,11 +84,11 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             FeEvent::Include(image) => {
                 let include = self.resolve(&image.dst)?;
                 Ok(self.handle_include(include, Some(image))?)
-            }
+            },
             FeEvent::ResolveInclude(include) => {
                 let include = self.resolve(&include)?;
                 Ok(self.handle_include(include, None)?)
-            }
+            },
             e => Ok(Some(e.into())),
         }
     }
@@ -93,7 +101,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Some(e) => match self.convert_event(e)? {
                     None => continue,
                     Some(e) => break Some(e),
-                }
+                },
             }
         };
         while let Some(event) = peek {
@@ -103,27 +111,36 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                     Some(e) => match self.convert_event(e)? {
                         None => continue,
                         Some(e) => break Some(e),
-                    }
+                    },
                 }
             };
             self.prim.visit_event(event, peek.as_ref())?;
         }
         match self.prim.pop() {
             Some(StackElement::Context(_)) => (),
-            element => panic!("Expected context as stack element after body generation is finished, got {:?}", element),
+            element => panic!(
+                "Expected context as stack element after body generation is finished, got {:?}",
+                element
+            ),
         }
         Ok(())
     }
 
     fn resolve(&mut self, url: &str) -> Result<Include> {
-        let context = self.prim.iter_stack().find_map(|se| match se {
-            StackElement::Context(context) => Some(context),
-            _ => None,
-        }).expect("no Context???");
+        let context = self
+            .prim
+            .iter_stack()
+            .find_map(|se| match se {
+                StackElement::Context(context) => Some(context),
+                _ => None,
+            })
+            .expect("no Context???");
         self.resolver.resolve(context, url)
     }
 
-    fn handle_include(&mut self, include: Include, image: Option<FeInclude<'a>>) -> Result<Option<Event<'a>>> {
+    fn handle_include(
+        &mut self, include: Include, image: Option<FeInclude<'a>>,
+    ) -> Result<Option<Event<'a>>> {
         match include {
             Include::Command(command) => Ok(Some(command.into())),
             Include::Markdown(path, context) => {
@@ -132,10 +149,20 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 self.prim.push(StackElement::Context(context));
                 self.generate_body(events)?;
                 Ok(None)
-            }
+            },
             Include::Image(path) => {
                 let (label, caption, title, alt_text, scale, width, height) =
-                    if let Some(FeInclude { label, caption, title, alt_text, dst: _dst, scale, width, height }) = image {
+                    if let Some(FeInclude {
+                        label,
+                        caption,
+                        title,
+                        alt_text,
+                        dst: _dst,
+                        scale,
+                        width,
+                        height,
+                    }) = image
+                    {
                         (label, caption, title, alt_text, scale, width, height)
                     } else {
                         Default::default()
@@ -150,10 +177,8 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                     width,
                     height,
                 })))
-            }
+            },
             Include::Pdf(path) => Ok(Some(Event::Pdf(Pdf { path }))),
         }
-
     }
 }
-
