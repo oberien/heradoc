@@ -27,5 +27,5 @@ regex = "1.1.0"
 lazy_static = "1.2.0"
 single = "1.0.0"
 quoted-string = "0.6.0"
-codespan = { git = "https://github.com/oberien/codespan", rev = "dc909ed02d22dd81e04f92ca4d652a3e130418d2" }
-codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "dc909ed02d22dd81e04f92ca4d652a3e130418d2" }
+codespan = { git = "https://github.com/oberien/codespan", rev = "bc89c40c7169843bd9319368cd683b5fe7be47f4" }
+codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "bc89c40c7169843bd9319368cd683b5fe7be47f4" }

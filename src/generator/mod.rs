@@ -1,14 +1,14 @@
 use std::fs;
 use std::io::{Result, Write};
-use std::sync::Arc;
+use std::ops::Range;
 
 use typed_arena::Arena;
-use codespan::{CodeMap, FileName, FileMap};
 
 use crate::backend::{Backend, MediumCodeGenUnit};
-use crate::config::Config;
+use crate::config::{Config, FileOrStdio};
 use crate::frontend::{Event as FeEvent, Frontend, Include as FeInclude};
 use crate::resolve::{Context, Include, Resolver};
+use crate::diagnostics::{Diagnostics, Input};
 
 mod code_gen_units;
 pub mod event;
@@ -21,7 +21,6 @@ use self::event::{Event, Image, Pdf};
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
-    code_map: CodeMap<&'a str>,
     doc: B,
     cfg: &'a Config,
     default_out: W,
@@ -30,9 +29,9 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     template: Option<String>,
 }
 
-pub struct Events<'a, I: Iterator<Item = FeEvent<'a>>> {
+pub struct Events<'a, I: Iterator<Item = (FeEvent<'a>, Range<usize>)>> {
     events: I,
-    file_map: Arc<FileMap<&'a str>>,
+    diagnostics: Diagnostics<'a>,
     context: Context,
 }
 
@@ -44,7 +43,6 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .map(|path| fs::read_to_string(path).expect("can't read template"));
         Generator {
             arena,
-            code_map: CodeMap::new(),
             doc,
             cfg,
             default_out,
@@ -54,25 +52,24 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    pub fn get_events(&mut self, markdown: String, context: Context) -> Events<'a, impl Iterator<Item = FeEvent<'a>>> {
+    pub fn get_events(&mut self, markdown: String, context: Context, input: Input) -> Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>> {
         let markdown = self.arena.alloc(markdown);
-        let source = match &context {
-            Context::LocalRelative(path)
-            | Context::LocalAbsolute(path) => FileName::Real(path.clone()),
-            Context::Remote(url) => FileName::Virtual(url.as_str().to_owned().into()),
-        };
-        let file_map = self.code_map.add_filemap(source, markdown);
-        let parser: Frontend<'_, B> = Frontend::new(self.cfg, markdown, Arc::clone(&file_map));
+        let diagnostics = Diagnostics::new(markdown, input);
+        let parser: Frontend<'_, B> = Frontend::new(self.cfg, markdown, diagnostics.clone());
         Events {
             events: parser,
-            file_map,
-            context
+            diagnostics,
+            context,
         }
     }
 
     pub fn generate(&mut self, markdown: String) -> Result<()> {
         let context = Context::LocalRelative(self.cfg.input_dir.clone());
-        let events = self.get_events(markdown, context);
+        let input = match &self.cfg.input {
+            FileOrStdio::File(path) => Input::File(path.clone()),
+            FileOrStdio::StdIo => Input::Stdin,
+        };
+        let events = self.get_events(markdown, context, input);
         if let Some(template) = self.template.take() {
             let body_index =
                 template.find("\nHERADOCBODY\n").expect("HERADOCBODY not found in template on");
@@ -87,7 +84,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate_with_events(
-        &mut self, events: Events<'a, impl Iterator<Item = FeEvent<'a>>>,
+        &mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>,
     ) -> Result<()> {
         self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
         self.generate_body(events)?;
@@ -96,13 +93,13 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = FeEvent<'a>>>) -> Result<()> {
-        self.stack.push(StackElement::Context(events.context, events.file_map));
+    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>) -> Result<()> {
+        self.stack.push(StackElement::Context(events.context, events.diagnostics));
         let mut events = events.events.fuse();
         let mut peek = loop {
             match events.next() {
                 None => break None,
-                Some(e) => match self.convert_event(e)? {
+                Some((e, _)) => match self.convert_event(e)? {
                     None => continue,
                     Some(e) => break Some(e),
                 },
@@ -112,7 +109,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             peek = loop {
                 match events.next() {
                     None => break None,
-                    Some(e) => match self.convert_event(e)? {
+                    Some((e, _)) => match self.convert_event(e)? {
                         None => continue,
                         Some(e) => break Some(e),
                     },
@@ -222,8 +219,13 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         match include {
             Include::Command(command) => Ok(Some(command.into())),
             Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(path)?;
-                let events = self.get_events(markdown, context);
+                let markdown = fs::read_to_string(&path)?;
+                let input = match &context {
+                    Context::Remote(url) => Input::Url(url.clone()),
+                    Context::LocalRelative(_)
+                    | Context::LocalAbsolute(_) => Input::File(path.clone()),
+                };
+                let events = self.get_events(markdown, context, input);
                 self.generate_body(events)?;
                 Ok(None)
             },

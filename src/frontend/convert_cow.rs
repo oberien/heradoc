@@ -1,14 +1,15 @@
 use std::borrow::Cow;
+use std::ops::Range;
 
-use pulldown_cmark::{Alignment, CowStr, Event as CmarkEvent, LinkType, Parser, Tag as CmarkTag};
+use pulldown_cmark::{Alignment, CowStr, Event as CmarkEvent, LinkType, OffsetIter, Tag as CmarkTag};
 
-pub struct ConvertCow<'a>(pub Parser<'a>);
+pub struct ConvertCow<'a>(pub OffsetIter<'a>);
 
 impl<'a> Iterator for ConvertCow<'a> {
-    type Item = Event<'a>;
+    type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(Into::into)
+        self.0.next().map(|(e, r)| (e.into(), r))
     }
 }
 

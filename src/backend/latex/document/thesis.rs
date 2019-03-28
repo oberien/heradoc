@@ -9,6 +9,7 @@ use crate::backend::Backend;
 use crate::config::Config;
 use crate::generator::Generator;
 use crate::resolve::Context;
+use crate::diagnostics::Input;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -133,7 +134,9 @@ fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write) -> Result<()> {
     let arena = Arena::new();
     let mut gen = Generator::new(cfg, Thesis, out, &arena);
     let markdown = fs::read_to_string(&path)?;
-    let events = gen.get_events(markdown, Context::LocalRelative(path));
+    let context = Context::LocalRelative(path.clone());
+    let input = Input::File(path);
+    let events = gen.get_events(markdown, context, input);
     gen.generate_body(events)?;
     Ok(())
 }
