@@ -1,13 +1,11 @@
 use std::io::{Result, Write};
-use std::sync::Arc;
-
-use codespan::FileMap;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{Event, Tag};
 use crate::generator::{Generator, Stack};
 use crate::resolve::Context;
+use crate::diagnostics::Diagnostics;
 
 #[derive(Debug)]
 pub enum StackElement<'a, D: Backend<'a>> {
@@ -39,7 +37,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
     Graphviz(D::Graphviz),
 
     // resolve context
-    Context(Context, Arc<FileMap<&'a str>>),
+    Context(Context, Diagnostics<'a>),
 }
 
 #[rustfmt::skip]
