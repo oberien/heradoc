@@ -105,7 +105,7 @@ impl Source {
                 };
 
                 let path = downloaded.path().to_owned();
-                let context = Context::Remote;
+                let context = Context::Remote(url);
 
                 match downloaded.content_type() {
                     Some(ContentType::Image) => Ok(Include::Image(path)),

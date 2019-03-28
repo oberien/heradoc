@@ -1,6 +1,6 @@
 use std::fs;
 use std::io::{Result, Write};
-use std::path::Path;
+use std::path::PathBuf;
 
 use typed_arena::Arena;
 
@@ -8,6 +8,7 @@ use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
 use crate::generator::Generator;
+use crate::resolve::Context;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -106,10 +107,10 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\cleardoublepage{{}}")?;
 
         if let Some(abstract1) = &cfg.abstract1 {
-            gen(abstract1, cfg, out)?;
+            gen(abstract1.clone(), cfg, out)?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            gen(abstract2, cfg, out)?;
+            gen(abstract2.clone(), cfg, out)?;
         }
 
         writeln!(out)?;
@@ -128,11 +129,11 @@ impl<'a> Backend<'a> for Thesis {
     }
 }
 
-fn gen<P: AsRef<Path>>(path: P, cfg: &Config, out: &mut impl Write) -> Result<()> {
+fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write) -> Result<()> {
     let arena = Arena::new();
     let mut gen = Generator::new(cfg, Thesis, out, &arena);
-    let markdown = fs::read_to_string(path)?;
-    let events = gen.get_events(markdown);
+    let markdown = fs::read_to_string(&path)?;
+    let events = gen.get_events(markdown, Context::LocalRelative(path));
     gen.generate_body(events)?;
     Ok(())
 }

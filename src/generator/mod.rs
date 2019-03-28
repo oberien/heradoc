@@ -1,7 +1,9 @@
 use std::fs;
 use std::io::{Result, Write};
+use std::sync::Arc;
 
 use typed_arena::Arena;
+use codespan::{CodeMap, FileName, FileMap};
 
 use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::Config;
@@ -19,12 +21,19 @@ use self::event::{Event, Image, Pdf};
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
+    code_map: CodeMap<&'a str>,
     doc: B,
     cfg: &'a Config,
     default_out: W,
     stack: Vec<StackElement<'a, B>>,
     resolver: Resolver,
     template: Option<String>,
+}
+
+pub struct Events<'a, I: Iterator<Item = FeEvent<'a>>> {
+    events: I,
+    file_map: Arc<FileMap<&'a str>>,
+    context: Context,
 }
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
@@ -35,23 +44,35 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .map(|path| fs::read_to_string(path).expect("can't read template"));
         Generator {
             arena,
+            code_map: CodeMap::new(),
             doc,
             cfg,
             default_out,
-            stack: vec![StackElement::Context(Context::LocalRelative(cfg.input_dir.clone()))],
+            stack: Vec::new(),
             resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
             template,
         }
     }
 
-    pub fn get_events(&mut self, markdown: String) -> impl Iterator<Item = FeEvent<'a>> {
+    pub fn get_events(&mut self, markdown: String, context: Context) -> Events<'a, impl Iterator<Item = FeEvent<'a>>> {
         let markdown = self.arena.alloc(markdown);
-        let parser: Frontend<'_, B> = Frontend::new(self.cfg, markdown);
-        parser.peekable()
+        let source = match &context {
+            Context::LocalRelative(path)
+            | Context::LocalAbsolute(path) => FileName::Real(path.clone()),
+            Context::Remote(url) => FileName::Virtual(url.as_str().to_owned().into()),
+        };
+        let file_map = self.code_map.add_filemap(source, markdown);
+        let parser: Frontend<'_, B> = Frontend::new(self.cfg, markdown, Arc::clone(&file_map));
+        Events {
+            events: parser,
+            file_map,
+            context
+        }
     }
 
     pub fn generate(&mut self, markdown: String) -> Result<()> {
-        let events = self.get_events(markdown);
+        let context = Context::LocalRelative(self.cfg.input_dir.clone());
+        let events = self.get_events(markdown, context);
         if let Some(template) = self.template.take() {
             let body_index =
                 template.find("\nHERADOCBODY\n").expect("HERADOCBODY not found in template on");
@@ -66,7 +87,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate_with_events(
-        &mut self, events: impl Iterator<Item = FeEvent<'a>>,
+        &mut self, events: Events<'a, impl Iterator<Item = FeEvent<'a>>>,
     ) -> Result<()> {
         self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
         self.generate_body(events)?;
@@ -75,22 +96,9 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    fn convert_event(&mut self, event: FeEvent<'a>) -> Result<Option<Event<'a>>> {
-        match event {
-            FeEvent::Include(image) => {
-                let include = self.resolve(&image.dst)?;
-                Ok(self.handle_include(include, Some(image))?)
-            },
-            FeEvent::ResolveInclude(include) => {
-                let include = self.resolve(&include)?;
-                Ok(self.handle_include(include, None)?)
-            },
-            e => Ok(Some(e.into())),
-        }
-    }
-
-    pub fn generate_body(&mut self, events: impl Iterator<Item = FeEvent<'a>>) -> Result<()> {
-        let mut events = events.fuse();
+    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = FeEvent<'a>>>) -> Result<()> {
+        self.stack.push(StackElement::Context(events.context, events.file_map));
+        let mut events = events.events.fuse();
         let mut peek = loop {
             match events.next() {
                 None => break None,
@@ -113,13 +121,27 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.visit_event(event, peek.as_ref())?;
         }
         match self.stack.pop() {
-            Some(StackElement::Context(_)) => (),
+            Some(StackElement::Context(..)) => (),
             element => panic!(
                 "Expected context as stack element after body generation is finished, got {:?}",
                 element
             ),
         }
         Ok(())
+    }
+
+    fn convert_event(&mut self, event: FeEvent<'a>) -> Result<Option<Event<'a>>> {
+        match event {
+            FeEvent::Include(image) => {
+                let include = self.resolve(&image.dst)?;
+                Ok(self.handle_include(include, Some(image))?)
+            },
+            FeEvent::ResolveInclude(include) => {
+                let include = self.resolve(&include)?;
+                Ok(self.handle_include(include, None)?)
+            },
+            e => Ok(Some(e.into())),
+        }
     }
 
     pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
@@ -187,7 +209,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         let context = self
             .iter_stack()
             .find_map(|se| match se {
-                StackElement::Context(context) => Some(context),
+                StackElement::Context(context, _) => Some(context),
                 _ => None,
             })
             .expect("no Context???");
@@ -201,8 +223,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Include::Command(command) => Ok(Some(command.into())),
             Include::Markdown(path, context) => {
                 let markdown = fs::read_to_string(path)?;
-                let events = self.get_events(markdown);
-                self.stack.push(StackElement::Context(context));
+                let events = self.get_events(markdown, context);
                 self.generate_body(events)?;
                 Ok(None)
             },
