@@ -41,6 +41,7 @@ use typed_arena::Arena;
 mod backend;
 mod config;
 mod cskvp;
+mod diagnostics;
 mod ext;
 mod frontend;
 mod generator;

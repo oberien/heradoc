@@ -1,4 +1,7 @@
 use std::io::{Result, Write};
+use std::sync::Arc;
+
+use codespan::FileMap;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
@@ -36,7 +39,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
     Graphviz(D::Graphviz),
 
     // resolve context
-    Context(Context),
+    Context(Context, Arc<FileMap<&'a str>>),
 }
 
 #[rustfmt::skip]
@@ -101,7 +104,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::NumberedEquation(s) => s.output_redirect(),
             StackElement::Graphviz(s) => s.output_redirect(),
 
-            StackElement::Context(_) => None,
+            StackElement::Context(..) => None,
         }
     }
 
@@ -134,7 +137,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::NumberedEquation(s) => s.intercept_event(stack, e),
             StackElement::Graphviz(s) => s.intercept_event(stack, e),
 
-            StackElement::Context(_) => Ok(Some(e)),
+            StackElement::Context(..) => Ok(Some(e)),
         }
     }
 

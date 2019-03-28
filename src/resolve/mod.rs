@@ -87,8 +87,8 @@ impl Resolver {
             },
 
             // TODO: think about proper remote rules
-            (Context::Remote, SourceGroup::Remote) => Ok(()),
-            (Context::Remote, _) => Err(io::Error::new(
+            (Context::Remote(_), SourceGroup::Remote) => Ok(()),
+            (Context::Remote(_), _) => Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 "Remote can only access remote",
             )),
@@ -100,14 +100,14 @@ impl Resolver {
 pub enum Context {
     LocalRelative(PathBuf),
     LocalAbsolute(PathBuf),
-    Remote,
+    Remote(Url),
 }
 
 impl Context {
     fn path(&self) -> Option<&Path> {
         match self {
             Context::LocalRelative(path) | Context::LocalAbsolute(path) => Some(path),
-            Context::Remote => None,
+            Context::Remote(_) => None,
         }
     }
 }
@@ -181,7 +181,7 @@ mod tests {
             .resolve(&top, "https://raw.githubusercontent.com/oberien/heradoc/master/README.md")
             .expect("Failed to download external document");
 
-        assert_match!(external, Include::Markdown(_, Context::Remote));
+        assert_match!(external, Include::Markdown(_, Context::Remote(_)));
         drop(dir);
     }
 }

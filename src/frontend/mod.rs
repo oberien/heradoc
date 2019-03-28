@@ -3,10 +3,12 @@ use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::marker::PhantomData;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use lazy_static::lazy_static;
 use pulldown_cmark::{Options as CmarkOptions, Parser as CmarkParser};
 use regex::Regex;
+use codespan::FileMap;
 
 mod concat;
 mod convert_cow;
@@ -27,6 +29,7 @@ use crate::resolve::Command;
 
 pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
+    file_map: Arc<FileMap<&'a str>>,
     parser: Peekable<Concat<'a, ConvertCow<'a>>>,
     buffer: VecDeque<Event<'a>>,
     marker: PhantomData<B>,
@@ -60,7 +63,7 @@ fn broken_link_callback(normalized_ref: &str, text_ref: &str) -> Option<(String,
 }
 
 impl<'a, B: Backend<'a>> Frontend<'a, B> {
-    pub fn new(cfg: &'a Config, markdown: &'a str) -> Frontend<'a, B> {
+    pub fn new(cfg: &'a Config, markdown: &'a str, file_map: Arc<FileMap<&'a str>>) -> Frontend<'a, B> {
         let parser = CmarkParser::new_with_broken_link_callback(
             markdown,
             CmarkOptions::ENABLE_FOOTNOTES
@@ -71,6 +74,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         );
         Frontend {
             cfg,
+            file_map,
             parser: Concat::new(ConvertCow(parser)).peekable(),
             buffer: VecDeque::new(),
             marker: PhantomData,
