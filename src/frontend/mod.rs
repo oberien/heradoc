@@ -39,13 +39,14 @@ impl<'a, B: Backend<'a>> Iterator for Frontend<'a, B> {
     type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some((evt, range)) = self.buffer.pop_front() {
-            return Some((evt, range));
-        }
+        loop {
+            if let Some((evt, range)) = self.buffer.pop_front() {
+                return Some((evt, range));
+            }
 
-        let (evt, range) = self.parser.next()?;
-        self.convert_event(evt, range);
-        self.buffer.pop_front()
+            let (evt, range) = self.parser.next()?;
+            self.convert_event(evt, range);
+        }
     }
 }
 
@@ -204,12 +205,18 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     /// Consumes and converts all elements until the next End event is received.
     /// Returns a concatenation of all text events (unrendered).
     #[inline]
-    fn convert_until_end_inclusive(&mut self, f: impl Fn(&CmarkTag<'_>) -> bool) -> String {
+    fn convert_until_end_inclusive(&mut self, f: impl Fn(&CmarkTag<'_>) -> bool) -> (String, Option<Range<usize>>) {
         let mut text = String::new();
+        let mut range: Option<Range<usize>> = None;
         loop {
-            let (evt, range) = self.parser.next().unwrap();
+            let (evt, evt_range) = self.parser.next().unwrap();
+            if let Some(range) = &mut range {
+                range.end = evt_range.end;
+            } else {
+                range = Some(evt_range.clone());
+            }
             match &evt {
-                CmarkEvent::End(tag) if f(tag) => return text,
+                CmarkEvent::End(tag) if f(tag) => return (text, range),
                 CmarkEvent::Text(t) => {
                     if !text.is_empty() {
                         text.push(' ');
@@ -219,7 +226,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
                 _ => (),
             }
 
-            self.convert_event(evt, range);
+            self.convert_event(evt, evt_range);
         }
     }
 
@@ -302,7 +309,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         self.buffer.push_back((Event::End(tag), range));
     }
 
-    fn convert_code_block(&mut self, lang: Cow<'a, str>, range: Range<usize>, mut cskvp: Option<(Cskvp<'a>, Range<usize>)>) {
+    fn convert_code_block(&mut self, lang: Cow<'a, str>, range: Range<usize>, mut cskvp: Option<Cskvp<'a>>) {
         let lang = match lang {
             Cow::Borrowed(s) => s,
             Cow::Owned(_) => unreachable!("CodeBlock language should be borrowed"),
@@ -313,22 +320,21 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         if let Some(pos) = lang.find(',') {
             language = &lang[..pos];
             let code_block_cskvp_range = self.diagnostics.first_line(&range);
-            if let Some((c, cskvp_range)) = &mut cskvp {
+            if let Some(c) = &mut cskvp {
                 // TODO: error
                 self.diagnostics
-                    .error("Code has both prefix and inline style labels / config")
+                    .error("code has both prefix and inline style labels / config")
                     .with_section(&code_block_cskvp_range, "config specified here")
-                    .with_section(cskvp_range, "but config also specified here")
+                    .with_section(c.range(), "but config also specified here")
                     .note("ignoring both")
                     .help("try removing one of them")
                     .emit();
                 c.clear();
             } else {
-                let cskvp = Cskvp::new(Cow::Borrowed(&lang[pos + 1..]));
+                let cskvp = Cskvp::new(Cow::Borrowed(&lang[pos + 1..]), code_block_cskvp_range, self.diagnostics.clone());
                 // check for figure and handle it
                 self.handle_cskvp(
                     cskvp,
-                    code_block_cskvp_range,
                     CmarkEvent::Start(CmarkTag::CodeBlock(Cow::Borrowed(language))),
                     range,
                 );
@@ -338,7 +344,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             language = lang;
         }
 
-        let mut cskvp = cskvp.map(_0).unwrap_or_default();
+        let mut cskvp = cskvp.unwrap_or_default();
         let tag = match language {
             "equation" | "$$" => {
                 Tag::Equation(Equation { label: cskvp.take_label(), caption: cskvp.take_caption() })
@@ -418,7 +424,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             }};
         };
 
-        let text = match self.parser.peek().map(_0) {
+        let text = match self.parser.peek().map(|t| &t.0) {
             Some(CmarkEvent::Text(text)) => text, // continue
             _ => handle_normal!(),
         };
@@ -436,7 +442,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
 
         // TODO: look ahead further to enable Start(Paragraph), Label, End(Paragraph),
         // Start(Paragraph), Image, …
-        let end_paragraph = match self.parser.peek().map(_0) {
+        let end_paragraph = match self.parser.peek().map(|t| &t.0) {
             Some(CmarkEvent::End(CmarkTag::Paragraph)) => true,
             Some(CmarkEvent::SoftBreak) => false,
             _ => {
@@ -468,8 +474,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         // parse label
         text.truncate_end(1);
         text.truncate_start(1);
-        let mut cskvp = Cskvp::new(text);
-        let cskvp_range = Range { start: text_range.start, end: text_range.end };
+        let mut cskvp = Cskvp::new(text, text_range.clone(), self.diagnostics.clone());
         // if next element could have a label, convert that element with the label
         // otherwise create label event
         match self.parser.peek().unwrap() {
@@ -478,13 +483,13 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | (CmarkEvent::Start(CmarkTag::Table(_)), _)
             | (CmarkEvent::Start(CmarkTag::Image(..)), _) => {
                 let (next_element, next_range) = self.parser.next().unwrap();
-                self.handle_cskvp(cskvp, cskvp_range, next_element, next_range)
+                self.handle_cskvp(cskvp, next_element, next_range)
             },
             (_, next_range) => {
                 if !cskvp.has_label() {
                     self.diagnostics
                         .error("found element config, but there wasn't an element ot apply it to")
-                        .with_section(&cskvp_range, "found element config here")
+                        .with_section(cskvp.range(), "found element config here")
                         .with_section(next_range, "but it can't be applied to this element")
                         .emit();
                 } else {
@@ -506,8 +511,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
     }
 
     fn handle_cskvp(
-        &mut self, mut cskvp: Cskvp<'a>, cskvp_range: Range<usize>,
-        next_element: CmarkEvent<'a>, next_range: Range<usize>
+        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: Range<usize>
     ) {
         // check if we want a figure
         let figure = match cskvp.take_figure().unwrap_or(self.cfg.figures) {
@@ -529,16 +533,16 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
 
         match next_element {
             CmarkEvent::Start(CmarkTag::Header(label)) => {
-                self.convert_header(label, next_range.clone(), Some((cskvp, cskvp_range)))
+                self.convert_header(label, next_range.clone(), Some(cskvp))
             },
             CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
-                self.convert_code_block(lang, next_range.clone(), Some((cskvp, cskvp_range)))
+                self.convert_code_block(lang, next_range.clone(), Some(cskvp))
             },
             CmarkEvent::Start(CmarkTag::Table(alignment)) => {
-                self.convert_table(alignment, next_range.clone(), Some((cskvp, cskvp_range)))
+                self.convert_table(alignment, next_range.clone(), Some(cskvp))
             },
             CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => {
-                self.convert_image(typ, dst, title, next_range.clone(), Some((cskvp, cskvp_range)))
+                self.convert_image(typ, dst, title, next_range.clone(), Some(cskvp))
             },
             element => panic!("handle_cskvp called with unknown element {:?}", element),
         }
@@ -548,8 +552,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         }
     }
 
-    fn convert_header(&mut self, level: i32, range: Range<usize>, cskvp: Option<(Cskvp<'a>, Range<usize>)>) {
-        let mut cskvp = cskvp.map(_0).unwrap_or_default();
+    fn convert_header(&mut self, level: i32, range: Range<usize>, cskvp: Option<Cskvp<'a>>) {
+        let mut cskvp = cskvp.unwrap_or_default();
         // header can have 3 different labels:
         // • `{#foo}\n\n# Header`: "prefix" style
         // • `# Header {#foo}: "inline" style
@@ -561,7 +565,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         // Consume elements until end of heading to get its text.
         // Convert them and put them into the buffer because the're still needed.
         let current_index = self.buffer.len();
-        let text = self.convert_until_end_inclusive(|t| {
+        let (text, text_range) = self.convert_until_end_inclusive(|t| {
             if let CmarkTag::Header(_) = t {
                 true
             } else {
@@ -573,7 +577,13 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             // Matches `{#my-custom-inline-label}` returning `my-custom-inline-label`
             static ref RE: Regex = Regex::new(r"\{#([a-zA-Z0-9-_]+)\}\w*$").unwrap();
         }
-        let inline = RE.captures(&text).map(|c| c.get(1).unwrap().as_str());
+        let captures = RE.captures(&text);
+        let inline = captures.as_ref().map(|c| c.get(1).unwrap().as_str());
+        let group0 = captures.as_ref().map(|c| c.get(0).unwrap());
+        let inline_range = group0.map(|group| Range {
+            start: text_range.clone().unwrap().start + group.start(),
+            end: text_range.unwrap().start + group.end()
+        });
 
         let autogenerated = text
             .chars()
@@ -585,9 +595,16 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             .collect();
 
         let label = if prefix.is_some() && inline.is_some() {
-            // TODO: error
-            println!("Header has both prefix and inline style labels, ignoring both");
-            Cow::Owned(autogenerated)
+            self.diagnostics
+                .error("header has both prefix and inline style labels")
+                .with_section(&range, "header defined here")
+                .with_section(cskvp.range(), "prefix style defined here")
+                .with_section(&inline_range.unwrap(), "inline style defined here")
+                .note(format!("using the inline one"))
+                .help("try removing one of them")
+                .emit();
+
+            Cow::Owned(inline.unwrap().to_string())
         } else {
             prefix
                 .or_else(|| inline.map(|inline| Cow::Owned(inline.to_string())))
@@ -599,8 +616,8 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
         self.buffer.push_back((Event::End(tag), range));
     }
 
-    fn convert_table(&mut self, alignment: Vec<Alignment>, range: Range<usize>, cskvp: Option<(Cskvp<'a>, Range<usize>)>) {
-        let mut cskvp = cskvp.map(_0).unwrap_or_default();
+    fn convert_table(&mut self, alignment: Vec<Alignment>, range: Range<usize>, cskvp: Option<Cskvp<'a>>) {
+        let mut cskvp = cskvp.unwrap_or_default();
         let tag = Tag::Table(Table {
             label: cskvp.take_label(),
             caption: cskvp.take_caption(),
@@ -647,7 +664,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
 
     fn convert_image(
         &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>,
-        cskvp: Option<(Cskvp<'a>, Range<usize>)>,
+        cskvp: Option<Cskvp<'a>>,
     ) {
         // TODO: maybe not concat all text-like events but actually forward events
         // The CommonMark spec says that the parser should produce the correct events, while
@@ -663,7 +680,7 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             | LinkType::ShortcutUnknown => None,
             LinkType::Autolink | LinkType::Email => unreachable!("{:?} can be images???", typ),
         };
-        let mut cskvp = cskvp.map(_0).unwrap_or_default();
+        let mut cskvp = cskvp.unwrap_or_default();
         self.buffer.push_back((Event::Include(Include {
             label: cskvp.take_label(),
             caption: cskvp.take_caption(),
@@ -675,27 +692,4 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             height: cskvp.take_double("height"),
         }), range))
     }
-}
-
-trait Get0 {
-    type Output;
-    fn get_0(self) -> Self::Output;
-}
-
-impl<A, B> Get0 for (A, B) {
-    type Output = A;
-    fn get_0(self) -> Self::Output {
-        self.0
-    }
-}
-
-impl<'a, A, B> Get0 for &'a (A, B) {
-    type Output = &'a A;
-    fn get_0(self) -> Self::Output {
-        &self.0
-    }
-}
-
-fn _0<T: Get0>(t: T) -> T::Output {
-    t.get_0()
 }

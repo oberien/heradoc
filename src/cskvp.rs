@@ -1,14 +1,18 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::ops::Range;
 use std::mem;
 
 use quoted_string::test_utils::TestSpec;
 use single::{self, Single};
 
 use crate::ext::{CowExt, VecExt};
+use crate::diagnostics::Diagnostics;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Cskvp<'a> {
+    diagnostics: Option<Diagnostics<'a>>,
+    range: Range<usize>,
     label: Option<Cow<'a, str>>,
     caption: Option<Cow<'a, str>>,
     figure: Option<bool>,
@@ -16,8 +20,22 @@ pub struct Cskvp<'a> {
     double: HashMap<Cow<'a, str>, Cow<'a, str>>,
 }
 
+impl<'a> Default for Cskvp<'a> {
+    fn default() -> Self {
+        Cskvp {
+            diagnostics: None,
+            range: Range { start: 0, end: 0 },
+            label: None,
+            caption: None,
+            figure: None,
+            single: Vec::new(),
+            double: HashMap::new(),
+        }
+    }
+}
+
 impl<'a> Cskvp<'a> {
-    pub fn new(s: Cow<'a, str>) -> Cskvp<'a> {
+    pub fn new(s: Cow<'a, str>, range: Range<usize>, diagnostics: Diagnostics<'a>) -> Cskvp<'a> {
         let parser = Parser::new(s);
 
         let mut single = Vec::new();
@@ -71,7 +89,19 @@ impl<'a> Cskvp<'a> {
             },
         };
 
-        Cskvp { label, caption: double.remove("caption"), figure, single, double }
+        Cskvp {
+            diagnostics: Some(diagnostics),
+            range,
+            label,
+            caption: double.remove("caption"),
+            figure,
+            single,
+            double,
+        }
+    }
+
+    pub fn range(&self) -> &Range<usize> {
+        &self.range
     }
 
     pub fn has_label(&self) -> bool {
@@ -108,21 +138,40 @@ impl<'a> Cskvp<'a> {
 
 impl<'a> Drop for Cskvp<'a> {
     fn drop(&mut self) {
+        let mut has_warning = false;
+        let range = &self.range;
+        let mut diag = self.diagnostics
+            .as_mut()
+            .map(|d| d
+                .warning("in element config")
+                .with_section(range, "")
+            );
         // TODO: warn
         if let Some(label) = self.label.as_ref() {
-            println!("label ignored: {}", label);
+            diag = diag.map(|d| d.warning(format!("label ignored: {}", label)));
+            has_warning = true;
         }
         if let Some(figure) = self.figure {
-            println!("figure config ignored: {}", figure);
+            diag = diag.map(|d| d.warning(format!("figure config ignored: {}", figure)));
+            has_warning = true;
         }
         if let Some(caption) = self.caption.as_ref() {
-            println!("caption ignored: {}", caption);
+            diag = diag.map(|d| d.warning(format!("caption ignored: {}", caption)));
+            has_warning = true;
         }
         for (k, v) in self.double.drain() {
-            println!("Unknown attribute `{}={}`", k, v);
+            diag = diag.map(|d| d.warning(format!("unknown attribute `{}={}`", k, v)));
+            has_warning = true;
         }
         for attr in self.single.drain(..) {
-            println!("Unknown attribute `{}`", attr);
+            diag = diag.map(|d| d.warning(format!("unknown attribute `{}`", attr)));
+            has_warning = true;
+        }
+
+        if has_warning {
+            diag.map(|d| d.emit());
+        } else {
+            let _ = diag;
         }
     }
 }
