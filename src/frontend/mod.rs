@@ -321,7 +321,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             language = &lang[..pos];
             let code_block_cskvp_range = self.diagnostics.first_line(&range);
             if let Some(c) = &mut cskvp {
-                // TODO: error
                 self.diagnostics
                     .error("code has both prefix and inline style labels / config")
                     .with_section(&code_block_cskvp_range, "config specified here")
