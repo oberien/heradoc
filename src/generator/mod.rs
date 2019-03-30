@@ -202,6 +202,14 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .unwrap_or(&mut self.default_out)
     }
 
+    pub fn diagnostics(&self) -> &Diagnostics<'a> {
+        self.iter_stack()
+            .filter_map(|state| match state {
+                StackElement::Context(_, diagnostics) => Some(diagnostics),
+                _ => None,
+            }).next().unwrap()
+    }
+
     fn resolve(&mut self, url: &str) -> Result<Include> {
         let context = self
             .iter_stack()
