@@ -2,11 +2,14 @@ use std::env;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::ops::Range;
+use std::result::Result;
 
 use url::Url;
 
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
+use crate::diagnostics::Diagnostics;
 
 /// Differentiate between sources based on their access right characteristics.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -36,19 +39,39 @@ pub enum SourceGroup {
     Remote,
 }
 
+fn error_include_local_from_remote(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>) {
+    diagnostics
+        .error("tried to include local file from remote origin")
+        .with_section(range, "specified here")
+        .note("local files can only be included from within local files")
+        .emit()
+}
+
+fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: io::Error) {
+    diagnostics
+        .bug("error converting url to path")
+        .with_section(&range, "defined here")
+        .error(format!("cause: {}", err))
+        .emit()
+}
+
 impl Source {
-    pub fn new(url: Url, context: &Context) -> io::Result<Self> {
+    pub fn new(url: Url, context: &Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Self, ()> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => {
-                    let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
+                    let workdir = context.path()
+                        .ok_or_else(|| error_include_local_from_remote(diagnostics, &range))?;
                     // url is "heradoc://document/path"
-                    SourceGroup::LocalRelative(to_path(&url.as_str()[19..], workdir)?)
+                    let path = to_path(&url.as_str()[19..], workdir)
+                        .map_err(|err| error_to_path(diagnostics, &range, err))?;
+                    SourceGroup::LocalRelative(path)
                 },
                 _ => SourceGroup::Implementation,
             },
             "file" => {
-                let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
+                let workdir = context.path()
+                    .ok_or_else(|| error_include_local_from_remote(diagnostics, &range))?;
                 let path = to_path(url.path(), workdir)?;
                 let is_relative = match context {
                     Context::LocalRelative(workdir) => path.starts_with(workdir),
@@ -66,7 +89,7 @@ impl Source {
         Ok(Source { url, group })
     }
 
-    pub fn into_include(self, remote: &Remote) -> io::Result<Include> {
+    pub fn into_include(self, remote: &Remote, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Include, ()> {
         let Source { url, group } = self;
         match group {
             SourceGroup::Implementation => {
@@ -74,33 +97,46 @@ impl Source {
                     if let Ok(command) = Command::from_str(domain) {
                         Ok(Include::Command(command))
                     } else {
-                        Err(io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("No heradoc implementation found for domain {:?}", domain),
-                        ))
+                        diagnostics
+                            .error(format!("no heradoc implementation found for domain {:?}", domain))
+                            .with_section(&range, "defined here")
+                            .emit();
+                        Err(())
                     }
                 } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        "No heradoc implementation domain found",
-                    ))
+                    diagnostics
+                        .error("no heradoc implementation domain found")
+                        .with_section(&range, "defined here")
+                        .emit();
+                    Err(())
                 }
             },
             SourceGroup::LocalRelative(path) => {
                 let parent = path.parent().unwrap().to_owned();
-                to_include(path, Context::LocalRelative(parent))
+                to_include(path, Context::LocalRelative(parent), range, diagnostics)
             },
             SourceGroup::LocalAbsolute(path) => {
                 let parent = path.parent().unwrap().to_owned();
-                to_include(path, Context::LocalAbsolute(parent))
+                to_include(path, Context::LocalAbsolute(parent), range, diagnostics)
             },
             SourceGroup::Remote => {
                 let downloaded = match remote.http(&url) {
                     Ok(downloaded) => downloaded,
-                    Err(RemoteError::Io(io)) => return Err(io),
-                    // TODO: proper error handling with failure
-                    Err(RemoteError::Request(_req)) => {
-                        return Err(io::ErrorKind::ConnectionAborted.into());
+                    Err(RemoteError::Io(err)) => {
+                        diagnostics
+                            .error("error writing downloaded content to cache")
+                            .with_section(&range, "trying to download this")
+                            .error(format!("cause: {}", io))
+                            .emit();
+                        return Err(());
+                    },
+                    Err(RemoteError::Request(err)) => {
+                        diagnostics
+                            .error("error downloading content")
+                            .with_section(&range, "trying to download this")
+                            .error(format!("cause: {}", err))
+                            .emit();
+                        return Err(());
                     },
                 };
 
@@ -111,7 +147,7 @@ impl Source {
                     Some(ContentType::Image) => Ok(Include::Image(path)),
                     Some(ContentType::Markdown) => Ok(Include::Markdown(path, context)),
                     Some(ContentType::Pdf) => Ok(Include::Pdf(path)),
-                    None => to_include(path, context),
+                    None => to_include(path, context, range, diagnostics),
                 }
             },
         }
@@ -123,16 +159,29 @@ impl Source {
 /// Used to detect the type of include for relative and absolute file paths or for webrequest
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
-fn to_include(path: PathBuf, context: Context) -> io::Result<Include> {
+fn to_include(
+    path: PathBuf, context: Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>
+) -> Result<Include, ()> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
         Some("pdf") => Ok(Include::Pdf(path)),
         Some(ext) => {
-            Err(io::Error::new(io::ErrorKind::NotFound, format!("Unknown file format `{:?}`", ext)))
+            diagnostics
+                .error(format!("unknown file format {:?}", ext))
+                .with_section(&range, "trying to include this")
+                .emit();
+            Err(())
         },
-        None => Err(io::Error::new(io::ErrorKind::NotFound, "no file extension")),
+        None => {
+            diagnostics
+                .error("no file extension")
+                .with_section(&range, "trying to include this")
+                .note("need file extension to differentiate file type")
+                .emit();
+            Err(())
+        },
     }
 }
 

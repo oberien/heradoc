@@ -10,6 +10,7 @@ use url::Url;
 use codespan::{FileMap, FileName, ByteOffset, Span};
 use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
 use codespan_reporting::termcolor::{ColorChoice, StandardStream};
+use backtrace::Backtrace;
 
 use crate::resolve::Context;
 
@@ -22,7 +23,7 @@ impl<'a> Clone for Diagnostics<'a> {
     fn clone(&self) -> Self {
         Diagnostics {
             file_map: self.file_map.clone(),
-            out: Diagnostics::out_stream(),
+            out: Diagnostics::create_out_stream(),
         }
     }
 }
@@ -43,7 +44,7 @@ pub enum Input {
 }
 
 impl<'a> Diagnostics<'a> {
-    fn out_stream() -> StandardStream {
+    fn create_out_stream() -> StandardStream {
         // TODO: make this configurable
         StandardStream::stderr(ColorChoice::Auto)
     }
@@ -58,7 +59,7 @@ impl<'a> Diagnostics<'a> {
 
         Diagnostics {
             file_map,
-            out: Diagnostics::out_stream(),
+            out: Diagnostics::create_out_stream(),
         }
     }
 
@@ -87,7 +88,19 @@ impl<'a> Diagnostics<'a> {
     }
 
     pub fn bug<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
-        self.diagnostic(Severity::Bug, message.into())
+        let mut diag = self.diagnostic(Severity::Bug, message.into())
+            .note("please report this");
+        backtrace::trace(|frame| {
+            let ip = frame.ip();
+            backtrace::resolve(ip, |symbol| {
+                diag = diag.note(format!(
+                    "in heradoc file {:?} name {:?} line {:?} address {:?}",
+                    symbol.filename(), symbol.name(), symbol.lineno(), symbol.addr()
+                ));
+            });
+            true
+        });
+        diag
     }
     pub fn error<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Error, message.into())

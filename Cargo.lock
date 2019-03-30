@@ -384,6 +384,7 @@ dependencies = [
 name = "heradoc"
 version = "0.1.0"
 dependencies = [
+ "backtrace 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "boolinator 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)",
  "codespan-reporting 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)",
