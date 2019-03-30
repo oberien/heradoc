@@ -27,8 +27,8 @@ impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
             .unwrap_or(self.default_out)
     }
 
-    pub fn diagnostics(&self) -> &Diagnostics<'a> {
-        self.iter()
+    pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
+        self.stack.iter_mut().rev()
             .filter_map(|state| match state {
                 StackElement::Context(_, diagnostics) => Some(diagnostics),
                 _ => None,

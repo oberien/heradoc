@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{Result, Write};
+use std::io::Write;
 use std::ops::Range;
 
 use typed_arena::Arena;
@@ -63,7 +63,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    pub fn generate(&mut self, markdown: String) -> Result<()> {
+    pub fn generate(&mut self, markdown: String) {
         let context = Context::LocalRelative(self.cfg.input_dir.clone());
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
@@ -78,44 +78,40 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.generate_with_events(events)?;
+            self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
+            self.generate_body(events)?;
+            assert!(self.stack.pop().is_none());
+            self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
         }
         Ok(())
     }
 
-    pub fn generate_with_events(
-        &mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>,
-    ) -> Result<()> {
-        self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
-        self.generate_body(events)?;
-        assert!(self.stack.pop().is_none());
-        self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
-        Ok(())
-    }
-
-    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>) -> Result<()> {
+    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>) {
         self.stack.push(StackElement::Context(events.context, events.diagnostics));
         let mut events = events.events.fuse();
-        let mut peek = loop {
+        let (mut peek, mut peek_range) = loop {
             match events.next() {
-                None => break None,
-                Some((e, _)) => match self.convert_event(e)? {
+                None => break (None, Range { start: 0, end: 0 }),
+                Some((event, range)) => match self.convert_event(event, range.clone())? {
                     None => continue,
-                    Some(e) => break Some(e),
+                    Some(event) => break (Some(event), range),
                 },
             }
         };
         while let Some(event) = peek {
-            peek = loop {
+            let (p, pr) = loop {
                 match events.next() {
-                    None => break None,
-                    Some((e, _)) => match self.convert_event(e)? {
+                    None => break (None, Range { start: 0, end: 0 }),
+                    Some((event, range)) => match self.convert_event(event, range.clone())? {
                         None => continue,
-                        Some(e) => break Some(e),
+                        Some(event) => break (Some(event), range),
                     },
                 }
             };
-            self.visit_event(event, peek.as_ref())?;
+            let range = peek_range;
+            peek = p;
+            peek_range = pr;
+            self.visit_event(event, range, peek.as_ref(), peek_range)?;
         }
         match self.stack.pop() {
             Some(StackElement::Context(..)) => (),
@@ -127,21 +123,21 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    fn convert_event(&mut self, event: FeEvent<'a>) -> Result<Option<Event<'a>>> {
+    fn convert_event(&mut self, event: FeEvent<'a>, range: Range<usize>) -> Result<Option<Event<'a>>, FeEvent<'a>> {
         match event {
             FeEvent::Include(image) => {
-                let include = self.resolve(&image.dst)?;
+                let include = self.resolve(&image.dst, range)?;
                 Ok(self.handle_include(include, Some(image))?)
             },
             FeEvent::ResolveInclude(include) => {
-                let include = self.resolve(&include)?;
+                let include = self.resolve(&include, range)?;
                 Ok(self.handle_include(include, None)?)
             },
             e => Ok(Some(e.into())),
         }
     }
 
-    pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn visit_event(&mut self, event: Event<'a>, range: Range<usize>, peek: Option<&Event<'a>>, peek_range: Range<usize>) -> Result<()> {
         if let Event::End(tag) = event {
             let state = self.stack.pop().unwrap();
             state.finish(tag, self, peek)?;
@@ -202,15 +198,15 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .unwrap_or(&mut self.default_out)
     }
 
-    pub fn diagnostics(&self) -> &Diagnostics<'a> {
-        self.iter_stack()
+    pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
+        self.stack.iter_mut().rev()
             .filter_map(|state| match state {
                 StackElement::Context(_, diagnostics) => Some(diagnostics),
                 _ => None,
             }).next().unwrap()
     }
 
-    fn resolve(&mut self, url: &str) -> Result<Include> {
+    fn resolve(&mut self, url: &str, range: Range<usize>) -> Result<Include> {
         let context = self
             .iter_stack()
             .find_map(|se| match se {
@@ -218,7 +214,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 _ => None,
             })
             .expect("no Context???");
-        self.resolver.resolve(context, url)
+        self.resolver.resolve(context, url, range, self.diagnostics())
     }
 
     fn handle_include(
