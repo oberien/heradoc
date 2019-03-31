@@ -1,5 +1,5 @@
-use std::fs::File;
-use std::io::Write;
+use std::fs::{File, OpenOptions};
+use std::io::{Write, ErrorKind};
 use std::path::PathBuf;
 use std::process::Command;
 use std::ops::Range;
@@ -9,29 +9,46 @@ use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::Generator;
 use crate::generator::event::{Event, Graphviz};
-use crate::error::Result;
+use crate::error::{Result, Error};
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {
     path: PathBuf,
     file: File,
     graphviz: Graphviz<'a>,
+    range: Range<usize>,
 }
 
 impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
     fn new(
-        cfg: &Config, graphviz: Graphviz<'a>, _range: Range<usize>,
-        _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        cfg: &Config, graphviz: Graphviz<'a>, range: Range<usize>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let mut i = 0;
         let (file, path) = loop {
             let p = cfg.out_dir.join(format!("graphviz_{}", i));
-            if !p.exists() {
-                break (File::create(&p)?, p);
+            let res =  OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&p);
+            match res {
+                Ok(file) => break (file, p),
+                Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                    i += 1;
+                    continue
+                },
+                Err(e) => {
+                    gen.diagnostics()
+                        .bug("error creating temporary graphviz file")
+                        .with_section(&range, "for this graphviz code")
+                        .note("skipping over it")
+                        .emit();
+                    return Err(Error::Diagnostic);
+                }
             }
-            i += 1;
+            unreachable!();
         };
-        Ok(GraphvizGen { file, path, graphviz })
+        Ok(GraphvizGen { file, path, graphviz, range })
     }
 
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
@@ -52,10 +69,15 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             let _ = File::create("dot_stdout.log").map(|mut f| f.write_all(&out.stdout));
             let _ = File::create("dot_stderr.log").map(|mut f| f.write_all(&out.stderr));
             // TODO: provide better info about signals
-            panic!(
-                "dot returned error code {:?}. Logs written to dot_stdout.log and dot_stderr.log",
-                out.status.code()
-            );
+            // TODO: parse the dot output and provide appropriate error messages
+            gen.diagnostics()
+                .error("graphviz rendering failed")
+                .with_section(&self.range, "trying to render this graphviz cdoe block")
+                .note(format!("`dot` returned error code {:?}", out.status.code()))
+                .note("logs written to dot_stdout.log and dot_stderr.log")
+                .note("skipping over it")
+                .emit();
+            return Err(Error::Diagnostic);
         }
         let out = gen.get_out();
         let inline_fig = InlineEnvironment::new_figure(label, caption);
