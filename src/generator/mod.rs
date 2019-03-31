@@ -6,19 +6,21 @@ use typed_arena::Arena;
 
 use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
-use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude};
+use crate::frontend::Frontend;
 use crate::resolve::{Context, Include, Resolver};
 use crate::diagnostics::{Diagnostics, Input};
 
 mod code_gen_units;
 pub mod event;
+mod iter;
 mod stack;
 
 pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
-use self::event::{Event, EventKind, Image, Pdf};
+use self::event::Event;
 use crate::error::{FatalResult, Result, Error};
+use crate::generator::iter::Iter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
@@ -30,8 +32,8 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     template: Option<String>,
 }
 
-pub struct Events<'a, I: Iterator<Item = (FeEvent<'a>, Range<usize>)>> {
-    events: I,
+pub struct Events<'a> {
+    events: Iter<'a>,
     diagnostics: Diagnostics<'a>,
     context: Context,
 }
@@ -53,12 +55,13 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    pub fn get_events(&mut self, markdown: String, context: Context, input: Input) -> Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>> {
+    pub fn get_events(&mut self, markdown: String, context: Context, input: Input) -> Events<'a> {
         let markdown = self.arena.alloc(markdown);
         let diagnostics = Diagnostics::new(markdown, input);
-        let parser: Frontend<'_, B> = Frontend::new(self.cfg, markdown, diagnostics.clone());
+        let frontend = Frontend::new(self.cfg, markdown, diagnostics.clone());
+        let events = Iter::new(frontend);
         Events {
-            events: parser,
+            events,
             diagnostics,
             context,
         }
@@ -87,20 +90,15 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>) -> FatalResult<()> {
+    pub fn generate_body(&mut self, events: Events<'a>) -> FatalResult<()> {
         self.stack.push(StackElement::Context(events.context, events.diagnostics));
-        let mut events = events.events.fuse();
+        let mut events = events.events;
 
-        let (mut peek, mut peek_range) = self.next();
-        while let Some(event) = peek {
-            let (p, pr) = self.next();
-            let range = peek_range;
-            peek = p;
-            peek_range = pr;
-            let kind = FeEventKind::from(&event);
-            match self.visit_event(event, range, peek.as_ref(), peek_range) {
+        while let Some((event, range)) = events.next(&mut self) {
+            let (peek, peek_range) = events.peek(&mut self);
+            match self.visit_event(event, range, peek, peek_range) {
                 Ok(()) => {},
-                Err((Error::Diagnostic, event)) => self.skip_gen(event),
+                Err((Error::Diagnostic, event)) => events.skip(&mut self),
                 Err((Error::Fatal(fatal), _)) => return Err(fatal),
             }
         }
@@ -112,116 +110,6 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             ),
         }
         Ok(())
-    }
-
-    /// Retrieves and converts the next event that needs to be handled.
-    ///
-    /// If it's an include which is handled, it'll be handled internally and the next event will
-    /// be returned. If there is some diagnostic error, it'll skip over that event and return
-    /// the next one which should be handled.
-    fn next(&mut self, events: &mut impl Iterator<Item = (FeEvent<'a>, Range<usize>)>) -> FatalResult<(Event<'a>, Range<usize>)> {
-        loop {
-            match events.next() {
-                None => return (None, Range { start: 0, end: 0 }),
-                Some((event, range)) => match self.convert_event(event, range.clone()) {
-                    Ok(None) => continue,
-                    Ok(Some(event)) => return (Some(event), range),
-                    Err((Error::Diagnostic, event)) => self.skip_fe(event)?,
-                    Err((Error::Fatal(fatal), _)) => return Err(fatal),
-                },
-            }
-        }
-    }
-
-    /// Skips events until the next one that can be handled again. Argument is the event that
-    /// produced a diagnostic during handling.
-    fn skip_fe(&mut self, kind: FeEventKind) -> FatalResult<()> {
-        match event {
-            // continue consuming until end
-            FeEventKind::Start => (),
-            // TODO: unsure if `End` might just be unrecoverable
-            FeEventKind::End
-            | FeEventKind::Text
-            | FeEventKind::Html
-            | FeEventKind::InlineHtml
-            | FeEventKind::Latex
-            | FeEventKind::FootnoteReference
-            | FeEventKind::BiberReferences
-            | FeEventKind::Url
-            | FeEventKind::InterLink
-            | FeEventKind::Include
-            | FeEventKind::Label
-            | FeEventKind::SoftBreak
-            | FeEventKind::HardBreak
-            | FeEventKind::TaskListMarker
-            | FeEventKind::Command
-            | FeEventKind::ResolveInclude => return Ok(()),
-        }
-        let mut depth = 0;
-        loop {
-            match self.next()?.0 {
-                FeEvent::Start(_) => depth += 1,
-                FeEvent::End(_) if depth > 0 => depth -= 1,
-                FeEvent::End(_) => return Ok(()),
-                _ => {},
-            }
-        }
-    }
-
-    /// Same as [`skip_fe`], but with generator::Event instead of frontend::Event.
-    fn skip_gen(&mut self, kind: EventKind) {
-        match kind {
-            EventKind::Start => (),
-            // TODO: unsure if `End` might just be unrecoverable
-            EventKind::End
-            | EventKind::Text
-            | EventKind::Html
-            | EventKind::InlineHtml
-            | EventKind::Latex
-            | EventKind::FootnoteReference
-            | EventKind::BiberReferences
-            | EventKind::Url
-            | EventKind::InterLink
-            | EventKind::Image
-            | EventKind::Label
-            | EventKind::Pdf
-            | EventKind::SoftBreak
-            | EventKind::HardBreak
-            | EventKind::TaskListMarker
-            | EventKind::TableOfContents
-            | EventKind::Bibliography
-            | EventKind::ListOfTables
-            | EventKind::ListOfFigures
-            | EventKind::ListOfListings
-            | EventKind::Appendix => return Ok(()),
-        }
-        let mut depth = 0;
-        loop {
-            match self.next()?.0 {
-                FeEvent::Start(_) => depth += 1,
-                FeEvent::End(_) if depth > 0 => depth -= 1,
-                FeEvent::End(_) => return Ok(()),
-                _ => {},
-            }
-        }
-    }
-
-    /// Converts an event, resolving any includes. If the include is handled, returns Ok(None).
-    /// If it fails, returns the original event.
-    fn convert_event(
-        &mut self, event: FeEvent<'a>, range: Range<usize>
-    ) -> std::result::Result<Option<Event<'a>>, (Error, FeEvent<'a>)> {
-        match event {
-            FeEvent::Include(image) => {
-                let include = self.resolve(&image.dst, range.clone())?;
-                Ok(self.handle_include(include, Some(image), range)?)
-            },
-            FeEvent::ResolveInclude(include) => {
-                let include = self.resolve(&include, range.clone())?;
-                Ok(self.handle_include(include, None, range)?)
-            },
-            e => Ok(Some(e.into())),
-        }
     }
 
     pub fn visit_event(
@@ -254,6 +142,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Some(Event::Html(html)) => B::Text::gen(html, &mut stack)?,
             Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut stack)?,
             Some(Event::Latex(latex)) => B::Latex::gen(latex, &mut stack)?,
+            Some(Event::IncludeMarkdown(events)) => self.generate_body(events)?,
             Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut stack)?,
             Some(Event::BiberReferences(biber)) => B::BiberReferences::gen(biber, &mut stack)?,
             Some(Event::Url(url)) => B::Url::gen(url, &mut stack)?,
@@ -305,63 +194,5 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             })
             .expect("no Context???");
         self.resolver.resolve(context, url, range, self.diagnostics())
-    }
-
-    /// Possibly returns an event. If it doesn't return an event, the include was already handled
-    /// internally by this function.
-    fn handle_include(
-        &mut self, include: Include, image: Option<FeInclude<'a>>, range: Range<usize>,
-    ) -> Result<Option<Event<'a>>> {
-        match include {
-            Include::Command(command) => Ok(Some(command.into())),
-            Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(&path)
-                    .map_err(|err| {
-                        self.diagnostics()
-                            .error("error reading markdown include file")
-                            .with_section(&range, "in this include")
-                            .error(format!("cause: {}", err))
-                            .emit();
-                        Error::Diagnostic
-                    })?;
-                let input = match &context {
-                    Context::Remote(url) => Input::Url(url.clone()),
-                    Context::LocalRelative(_)
-                    | Context::LocalAbsolute(_) => Input::File(path.clone()),
-                };
-                let events = self.get_events(markdown, context, input);
-                self.generate_body(events);
-                Ok(None)
-            },
-            Include::Image(path) => {
-                let (label, caption, title, alt_text, scale, width, height) =
-                    if let Some(FeInclude {
-                        label,
-                        caption,
-                        title,
-                        alt_text,
-                        dst: _dst,
-                        scale,
-                        width,
-                        height,
-                    }) = image
-                    {
-                        (label, caption, title, alt_text, scale, width, height)
-                    } else {
-                        Default::default()
-                    };
-                Ok(Some(Event::Image(Image {
-                    label,
-                    caption,
-                    title,
-                    alt_text,
-                    path,
-                    scale,
-                    width,
-                    height,
-                })))
-            },
-            Include::Pdf(path) => Ok(Some(Event::Pdf(Pdf { path }))),
-        }
     }
 }

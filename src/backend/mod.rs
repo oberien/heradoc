@@ -25,7 +25,7 @@ use crate::generator::event::{
 };
 use crate::generator::{Generator, Stack};
 use crate::config::Config;
-use crate::error::{Result};
+use crate::error::Result;
 
 pub mod latex;
 

@@ -5,15 +5,15 @@ use std::ops::Range;
 use super::convert_cow::{ConvertCow, Event};
 use str_concat;
 
-pub struct Concat<'a>(Peekable<ConvertCow<'a>);
+pub struct Concat<'a>(Peekable<ConvertCow<'a>>);
 
 impl<'a> Concat<'a> {
-    pub fn new(i: I) -> Self {
+    pub fn new(i: ConvertCow<'a>) -> Self {
         Concat(i.peekable())
     }
 }
 
-impl<'a, I: Iterator<Item = (Event<'a>, Range<usize>)>> Iterator for Concat<'a, I> {
+impl<'a> Iterator for Concat<'a> {
     type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
