@@ -30,7 +30,7 @@ use crate::resolve::Command;
 pub struct Frontend<'a, B: Backend<'a>> {
     cfg: &'a Config,
     diagnostics: Diagnostics<'a>,
-    parser: Peekable<Concat<'a, ConvertCow<'a>>>,
+    parser: Peekable<Concat<'a>>,
     buffer: VecDeque<(Event<'a>, Range<usize>)>,
     marker: PhantomData<B>,
 }

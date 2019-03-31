@@ -30,6 +30,7 @@ quoted-string = "0.6.0"
 codespan = { git = "https://github.com/oberien/codespan", rev = "bc89c40c7169843bd9319368cd683b5fe7be47f4" }
 codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "bc89c40c7169843bd9319368cd683b5fe7be47f4" }
 backtrace = "0.3.14"
+enum-kinds = "0.4.1"
 
 [profile.release]
 debug = true

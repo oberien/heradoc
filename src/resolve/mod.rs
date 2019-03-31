@@ -9,7 +9,6 @@
 //! an open read stream or to an auxiliary file. Secondly, this resolution will automatically apply
 //! a restrictive-by-default filter and error when violating security boundaries.
 use std::io;
-use std::result::Result;
 use std::path::{Path, PathBuf};
 use std::ops::Range;
 
@@ -23,6 +22,7 @@ pub use self::include::*;
 use self::remote::Remote;
 use self::source::{Source, SourceGroup};
 use crate::diagnostics::Diagnostics;
+use crate::error::{Result, Error};
 
 pub struct Resolver {
     base: Url,
@@ -47,7 +47,7 @@ impl Resolver {
     /// Make a request to an uri in the context of a document with the specified source.
     pub fn resolve(
         &self, context: &Context, url: &str, range: Range<usize>, diagnostics: &mut Diagnostics<'_>
-    ) -> Result<Include, ()> {
+    ) -> Result<Include> {
         let url = match self.base.join(url) {
             Ok(url) => url,
             Err(err) => {
@@ -56,7 +56,7 @@ impl Resolver {
                     .note(format!("tried to resolve {}", url))
                     .note(format!("malformed reference: {}", err))
                     .emit();
-                return Err(());
+                return Err(Error::Diagnostic);
             }
         };
 
@@ -75,7 +75,7 @@ impl Resolver {
     fn check_access(
         &self, context: &Context, target: &Source, range: Range<usize>,
         diagnostics: &mut Diagnostics<'_>
-    ) -> Result<(), ()> {
+    ) -> Result<()> {
         match (context, &target.group) {
             (Context::LocalRelative(_), SourceGroup::Implementation)
             | (Context::LocalRelative(_), SourceGroup::LocalRelative(_))
@@ -89,7 +89,7 @@ impl Resolver {
                     .with_section(&range, "trying to include this")
                     .note("local absolute path not allowed to access remote or local relative files")
                     .emit();
-                Err(())
+                Err(Error::Diagnostic)
             },
 
             (_, SourceGroup::LocalAbsolute(path)) => {
@@ -101,7 +101,7 @@ impl Resolver {
                         .with_section(&range, "trying to include this")
                         .note(format!("not allowed to access absolute path {:?}", path))
                         .emit();
-                    Err(())
+                    Err(Error::Diagnostic)
                 }
             },
 
@@ -113,7 +113,7 @@ impl Resolver {
                     .with_section(&range, "trying to include this")
                     .note("remote file can only include other remote content")
                     .emit();
-                Err(())
+                Err(Error::Diagnostic)
             },
         }
     }

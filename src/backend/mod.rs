@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use typed_arena::Arena;
 
@@ -23,10 +24,10 @@ use crate::generator::event::{
     Url,
 };
 use crate::generator::{Generator, Stack};
+use crate::config::Config;
+use crate::error::{Result};
 
 pub mod latex;
-
-use crate::config::Config;
 
 pub fn generate<'a>(
     cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
@@ -111,15 +112,15 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
 }
 
 pub trait SimpleCodeGenUnit<T> {
-    fn gen(data: T, out: &mut impl Write) -> Result<()>;
+    fn gen(data: T, range: Range<usize>, out: &mut impl Write) -> Result<()>;
 }
 
 pub trait MediumCodeGenUnit<T> {
-    fn gen<'a, 'b>(data: T, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()>;
+    fn gen<'a, 'b>(data: T, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()>;
 }
 
 impl<T: SimpleCodeGenUnit<D>, D> MediumCodeGenUnit<D> for T {
-    fn gen<'a, 'b>(data: D, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()> {
-        T::gen(data, &mut stack.get_out())
+    fn gen<'a, 'b>(data: D, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()> {
+        T::gen(data, range, &mut stack.get_out())
     }
 }

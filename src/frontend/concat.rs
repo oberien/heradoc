@@ -2,12 +2,12 @@ use std::borrow::Cow;
 use std::iter::Peekable;
 use std::ops::Range;
 
-use super::convert_cow::Event;
+use super::convert_cow::{ConvertCow, Event};
 use str_concat;
 
-pub struct Concat<'a, I: Iterator<Item = (Event<'a>, Range<usize>)>>(Peekable<I>);
+pub struct Concat<'a>(Peekable<ConvertCow<'a>);
 
-impl<'a, I: Iterator<Item = (Event<'a>, Range<usize>)>> Concat<'a, I> {
+impl<'a> Concat<'a> {
     pub fn new(i: I) -> Self {
         Concat(i.peekable())
     }

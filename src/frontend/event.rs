@@ -2,10 +2,13 @@ use std::borrow::Cow;
 
 pub use pulldown_cmark::Alignment;
 
+use enum_kinds::EnumKind;
+
 use crate::resolve::Command;
 
 // extension of pulldown_cmark::Event with custom types
-#[derive(Debug)]
+#[derive(Debug, EnumKind)]
+#[enum_kind(EventKind)]
 pub enum Event<'a> {
     Start(Tag<'a>),
     End(Tag<'a>),
