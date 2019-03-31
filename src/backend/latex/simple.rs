@@ -26,16 +26,10 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     ) -> Result<()> {
         // TODO: make code-blocks containing unicode allow inline-math
         // handle unicode
-        let strfn = if stack.iter().any(|e| e.is_math()) {
-            fn a(s: &str) -> &str {
-                &s[1..s.len() - 1]
-            }
-            a
+        let strfn: fn(&str) -> &str = if stack.iter().any(|e| e.is_math()) {
+            |s| &s[1..s.len() - 1]
         } else {
-            fn a(s: &str) -> &str {
-                s
-            }
-            a
+            |s| s
         };
 
         let in_inline_code = stack.iter().any(|e| e.is_inline_code());
