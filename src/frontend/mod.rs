@@ -441,7 +441,6 @@ impl<'a> Frontend<'a> {
             Some(CmarkEvent::End(CmarkTag::Paragraph)) => true,
             Some(CmarkEvent::SoftBreak) => false,
             _ => {
-                println!("not a label: {:?}", text);
                 // not a label, reset our look-ahead and generate original
                 self.buffer.push_back((Event::Start(Tag::Paragraph), range.clone()));
                 self.buffer.push_back((Event::Text(text), text_range));
@@ -624,7 +623,7 @@ impl<'a> Frontend<'a> {
     }
 
     fn convert_link(&mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>) {
-        let evt = match refs::parse_references(self.cfg, typ, dst, title) {
+        let evt = match refs::parse_references(self.cfg, typ, dst, title, range.clone(), &mut self.diagnostics) {
             ReferenceParseResult::BiberReferences(biber) => Event::BiberReferences(biber),
             ReferenceParseResult::InterLink(interlink) => Event::InterLink(interlink),
             ReferenceParseResult::Url(url) => Event::Url(url),
