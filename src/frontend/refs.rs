@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::str::FromStr;
+use std::ops::Range;
 
 pub use pulldown_cmark::LinkType;
 
@@ -7,6 +8,7 @@ use super::event::{BiberReference, InterLink, Url};
 use crate::config::Config;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
+use crate::diagnostics::Diagnostics;
 
 #[derive(Debug)]
 pub enum ReferenceParseResult<'a> {
@@ -22,6 +24,7 @@ pub enum ReferenceParseResult<'a> {
 
 pub fn parse_references<'a>(
     cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>,
+    range: Range<usize>, diagnostics: &mut Diagnostics<'a>,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
     // title
@@ -46,8 +49,11 @@ pub fn parse_references<'a>(
     // biber
     if dst.trim_start().starts_with('@') && typ == LinkType::ShortcutUnknown {
         if cfg.bibliography.is_none() {
-            // todo: error
-            println!("Found biber link but no bibliography file found: {:?}", dst.trim_start());
+            diagnostics
+                .error("found biber reference, but no bibliography file found")
+                .with_section(&range, "referenced here")
+                .note("rendering as text")
+                .emit();
             return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));
         }
         // TODO: parse biber file and warn on unknown references
