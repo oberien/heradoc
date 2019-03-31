@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{Event, Tag};
-use crate::generator::{PrimitiveGenerator, Stack};
+use crate::generator::{Generator, Stack};
 use crate::resolve::Context;
 
 #[derive(Debug)]
@@ -17,6 +17,8 @@ pub enum StackElement<'a, D: Backend<'a>> {
     Enumerate(D::Enumerate),
     Item(D::Item),
     FootnoteDefinition(D::FootnoteDefinition),
+    Url(D::UrlWithContent),
+    InterLink(D::InterLinkWithContent),
     HtmlBlock(D::HtmlBlock),
     Figure(D::Figure),
     TableFigure(D::TableFigure),
@@ -39,7 +41,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
 
 #[rustfmt::skip]
 impl<'a, D: Backend<'a>> StackElement<'a, D> {
-    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, D, impl Write>) -> Result<Self> {
+    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
         match tag {
             Tag::Paragraph => Ok(StackElement::Paragraph(D::Paragraph::new(cfg, (), gen)?)),
             Tag::Rule => Ok(StackElement::Rule(D::Rule::new(cfg, (), gen)?)),
@@ -50,6 +52,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             Tag::Enumerate(enumerate) => Ok(StackElement::Enumerate(D::Enumerate::new(cfg, enumerate, gen)?)),
             Tag::Item => Ok(StackElement::Item(D::Item::new(cfg, (), gen)?)),
             Tag::FootnoteDefinition(fnote) => Ok(StackElement::FootnoteDefinition(D::FootnoteDefinition::new(cfg, fnote, gen)?)),
+            Tag::Url(url) => Ok(StackElement::Url(D::UrlWithContent::new(cfg, url, gen)?)),
+            Tag::InterLink(interlink) => Ok(StackElement::InterLink(D::InterLinkWithContent::new(cfg, interlink, gen)?)),
             Tag::HtmlBlock => Ok(StackElement::HtmlBlock(D::HtmlBlock::new(cfg, (), gen)?)),
             Tag::Figure(figure) => Ok(StackElement::Figure(D::Figure::new(cfg, figure, gen)?)),
             Tag::TableFigure(figure) => Ok(StackElement::TableFigure(D::TableFigure::new(cfg, figure, gen)?)),
@@ -79,6 +83,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::Enumerate(s) => s.output_redirect(),
             StackElement::Item(s) => s.output_redirect(),
             StackElement::FootnoteDefinition(s) => s.output_redirect(),
+            StackElement::Url(s) => s.output_redirect(),
+            StackElement::InterLink(s) => s.output_redirect(),
             StackElement::HtmlBlock(s) => s.output_redirect(),
             StackElement::Figure(s) => s.output_redirect(),
             StackElement::TableFigure(s) => s.output_redirect(),
@@ -110,6 +116,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             StackElement::Enumerate(s) => s.intercept_event(stack, e),
             StackElement::Item(s) => s.intercept_event(stack, e),
             StackElement::FootnoteDefinition(s) => s.intercept_event(stack, e),
+            StackElement::Url(s) => s.intercept_event(stack, e),
+            StackElement::InterLink(s) => s.intercept_event(stack, e),
             StackElement::HtmlBlock(s) => s.intercept_event(stack, e),
             StackElement::Figure(s) => s.intercept_event(stack, e),
             StackElement::TableFigure(s) => s.intercept_event(stack, e),
@@ -130,7 +138,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
         match (self, tag) {
             (StackElement::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (StackElement::Rule(s), Tag::Rule) => s.finish(gen, peek),
@@ -141,6 +149,8 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             (StackElement::Enumerate(s), Tag::Enumerate(_)) => s.finish(gen, peek),
             (StackElement::Item(s), Tag::Item) => s.finish(gen, peek),
             (StackElement::FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(gen, peek),
+            (StackElement::Url(s), Tag::Url(_)) => s.finish(gen, peek),
+            (StackElement::InterLink(s), Tag::InterLink(_)) => s.finish(gen, peek),
             (StackElement::HtmlBlock(s), Tag::HtmlBlock) => s.finish(gen, peek),
             (StackElement::Figure(s), Tag::Figure(_)) => s.finish(gen, peek),
             (StackElement::TableFigure(s), Tag::TableFigure(_)) => s.finish(gen, peek),

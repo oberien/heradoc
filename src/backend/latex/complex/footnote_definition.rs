@@ -2,7 +2,7 @@ use std::io::{Result, Write};
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::PrimitiveGenerator;
+use crate::generator::Generator;
 
 use crate::generator::event::{Event, FootnoteDefinition};
 
@@ -12,7 +12,7 @@ pub struct FootnoteDefinitionGen;
 impl<'a> CodeGenUnit<'a, FootnoteDefinition<'a>> for FootnoteDefinitionGen {
     fn new(
         _cfg: &'a Config, fnote: FootnoteDefinition<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let FootnoteDefinition { label } = fnote;
         // TODO: Add pass to get all definitions to put definition on the same site as the first
@@ -22,8 +22,7 @@ impl<'a> CodeGenUnit<'a, FootnoteDefinition<'a>> for FootnoteDefinitionGen {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "}}")?;
         Ok(())

@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 pub use crate::frontend::{
+    BiberReference,
     CodeBlock,
     Enumerate,
     Equation,
@@ -10,9 +11,10 @@ pub use crate::frontend::{
     FootnoteReference,
     Graphviz,
     Header,
-    Link,
+    InterLink,
     Table,
     TaskListMarker,
+    Url,
 };
 pub use pulldown_cmark::Alignment;
 
@@ -29,7 +31,11 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
-    Link(Link<'a>),
+    BiberReferences(Vec<BiberReference<'a>>),
+    /// Url without content
+    Url(Url<'a>),
+    /// InterLink without content
+    InterLink(InterLink<'a>),
     Image(Image<'a>),
     Label(Cow<'a, str>),
     Pdf(Pdf),
@@ -57,6 +63,10 @@ pub enum Tag<'a> {
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
     HtmlBlock,
+    /// Url with content
+    Url(Url<'a>),
+    /// InterLink with content
+    InterLink(InterLink<'a>),
     Figure(Figure<'a>),
     TableFigure(Figure<'a>),
 
@@ -107,7 +117,9 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::InlineHtml(html) => Event::InlineHtml(html),
             FeEvent::Latex(latex) => Event::Latex(latex),
             FeEvent::FootnoteReference(fnote) => Event::FootnoteReference(fnote),
-            FeEvent::Link(link) => Event::Link(link),
+            FeEvent::BiberReferences(biber) => Event::BiberReferences(biber),
+            FeEvent::Url(url) => Event::Url(url),
+            FeEvent::InterLink(interlink) => Event::InterLink(interlink),
             FeEvent::Include(_img) => unreachable!("Include is handled by Generator"),
             FeEvent::Label(label) => Event::Label(label),
             FeEvent::SoftBreak => Event::SoftBreak,
@@ -147,6 +159,8 @@ impl<'a> From<FeTag<'a>> for Tag<'a> {
             FeTag::Enumerate(e) => Tag::Enumerate(e),
             FeTag::Item => Tag::Item,
             FeTag::FootnoteDefinition(fnote) => Tag::FootnoteDefinition(fnote),
+            FeTag::Url(url) => Tag::Url(url),
+            FeTag::InterLink(interlink) => Tag::InterLink(interlink),
             FeTag::HtmlBlock => Tag::HtmlBlock,
             FeTag::Figure(figure) => Tag::Figure(figure),
             FeTag::TableFigure(figure) => Tag::TableFigure(figure),

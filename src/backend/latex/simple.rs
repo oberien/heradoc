@@ -4,7 +4,15 @@ use std::io::{Result, Write};
 use super::replace::replace;
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, MediumCodeGenUnit, SimpleCodeGenUnit};
-use crate::generator::event::{FootnoteReference, Image, Link, Pdf, TaskListMarker};
+use crate::generator::event::{
+    BiberReference,
+    FootnoteReference,
+    Image,
+    InterLink,
+    Pdf,
+    TaskListMarker,
+    Url,
+};
 use crate::generator::Stack;
 
 #[derive(Debug)]
@@ -85,41 +93,52 @@ impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
 }
 
 #[derive(Debug)]
-pub struct LinkGen;
+pub struct BiberReferencesGen;
 
-impl<'a> SimpleCodeGenUnit<Link<'a>> for LinkGen {
-    fn gen(link: Link<'a>, out: &mut impl Write) -> Result<()> {
-        match link {
-            Link::BiberSingle(reference, rest) => match rest {
-                Some(rest) => write!(out, "\\cite[{}]{{{}}}", rest, reference)?,
+impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
+    fn gen(mut biber: Vec<BiberReference<'a>>, out: &mut impl Write) -> Result<()> {
+        if biber.len() == 1 {
+            let BiberReference { reference, attributes } = biber.pop().unwrap();
+            match attributes {
+                Some(attrs) => write!(out, "\\cite[{}]{{{}}}", attrs, reference)?,
                 None => write!(out, "\\cite{{{}}}", reference)?,
-            },
-            Link::BiberMultiple(vec) => {
-                write!(out, "\\cites")?;
-                for (reference, rest) in vec {
-                    match rest {
-                        Some(rest) => write!(out, "[{}]{{{}}}", rest, reference)?,
-                        None => write!(out, "{{{}}}", reference)?,
-                    }
+            }
+        } else {
+            write!(out, "\\cites")?;
+            for BiberReference { reference, attributes } in biber {
+                match attributes {
+                    Some(rest) => write!(out, "[{}]{{{}}}", rest, reference)?,
+                    None => write!(out, "{{{}}}", reference)?,
                 }
-            },
-            Link::Url(dst, None) => write!(out, "\\url{{{}}}", dst)?,
-            Link::Url(dst, Some(title)) => {
-                write!(out, "\\pdftooltip{{\\url{{{}}}}}{{{}}}", dst, title)?
-            },
-            Link::UrlWithContent(dst, content, None) => {
-                write!(out, "\\href{{{}}}{{{}}}", dst, content)?
-            },
-            Link::UrlWithContent(dst, content, Some(title)) => {
-                write!(out, "\\pdftooltip{{\\href{{{}}}{{{}}}}}{{{}}}", dst, content, title)?
-            },
-            Link::InterLink(label, uppercase) => match uppercase {
-                true => write!(out, "\\Cref{{{}}}", label)?,
-                false => write!(out, "\\cref{{{}}}", label)?,
-            },
-            Link::InterLinkWithContent(label, _uppercase, content) => {
-                write!(out, "\\hyperref[{}]{{{}}}", label, content)?
-            },
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct UrlGen;
+
+impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
+    fn gen(url: Url<'a>, out: &mut impl Write) -> Result<()> {
+        let Url { destination, title } = url;
+        match title {
+            None => write!(out, "\\url{{{}}}", destination)?,
+            Some(title) => write!(out, "\\pdftooltip{{\\url{{{}}}}}{{{}}}", destination, title)?,
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub struct InterLinkGen;
+
+impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
+    fn gen(interlink: InterLink<'a>, out: &mut impl Write) -> Result<()> {
+        let InterLink { label, uppercase } = interlink;
+        match uppercase {
+            true => write!(out, "\\Cref{{{}}}", label)?,
+            false => write!(out, "\\cref{{{}}}", label)?,
         }
         Ok(())
     }

@@ -4,7 +4,7 @@ use std::io::{Result, Write};
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{Event, Header};
-use crate::generator::PrimitiveGenerator;
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct HeaderGen<'a> {
@@ -13,8 +13,7 @@ pub struct HeaderGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
     fn new(
-        _cfg: &'a Config, header: Header<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, header: Header<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Header { label, level } = header;
         assert!(level >= 0, "Header level should be positive, but is {}", level);
@@ -23,8 +22,7 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label)?;
         Ok(())
@@ -38,8 +36,7 @@ pub struct BookHeaderGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
     fn new(
-        _cfg: &'a Config, header: Header<'a>,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, header: Header<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Header { label, level } = header;
         assert!(level >= 0, "Header level should be positive, but is {}", level);
@@ -52,8 +49,7 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label)?;
         Ok(())

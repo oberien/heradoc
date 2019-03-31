@@ -3,22 +3,21 @@ use std::io::{Result, Write};
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::event::{Enumerate, Event};
-use crate::generator::PrimitiveGenerator;
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct ListGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ListGen {
     fn new(
-        _cfg: &'a Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, _tag: (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{itemize}}")?;
         Ok(ListGen)
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{itemize}}")
     }
@@ -30,7 +29,7 @@ pub struct EnumerateGen;
 impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     fn new(
         _cfg: &'a Config, enumerate: Enumerate,
-        gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Enumerate { start_number } = enumerate;
         assert!(std::mem::size_of::<usize>() >= 4);
@@ -48,8 +47,7 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{enumerate}}")
     }
@@ -60,15 +58,14 @@ pub struct ItemGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ItemGen {
     fn new(
-        _cfg: &'a Config, _tag: (), gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, _tag: (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
         Ok(ItemGen)
     }
 
     fn finish(
-        self, gen: &mut PrimitiveGenerator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
     ) -> Result<()> {
         writeln!(gen.get_out())?;
         Ok(())

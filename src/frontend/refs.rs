@@ -3,37 +3,25 @@ use std::str::FromStr;
 
 pub use pulldown_cmark::LinkType;
 
+use super::event::{BiberReference, InterLink, Url};
 use crate::config::Config;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
 
-#[allow(clippy::pub_enum_variant_names)]
-#[derive(Debug, Clone)]
-pub enum Link<'a> {
-    /// reference, attributes
-    BiberSingle(Cow<'a, str>, Option<Cow<'a, str>>),
-    /// Vec<(reference, attributes)>
-    BiberMultiple(Vec<(Cow<'a, str>, Option<Cow<'a, str>>)>),
-    /// destination, title
-    Url(Cow<'a, str>, Option<Cow<'a, str>>),
-    /// destination, content (already converted), title
-    UrlWithContent(Cow<'a, str>, String, Option<Cow<'a, str>>),
-    /// label, uppercase
-    InterLink(Cow<'a, str>, bool),
-    /// label, uppercase, content (already converted)
-    InterLinkWithContent(Cow<'a, str>, bool, String),
-}
-
 #[derive(Debug)]
 pub enum ReferenceParseResult<'a> {
-    Link(Link<'a>),
+    BiberReferences(Vec<BiberReference<'a>>),
+    Url(Url<'a>),
+    InterLink(InterLink<'a>),
+    UrlWithContent(Url<'a>),
+    InterLinkWithContent(InterLink<'a>),
     Command(Command),
     ResolveInclude(Cow<'a, str>),
     Text(Cow<'a, str>),
 }
 
 pub fn parse_references<'a>(
-    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, content: String,
+    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
     // title
@@ -65,12 +53,17 @@ pub fn parse_references<'a>(
         // TODO: parse biber file and warn on unknown references
         // TODO: don't clone here
         if iter_multiple_biber(dst.clone()).nth(1).is_some() {
-            return ReferenceParseResult::Link(Link::BiberMultiple(
-                iter_multiple_biber(dst).collect(),
-            ));
+            return ReferenceParseResult::BiberReferences(
+                iter_multiple_biber(dst)
+                    .map(|(r, a)| BiberReference { reference: r, attributes: a })
+                    .collect(),
+            );
         } else {
             let (r, a) = parse_single_biber(dst);
-            return ReferenceParseResult::Link(Link::BiberSingle(r, a));
+            return ReferenceParseResult::BiberReferences(vec![BiberReference {
+                reference: r,
+                attributes: a,
+            }]);
         }
     }
 
@@ -106,18 +99,18 @@ pub fn parse_references<'a>(
             LinkType::Shortcut
             | LinkType::ShortcutUnknown
             | LinkType::Collapsed
-            | LinkType::CollapsedUnknown => {
-                ReferenceParseResult::Link(Link::InterLink(dst, uppercase.unwrap()))
-            },
+            | LinkType::CollapsedUnknown => ReferenceParseResult::InterLink(InterLink {
+                label: dst,
+                uppercase: uppercase.unwrap(),
+            }),
             LinkType::Reference
             | LinkType::ReferenceUnknown
             | LinkType::Autolink
             | LinkType::Email
-            | LinkType::Inline => ReferenceParseResult::Link(Link::InterLinkWithContent(
-                dst,
-                uppercase.unwrap(),
-                content,
-            )),
+            | LinkType::Inline => ReferenceParseResult::InterLinkWithContent(InterLink {
+                label: dst,
+                uppercase: uppercase.unwrap(),
+            }),
         },
         // url
         _ => match typ {
@@ -126,9 +119,11 @@ pub fn parse_references<'a>(
             | LinkType::Shortcut
             | LinkType::ShortcutUnknown
             | LinkType::Collapsed
-            | LinkType::CollapsedUnknown => ReferenceParseResult::Link(Link::Url(dst, title)),
+            | LinkType::CollapsedUnknown => {
+                ReferenceParseResult::Url(Url { destination: dst, title })
+            },
             LinkType::Reference | LinkType::ReferenceUnknown | LinkType::Inline => {
-                ReferenceParseResult::Link(Link::UrlWithContent(dst, content, title))
+                ReferenceParseResult::UrlWithContent(Url { destination: dst, title })
             },
         },
     }
