@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
-use std::marker::PhantomData;
 use std::str::FromStr;
 use std::ops::Range;
 
@@ -27,15 +26,14 @@ use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
 
-pub struct Frontend<'a, B: Backend<'a>> {
+pub struct Frontend<'a> {
     cfg: &'a Config,
     diagnostics: Diagnostics<'a>,
     parser: Peekable<Concat<'a>>,
     buffer: VecDeque<(Event<'a>, Range<usize>)>,
-    marker: PhantomData<B>,
 }
 
-impl<'a, B: Backend<'a>> Iterator for Frontend<'a, B> {
+impl<'a> Iterator for Frontend<'a> {
     type Item = (Event<'a>, Range<usize>);
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -63,8 +61,8 @@ fn broken_link_callback(normalized_ref: &str, text_ref: &str) -> Option<(String,
     }
 }
 
-impl<'a, B: Backend<'a>> Frontend<'a, B> {
-    pub fn new(cfg: &'a Config, markdown: &'a str, diagnostics: Diagnostics<'a>) -> Frontend<'a, B> {
+impl<'a> Frontend<'a> {
+    pub fn new(cfg: &'a Config, markdown: &'a str, diagnostics: Diagnostics<'a>) -> Frontend<'a> {
         let parser = CmarkParser::new_with_broken_link_callback(
             markdown,
             CmarkOptions::ENABLE_FOOTNOTES
@@ -78,7 +76,6 @@ impl<'a, B: Backend<'a>> Frontend<'a, B> {
             diagnostics,
             parser: Concat::new(ConvertCow(parser)).peekable(),
             buffer: VecDeque::new(),
-            marker: PhantomData,
         }
     }
 

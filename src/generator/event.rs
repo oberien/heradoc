@@ -22,6 +22,7 @@ use enum_kinds::EnumKind;
 
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
 use crate::resolve::Command;
+use crate::generator::Events;
 
 // transformation of frontend::Event
 #[derive(Debug, EnumKind)]
@@ -33,6 +34,7 @@ pub enum Event<'a> {
     Html(Cow<'a, str>),
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
+    IncludeMarkdown(Events<'a>),
     FootnoteReference(FootnoteReference<'a>),
     BiberReferences(Vec<BiberReference<'a>>),
     /// Url without content

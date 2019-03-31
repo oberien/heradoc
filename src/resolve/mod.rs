@@ -8,7 +8,6 @@
 //! This module provides an interface for both problems. First, it allows resolution of an url to
 //! an open read stream or to an auxiliary file. Secondly, this resolution will automatically apply
 //! a restrictive-by-default filter and error when violating security boundaries.
-use std::io;
 use std::path::{Path, PathBuf};
 use std::ops::Range;
 
