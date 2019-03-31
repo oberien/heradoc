@@ -3,10 +3,10 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::ops::Range;
-use std::result::Result;
 
 use url::Url;
 
+use crate::error::{Result, Error};
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
 use crate::diagnostics::Diagnostics;
@@ -39,24 +39,26 @@ pub enum SourceGroup {
     Remote,
 }
 
-fn error_include_local_from_remote(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>) {
+fn error_include_local_from_remote(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>) -> Error {
     diagnostics
         .error("tried to include local file from remote origin")
         .with_section(range, "specified here")
         .note("local files can only be included from within local files")
-        .emit()
+        .emit();
+    Error::Diagnostic
 }
 
-fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: io::Error) {
+fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: io::Error) -> Error {
     diagnostics
         .bug("error converting url to path")
         .with_section(&range, "defined here")
         .error(format!("cause: {}", err))
-        .emit()
+        .emit();
+    Error::Diagnostic
 }
 
 impl Source {
-    pub fn new(url: Url, context: &Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Self, ()> {
+    pub fn new(url: Url, context: &Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Self> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => {
@@ -89,7 +91,7 @@ impl Source {
         Ok(Source { url, group })
     }
 
-    pub fn into_include(self, remote: &Remote, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Include, ()> {
+    pub fn into_include(self, remote: &Remote, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Include> {
         let Source { url, group } = self;
         match group {
             SourceGroup::Implementation => {
@@ -101,14 +103,14 @@ impl Source {
                             .error(format!("no heradoc implementation found for domain {:?}", domain))
                             .with_section(&range, "defined here")
                             .emit();
-                        Err(())
+                        Err(Error::Diagnostic)
                     }
                 } else {
                     diagnostics
                         .error("no heradoc implementation domain found")
                         .with_section(&range, "defined here")
                         .emit();
-                    Err(())
+                    Err(Error::Diagnostic)
                 }
             },
             SourceGroup::LocalRelative(path) => {
@@ -126,9 +128,9 @@ impl Source {
                         diagnostics
                             .error("error writing downloaded content to cache")
                             .with_section(&range, "trying to download this")
-                            .error(format!("cause: {}", io))
+                            .error(format!("cause: {}", err))
                             .emit();
-                        return Err(());
+                        return Err(Error::Diagnostic);
                     },
                     Err(RemoteError::Request(err)) => {
                         diagnostics
@@ -136,7 +138,7 @@ impl Source {
                             .with_section(&range, "trying to download this")
                             .error(format!("cause: {}", err))
                             .emit();
-                        return Err(());
+                        return Err(Error::Diagnostic);
                     },
                 };
 
@@ -161,7 +163,7 @@ impl Source {
 /// based on the file extension.
 fn to_include(
     path: PathBuf, context: Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>
-) -> Result<Include, ()> {
+) -> Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
         Some("md") => Ok(Include::Markdown(path, context)),
@@ -172,7 +174,7 @@ fn to_include(
                 .error(format!("unknown file format {:?}", ext))
                 .with_section(&range, "trying to include this")
                 .emit();
-            Err(())
+            Err(Error::Diagnostic)
         },
         None => {
             diagnostics
@@ -180,7 +182,7 @@ fn to_include(
                 .with_section(&range, "trying to include this")
                 .note("need file extension to differentiate file type")
                 .emit();
-            Err(())
+            Err(Error::Diagnostic)
         },
     }
 }

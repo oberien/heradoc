@@ -42,6 +42,7 @@ mod backend;
 mod config;
 mod cskvp;
 mod diagnostics;
+mod error;
 mod ext;
 mod frontend;
 mod generator;

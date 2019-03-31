@@ -6,7 +6,7 @@ use typed_arena::Arena;
 
 use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
-use crate::frontend::{Event as FeEvent, Frontend, Include as FeInclude};
+use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude};
 use crate::resolve::{Context, Include, Resolver};
 use crate::diagnostics::{Diagnostics, Input};
 
@@ -17,7 +17,8 @@ mod stack;
 pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
-use self::event::{Event, Image, Pdf};
+use self::event::{Event, EventKind, Image, Pdf};
+use crate::error::{FatalResult, Result, Error};
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
@@ -63,7 +64,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         }
     }
 
-    pub fn generate(&mut self, markdown: String) {
+    pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
         let context = Context::LocalRelative(self.cfg.input_dir.clone());
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
@@ -86,32 +87,22 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>) {
+    pub fn generate_body(&mut self, events: Events<'a, impl Iterator<Item = (FeEvent<'a>, Range<usize>)>>) -> FatalResult<()> {
         self.stack.push(StackElement::Context(events.context, events.diagnostics));
         let mut events = events.events.fuse();
-        let (mut peek, mut peek_range) = loop {
-            match events.next() {
-                None => break (None, Range { start: 0, end: 0 }),
-                Some((event, range)) => match self.convert_event(event, range.clone())? {
-                    None => continue,
-                    Some(event) => break (Some(event), range),
-                },
-            }
-        };
+
+        let (mut peek, mut peek_range) = self.next();
         while let Some(event) = peek {
-            let (p, pr) = loop {
-                match events.next() {
-                    None => break (None, Range { start: 0, end: 0 }),
-                    Some((event, range)) => match self.convert_event(event, range.clone())? {
-                        None => continue,
-                        Some(event) => break (Some(event), range),
-                    },
-                }
-            };
+            let (p, pr) = self.next();
             let range = peek_range;
             peek = p;
             peek_range = pr;
-            self.visit_event(event, range, peek.as_ref(), peek_range)?;
+            let kind = FeEventKind::from(&event);
+            match self.visit_event(event, range, peek.as_ref(), peek_range) {
+                Ok(()) => {},
+                Err((Error::Diagnostic, event)) => self.skip_gen(event),
+                Err((Error::Fatal(fatal), _)) => return Err(fatal),
+            }
         }
         match self.stack.pop() {
             Some(StackElement::Context(..)) => (),
@@ -123,21 +114,120 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    fn convert_event(&mut self, event: FeEvent<'a>, range: Range<usize>) -> Result<Option<Event<'a>>, FeEvent<'a>> {
+    /// Retrieves and converts the next event that needs to be handled.
+    ///
+    /// If it's an include which is handled, it'll be handled internally and the next event will
+    /// be returned. If there is some diagnostic error, it'll skip over that event and return
+    /// the next one which should be handled.
+    fn next(&mut self, events: &mut impl Iterator<Item = (FeEvent<'a>, Range<usize>)>) -> FatalResult<(Event<'a>, Range<usize>)> {
+        loop {
+            match events.next() {
+                None => return (None, Range { start: 0, end: 0 }),
+                Some((event, range)) => match self.convert_event(event, range.clone()) {
+                    Ok(None) => continue,
+                    Ok(Some(event)) => return (Some(event), range),
+                    Err((Error::Diagnostic, event)) => self.skip_fe(event)?,
+                    Err((Error::Fatal(fatal), _)) => return Err(fatal),
+                },
+            }
+        }
+    }
+
+    /// Skips events until the next one that can be handled again. Argument is the event that
+    /// produced a diagnostic during handling.
+    fn skip_fe(&mut self, kind: FeEventKind) -> FatalResult<()> {
+        match event {
+            // continue consuming until end
+            FeEventKind::Start => (),
+            // TODO: unsure if `End` might just be unrecoverable
+            FeEventKind::End
+            | FeEventKind::Text
+            | FeEventKind::Html
+            | FeEventKind::InlineHtml
+            | FeEventKind::Latex
+            | FeEventKind::FootnoteReference
+            | FeEventKind::BiberReferences
+            | FeEventKind::Url
+            | FeEventKind::InterLink
+            | FeEventKind::Include
+            | FeEventKind::Label
+            | FeEventKind::SoftBreak
+            | FeEventKind::HardBreak
+            | FeEventKind::TaskListMarker
+            | FeEventKind::Command
+            | FeEventKind::ResolveInclude => return Ok(()),
+        }
+        let mut depth = 0;
+        loop {
+            match self.next()?.0 {
+                FeEvent::Start(_) => depth += 1,
+                FeEvent::End(_) if depth > 0 => depth -= 1,
+                FeEvent::End(_) => return Ok(()),
+                _ => {},
+            }
+        }
+    }
+
+    /// Same as [`skip_fe`], but with generator::Event instead of frontend::Event.
+    fn skip_gen(&mut self, kind: EventKind) {
+        match kind {
+            EventKind::Start => (),
+            // TODO: unsure if `End` might just be unrecoverable
+            EventKind::End
+            | EventKind::Text
+            | EventKind::Html
+            | EventKind::InlineHtml
+            | EventKind::Latex
+            | EventKind::FootnoteReference
+            | EventKind::BiberReferences
+            | EventKind::Url
+            | EventKind::InterLink
+            | EventKind::Image
+            | EventKind::Label
+            | EventKind::Pdf
+            | EventKind::SoftBreak
+            | EventKind::HardBreak
+            | EventKind::TaskListMarker
+            | EventKind::TableOfContents
+            | EventKind::Bibliography
+            | EventKind::ListOfTables
+            | EventKind::ListOfFigures
+            | EventKind::ListOfListings
+            | EventKind::Appendix => return Ok(()),
+        }
+        let mut depth = 0;
+        loop {
+            match self.next()?.0 {
+                FeEvent::Start(_) => depth += 1,
+                FeEvent::End(_) if depth > 0 => depth -= 1,
+                FeEvent::End(_) => return Ok(()),
+                _ => {},
+            }
+        }
+    }
+
+    /// Converts an event, resolving any includes. If the include is handled, returns Ok(None).
+    /// If it fails, returns the original event.
+    fn convert_event(
+        &mut self, event: FeEvent<'a>, range: Range<usize>
+    ) -> std::result::Result<Option<Event<'a>>, (Error, FeEvent<'a>)> {
         match event {
             FeEvent::Include(image) => {
-                let include = self.resolve(&image.dst, range)?;
-                Ok(self.handle_include(include, Some(image))?)
+                let include = self.resolve(&image.dst, range.clone())?;
+                Ok(self.handle_include(include, Some(image), range)?)
             },
             FeEvent::ResolveInclude(include) => {
-                let include = self.resolve(&include, range)?;
-                Ok(self.handle_include(include, None)?)
+                let include = self.resolve(&include, range.clone())?;
+                Ok(self.handle_include(include, None, range)?)
             },
             e => Ok(Some(e.into())),
         }
     }
 
-    pub fn visit_event(&mut self, event: Event<'a>, range: Range<usize>, peek: Option<&Event<'a>>, peek_range: Range<usize>) -> Result<()> {
+    pub fn visit_event(
+        &mut self, event: Event<'a>, range: Range<usize>, peek: Option<&Event<'a>>,
+        peek_range: Range<usize>,
+    ) -> Result<()> {
         if let Event::End(tag) = event {
             let state = self.stack.pop().unwrap();
             state.finish(tag, self, peek)?;
@@ -217,20 +307,30 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.resolver.resolve(context, url, range, self.diagnostics())
     }
 
+    /// Possibly returns an event. If it doesn't return an event, the include was already handled
+    /// internally by this function.
     fn handle_include(
-        &mut self, include: Include, image: Option<FeInclude<'a>>,
+        &mut self, include: Include, image: Option<FeInclude<'a>>, range: Range<usize>,
     ) -> Result<Option<Event<'a>>> {
         match include {
             Include::Command(command) => Ok(Some(command.into())),
             Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(&path)?;
+                let markdown = fs::read_to_string(&path)
+                    .map_err(|err| {
+                        self.diagnostics()
+                            .error("error reading markdown include file")
+                            .with_section(&range, "in this include")
+                            .error(format!("cause: {}", err))
+                            .emit();
+                        Error::Diagnostic
+                    })?;
                 let input = match &context {
                     Context::Remote(url) => Input::Url(url.clone()),
                     Context::LocalRelative(_)
                     | Context::LocalAbsolute(_) => Input::File(path.clone()),
                 };
                 let events = self.get_events(markdown, context, input);
-                self.generate_body(events)?;
+                self.generate_body(events);
                 Ok(None)
             },
             Include::Image(path) => {
