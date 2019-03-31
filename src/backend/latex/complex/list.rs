@@ -1,25 +1,28 @@
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::event::{Enumerate, Event};
 use crate::generator::Generator;
+use crate::generator::event::{Enumerate, Event};
+use crate::error::Result;
 
 #[derive(Debug)]
 pub struct ListGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ListGen {
     fn new(
-        _cfg: &'a Config, _tag: (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, _tag: (), _range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{itemize}}")?;
         Ok(ListGen)
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
-        writeln!(gen.get_out(), "\\end{{itemize}}")
+        writeln!(gen.get_out(), "\\end{{itemize}}")?;
+        Ok(())
     }
 }
 
@@ -28,7 +31,7 @@ pub struct EnumerateGen;
 
 impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     fn new(
-        _cfg: &'a Config, enumerate: Enumerate,
+        _cfg: &'a Config, enumerate: Enumerate, _range: Range<usize>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Enumerate { start_number } = enumerate;
@@ -47,9 +50,10 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
-        writeln!(gen.get_out(), "\\end{{enumerate}}")
+        writeln!(gen.get_out(), "\\end{{enumerate}}")?;
+        Ok(())
     }
 }
 
@@ -58,14 +62,14 @@ pub struct ItemGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ItemGen {
     fn new(
-        _cfg: &'a Config, _tag: (), gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, _tag: (), _range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
         Ok(ItemGen)
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         writeln!(gen.get_out())?;
         Ok(())

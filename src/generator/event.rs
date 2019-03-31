@@ -18,15 +18,12 @@ pub use crate::frontend::{
 };
 pub use pulldown_cmark::Alignment;
 
-use enum_kinds::EnumKind;
-
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
 use crate::resolve::Command;
 use crate::generator::Events;
 
 // transformation of frontend::Event
-#[derive(Debug, EnumKind)]
-#[enum_kind(EventKind)]
+#[derive(Debug)]
 pub enum Event<'a> {
     Start(Tag<'a>),
     End(Tag<'a>),
@@ -34,7 +31,7 @@ pub enum Event<'a> {
     Html(Cow<'a, str>),
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
-    IncludeMarkdown(Events<'a>),
+    IncludeMarkdown(Box<Events<'a>>),
     FootnoteReference(FootnoteReference<'a>),
     BiberReferences(Vec<BiberReference<'a>>),
     /// Url without content

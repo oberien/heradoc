@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::Write;
 use std::ops::Range;
+use std::fmt;
 
 use typed_arena::Arena;
 
@@ -36,6 +37,16 @@ pub struct Events<'a> {
     events: Iter<'a>,
     diagnostics: Diagnostics<'a>,
     context: Context,
+}
+
+impl<'a> fmt::Debug for Events<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("events", &"Iter")
+            .field("diagnostics", &self.diagnostics)
+            .field("context", &self.context)
+            .finish()
+    }
 }
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
@@ -94,12 +105,12 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.stack.push(StackElement::Context(events.context, events.diagnostics));
         let mut events = events.events;
 
-        while let Some((event, range)) = events.next(&mut self) {
-            let (peek, peek_range) = events.peek(&mut self);
-            match self.visit_event(event, range, peek, peek_range) {
+        while let Some((event, range)) = events.next(self)? {
+            let peek = events.peek(self)?;
+            match self.visit_event(event, range, peek) {
                 Ok(()) => {},
-                Err((Error::Diagnostic, event)) => events.skip(&mut self),
-                Err((Error::Fatal(fatal), _)) => return Err(fatal),
+                Err(Error::Diagnostic) => events.skip(self)?,
+                Err(Error::Fatal(fatal)) => return Err(fatal),
             }
         }
         match self.stack.pop() {
@@ -113,8 +124,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn visit_event(
-        &mut self, event: Event<'a>, range: Range<usize>, peek: Option<&Event<'a>>,
-        peek_range: Range<usize>,
+        &mut self, event: Event<'a>, range: Range<usize>, peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         if let Event::End(tag) = event {
             let state = self.stack.pop().unwrap();
@@ -135,30 +145,30 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             None => (),
             Some(Event::End(_)) => unreachable!(),
             Some(Event::Start(tag)) => {
-                let state = StackElement::new(self.cfg, tag, self)?;
+                let state = StackElement::new(self.cfg, tag, range, self)?;
                 self.stack.push(state);
             },
-            Some(Event::Text(text)) => B::Text::gen(text, &mut stack)?,
-            Some(Event::Html(html)) => B::Text::gen(html, &mut stack)?,
-            Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut stack)?,
-            Some(Event::Latex(latex)) => B::Latex::gen(latex, &mut stack)?,
-            Some(Event::IncludeMarkdown(events)) => self.generate_body(events)?,
-            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut stack)?,
-            Some(Event::BiberReferences(biber)) => B::BiberReferences::gen(biber, &mut stack)?,
-            Some(Event::Url(url)) => B::Url::gen(url, &mut stack)?,
-            Some(Event::InterLink(interlink)) => B::InterLink::gen(interlink, &mut stack)?,
-            Some(Event::Image(img)) => B::Image::gen(img, &mut stack)?,
-            Some(Event::Label(label)) => B::Label::gen(label, &mut stack)?,
-            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut stack)?,
-            Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut stack)?,
-            Some(Event::HardBreak) => B::HardBreak::gen((), &mut stack)?,
-            Some(Event::TaskListMarker(marker)) => B::TaskListMarker::gen(marker, &mut stack)?,
-            Some(Event::TableOfContents) => B::TableOfContents::gen((), &mut stack)?,
-            Some(Event::Bibliography) => B::Bibliography::gen((), &mut stack)?,
-            Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut stack)?,
-            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), &mut stack)?,
-            Some(Event::ListOfListings) => B::ListOfListings::gen((), &mut stack)?,
-            Some(Event::Appendix) => B::Appendix::gen((), &mut stack)?,
+            Some(Event::Text(text)) => B::Text::gen(text, range, &mut stack)?,
+            Some(Event::Html(html)) => B::Text::gen(html, range, &mut stack)?,
+            Some(Event::InlineHtml(html)) => B::Text::gen(html, range, &mut stack)?,
+            Some(Event::Latex(latex)) => B::Latex::gen(latex, range, &mut stack)?,
+            Some(Event::IncludeMarkdown(events)) => self.generate_body(*events)?,
+            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, range, &mut stack)?,
+            Some(Event::BiberReferences(biber)) => B::BiberReferences::gen(biber, range, &mut stack)?,
+            Some(Event::Url(url)) => B::Url::gen(url, range, &mut stack)?,
+            Some(Event::InterLink(interlink)) => B::InterLink::gen(interlink, range, &mut stack)?,
+            Some(Event::Image(img)) => B::Image::gen(img, range, &mut stack)?,
+            Some(Event::Label(label)) => B::Label::gen(label, range, &mut stack)?,
+            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, range, &mut stack)?,
+            Some(Event::SoftBreak) => B::SoftBreak::gen((), range, &mut stack)?,
+            Some(Event::HardBreak) => B::HardBreak::gen((), range, &mut stack)?,
+            Some(Event::TaskListMarker(marker)) => B::TaskListMarker::gen(marker, range, &mut stack)?,
+            Some(Event::TableOfContents) => B::TableOfContents::gen((), range, &mut stack)?,
+            Some(Event::Bibliography) => B::Bibliography::gen((), range, &mut stack)?,
+            Some(Event::ListOfTables) => B::ListOfTables::gen((), range, &mut stack)?,
+            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), range, &mut stack)?,
+            Some(Event::ListOfListings) => B::ListOfListings::gen((), range, &mut stack)?,
+            Some(Event::Appendix) => B::Appendix::gen((), range, &mut stack)?,
         }
 
         Ok(())
@@ -186,13 +196,13 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     fn resolve(&mut self, url: &str, range: Range<usize>) -> Result<Include> {
-        let context = self
-            .iter_stack()
+        let (context, diagnostics) = self.stack
+            .iter_mut()
+            .rev()
             .find_map(|se| match se {
-                StackElement::Context(context, _) => Some(context),
+                StackElement::Context(context, diagnostics) => Some((context, diagnostics)),
                 _ => None,
-            })
-            .expect("no Context???");
-        self.resolver.resolve(context, url, range, self.diagnostics())
+            }).expect("no Context???");
+        self.resolver.resolve(context, url, range, diagnostics)
     }
 }

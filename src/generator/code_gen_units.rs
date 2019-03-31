@@ -1,4 +1,5 @@
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
@@ -6,6 +7,7 @@ use crate::generator::event::{Event, Tag};
 use crate::generator::{Generator, Stack};
 use crate::resolve::Context;
 use crate::diagnostics::Diagnostics;
+use crate::error::Result;
 
 #[derive(Debug)]
 pub enum StackElement<'a, D: Backend<'a>> {
@@ -42,34 +44,34 @@ pub enum StackElement<'a, D: Backend<'a>> {
 
 #[rustfmt::skip]
 impl<'a, D: Backend<'a>> StackElement<'a, D> {
-    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+    pub fn new(cfg: &'a Config, tag: Tag<'a>, range: Range<usize>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
         match tag {
-            Tag::Paragraph => Ok(StackElement::Paragraph(D::Paragraph::new(cfg, (), gen)?)),
-            Tag::Rule => Ok(StackElement::Rule(D::Rule::new(cfg, (), gen)?)),
-            Tag::Header(header) => Ok(StackElement::Header(D::Header::new(cfg, header, gen)?)),
-            Tag::BlockQuote => Ok(StackElement::BlockQuote(D::BlockQuote::new(cfg, (), gen)?)),
-            Tag::CodeBlock(cb) => Ok(StackElement::CodeBlock(D::CodeBlock::new(cfg, cb, gen)?)),
-            Tag::List => Ok(StackElement::List(D::List::new(cfg, (), gen)?)),
-            Tag::Enumerate(enumerate) => Ok(StackElement::Enumerate(D::Enumerate::new(cfg, enumerate, gen)?)),
-            Tag::Item => Ok(StackElement::Item(D::Item::new(cfg, (), gen)?)),
-            Tag::FootnoteDefinition(fnote) => Ok(StackElement::FootnoteDefinition(D::FootnoteDefinition::new(cfg, fnote, gen)?)),
-            Tag::Url(url) => Ok(StackElement::Url(D::UrlWithContent::new(cfg, url, gen)?)),
-            Tag::InterLink(interlink) => Ok(StackElement::InterLink(D::InterLinkWithContent::new(cfg, interlink, gen)?)),
-            Tag::HtmlBlock => Ok(StackElement::HtmlBlock(D::HtmlBlock::new(cfg, (), gen)?)),
-            Tag::Figure(figure) => Ok(StackElement::Figure(D::Figure::new(cfg, figure, gen)?)),
-            Tag::TableFigure(figure) => Ok(StackElement::TableFigure(D::TableFigure::new(cfg, figure, gen)?)),
-            Tag::Table(table) => Ok(StackElement::Table(D::Table::new(cfg, table, gen)?)),
-            Tag::TableHead => Ok(StackElement::TableHead(D::TableHead::new(cfg, (), gen)?)),
-            Tag::TableRow => Ok(StackElement::TableRow(D::TableRow::new(cfg, (), gen)?)),
-            Tag::TableCell => Ok(StackElement::TableCell(D::TableCell::new(cfg, (), gen)?)),
-            Tag::InlineEmphasis => Ok(StackElement::InlineEmphasis(D::InlineEmphasis::new(cfg, (), gen)?)),
-            Tag::InlineStrong => Ok(StackElement::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
-            Tag::InlineStrikethrough => Ok(StackElement::InlineStrikethrough(D::InlineStrikethrough::new(cfg, (), gen)?)),
-            Tag::InlineCode => Ok(StackElement::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
-            Tag::InlineMath => Ok(StackElement::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
-            Tag::Equation(equation) => Ok(StackElement::Equation(D::Equation::new(cfg, equation, gen)?)),
-            Tag::NumberedEquation(equation) => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, equation, gen)?)),
-            Tag::Graphviz(graphviz) => Ok(StackElement::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
+            Tag::Paragraph => Ok(StackElement::Paragraph(D::Paragraph::new(cfg, (), range, gen)?)),
+            Tag::Rule => Ok(StackElement::Rule(D::Rule::new(cfg, (), range, gen)?)),
+            Tag::Header(header) => Ok(StackElement::Header(D::Header::new(cfg, header, range, gen)?)),
+            Tag::BlockQuote => Ok(StackElement::BlockQuote(D::BlockQuote::new(cfg, (), range, gen)?)),
+            Tag::CodeBlock(cb) => Ok(StackElement::CodeBlock(D::CodeBlock::new(cfg, cb, range, gen)?)),
+            Tag::List => Ok(StackElement::List(D::List::new(cfg, (), range, gen)?)),
+            Tag::Enumerate(enumerate) => Ok(StackElement::Enumerate(D::Enumerate::new(cfg, enumerate, range, gen)?)),
+            Tag::Item => Ok(StackElement::Item(D::Item::new(cfg, (), range, gen)?)),
+            Tag::FootnoteDefinition(fnote) => Ok(StackElement::FootnoteDefinition(D::FootnoteDefinition::new(cfg, fnote, range, gen)?)),
+            Tag::Url(url) => Ok(StackElement::Url(D::UrlWithContent::new(cfg, url, range, gen)?)),
+            Tag::InterLink(interlink) => Ok(StackElement::InterLink(D::InterLinkWithContent::new(cfg, interlink, range, gen)?)),
+            Tag::HtmlBlock => Ok(StackElement::HtmlBlock(D::HtmlBlock::new(cfg, (), range, gen)?)),
+            Tag::Figure(figure) => Ok(StackElement::Figure(D::Figure::new(cfg, figure, range, gen)?)),
+            Tag::TableFigure(figure) => Ok(StackElement::TableFigure(D::TableFigure::new(cfg, figure, range, gen)?)),
+            Tag::Table(table) => Ok(StackElement::Table(D::Table::new(cfg, table, range, gen)?)),
+            Tag::TableHead => Ok(StackElement::TableHead(D::TableHead::new(cfg, (), range, gen)?)),
+            Tag::TableRow => Ok(StackElement::TableRow(D::TableRow::new(cfg, (), range, gen)?)),
+            Tag::TableCell => Ok(StackElement::TableCell(D::TableCell::new(cfg, (), range, gen)?)),
+            Tag::InlineEmphasis => Ok(StackElement::InlineEmphasis(D::InlineEmphasis::new(cfg, (), range, gen)?)),
+            Tag::InlineStrong => Ok(StackElement::InlineStrong(D::InlineStrong::new(cfg, (), range, gen)?)),
+            Tag::InlineStrikethrough => Ok(StackElement::InlineStrikethrough(D::InlineStrikethrough::new(cfg, (), range, gen)?)),
+            Tag::InlineCode => Ok(StackElement::InlineCode(D::InlineCode::new(cfg, (), range, gen)?)),
+            Tag::InlineMath => Ok(StackElement::InlineMath(D::InlineMath::new(cfg, (), range, gen)?)),
+            Tag::Equation(equation) => Ok(StackElement::Equation(D::Equation::new(cfg, equation, range, gen)?)),
+            Tag::NumberedEquation(equation) => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, equation, range, gen)?)),
+            Tag::Graphviz(graphviz) => Ok(StackElement::Graphviz(D::Graphviz::new(cfg, graphviz, range, gen)?)),
         }
     }
 
@@ -139,7 +141,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<(&Event<'a>, Range<usize>)>) -> Result<()> {
         match (self, tag) {
             (StackElement::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (StackElement::Rule(s), Tag::Rule) => s.finish(gen, peek),

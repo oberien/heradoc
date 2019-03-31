@@ -19,7 +19,6 @@ pub use self::refs::LinkType;
 use self::concat::Concat;
 use self::convert_cow::{ConvertCow, Event as CmarkEvent, Tag as CmarkTag};
 use self::refs::ReferenceParseResult;
-use crate::backend::Backend;
 use crate::config::Config;
 use crate::cskvp::Cskvp;
 use crate::diagnostics::Diagnostics;

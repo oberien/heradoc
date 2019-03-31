@@ -1,13 +1,15 @@
 use std::fs::File;
-use std::io::{Result, Write};
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::Command;
+use std::ops::Range;
 
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::event::{Event, Graphviz};
 use crate::generator::Generator;
+use crate::generator::event::{Event, Graphviz};
+use crate::error::Result;
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {
@@ -18,7 +20,7 @@ pub struct GraphvizGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
     fn new(
-        cfg: &Config, graphviz: Graphviz<'a>,
+        cfg: &Config, graphviz: Graphviz<'a>, _range: Range<usize>,
         _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let mut i = 0;
@@ -37,7 +39,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         drop(self.file);
         let Graphviz { label, caption, scale, width, height } = self.graphviz;

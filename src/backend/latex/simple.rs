@@ -1,9 +1,11 @@
 use std::borrow::Cow;
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use super::replace::replace;
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, MediumCodeGenUnit, SimpleCodeGenUnit};
+use crate::error::Result;
 use crate::generator::event::{
     BiberReference,
     FootnoteReference,
@@ -20,7 +22,7 @@ pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     fn gen<'b, 'c>(
-        text: Cow<'a, str>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+        text: Cow<'a, str>, _range: Range<usize>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
     ) -> Result<()> {
         // TODO: make code-blocks containing unicode allow inline-math
         // handle unicode
@@ -75,7 +77,7 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
 pub struct LatexGen;
 
 impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
-    fn gen(latex: Cow<'a, str>, out: &mut impl Write) -> Result<()> {
+    fn gen(latex: Cow<'a, str>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         write!(out, "{}", latex)?;
         Ok(())
     }
@@ -85,7 +87,7 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
 pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
-    fn gen(fnote: FootnoteReference<'a>, out: &mut impl Write) -> Result<()> {
+    fn gen(fnote: FootnoteReference<'a>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         let FootnoteReference { label } = fnote;
         write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", label)?;
         Ok(())
@@ -96,7 +98,7 @@ impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
 pub struct BiberReferencesGen;
 
 impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
-    fn gen(mut biber: Vec<BiberReference<'a>>, out: &mut impl Write) -> Result<()> {
+    fn gen(mut biber: Vec<BiberReference<'a>>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         if biber.len() == 1 {
             let BiberReference { reference, attributes } = biber.pop().unwrap();
             match attributes {
@@ -120,7 +122,7 @@ impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
 pub struct UrlGen;
 
 impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
-    fn gen(url: Url<'a>, out: &mut impl Write) -> Result<()> {
+    fn gen(url: Url<'a>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         let Url { destination, title } = url;
         match title {
             None => write!(out, "\\url{{{}}}", destination)?,
@@ -134,7 +136,7 @@ impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
 pub struct InterLinkGen;
 
 impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
-    fn gen(interlink: InterLink<'a>, out: &mut impl Write) -> Result<()> {
+    fn gen(interlink: InterLink<'a>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         let InterLink { label, uppercase } = interlink;
         match uppercase {
             true => write!(out, "\\Cref{{{}}}", label)?,
@@ -148,7 +150,7 @@ impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
 pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
-    fn gen(image: Image<'a>, out: &mut impl Write) -> Result<()> {
+    fn gen(image: Image<'a>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         let Image { label, caption, title, alt_text, path, scale, width, height } = image;
         let inline_fig = InlineEnvironment::new_figure(label, caption);
         inline_fig.write_begin(&mut *out)?;
@@ -191,8 +193,9 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
 pub struct LabelGen;
 
 impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
-    fn gen(label: Cow<'a, str>, out: &mut impl Write) -> Result<()> {
-        writeln!(out, "\\label{{{}}}", label)
+    fn gen(label: Cow<'a, str>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\label{{{}}}", label)?;
+        Ok(())
     }
 }
 
@@ -200,7 +203,7 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
 pub struct PdfGen;
 
 impl SimpleCodeGenUnit<Pdf> for PdfGen {
-    fn gen(pdf: Pdf, out: &mut impl Write) -> Result<()> {
+    fn gen(pdf: Pdf, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         let Pdf { path } = pdf;
 
         writeln!(out, "\\includepdf[pages=-]{{{}}}", path.display())?;
@@ -212,7 +215,7 @@ impl SimpleCodeGenUnit<Pdf> for PdfGen {
 pub struct SoftBreakGen;
 
 impl SimpleCodeGenUnit<()> for SoftBreakGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         // soft breaks are only used to split up text in lines in the source file
         // so it's nothing we should translate, but for better readability keep them
         writeln!(out)?;
@@ -224,7 +227,7 @@ impl SimpleCodeGenUnit<()> for SoftBreakGen {
 pub struct HardBreakGen;
 
 impl MediumCodeGenUnit<()> for HardBreakGen {
-    fn gen<'b, 'c>((): (), stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+    fn gen<'b, 'c>((): (), _range: Range<usize>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
         let in_table = stack.iter().any(|e| e.is_table());
         let out = stack.get_out();
 
@@ -242,7 +245,7 @@ impl MediumCodeGenUnit<()> for HardBreakGen {
 pub struct TaskListMarkerGen;
 
 impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
-    fn gen(marker: TaskListMarker, out: &mut impl Write) -> Result<()> {
+    fn gen(marker: TaskListMarker, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         let TaskListMarker { checked } = marker;
         match checked {
             true => write!(out, r"[$\boxtimes$] ")?,
@@ -256,7 +259,7 @@ impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
 pub struct TableOfContentsGen;
 
 impl SimpleCodeGenUnit<()> for TableOfContentsGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\tableofcontents")?;
         Ok(())
     }
@@ -266,7 +269,7 @@ impl SimpleCodeGenUnit<()> for TableOfContentsGen {
 pub struct BibliographyGen;
 
 impl SimpleCodeGenUnit<()> for BibliographyGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         // TODO: config option if bibliography in toc
         // TODO: config option for title
         writeln!(out, "\\printbibliography[heading=bibintoc]")?;
@@ -278,7 +281,7 @@ impl SimpleCodeGenUnit<()> for BibliographyGen {
 pub struct ListOfTablesGen;
 
 impl SimpleCodeGenUnit<()> for ListOfTablesGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\listoftables")?;
         writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
@@ -290,7 +293,7 @@ impl SimpleCodeGenUnit<()> for ListOfTablesGen {
 pub struct ListOfFiguresGen;
 
 impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\listoffigures")?;
         writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
@@ -302,7 +305,7 @@ impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
 pub struct ListOfListingsGen;
 
 impl SimpleCodeGenUnit<()> for ListOfListingsGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\lstlistoflistings")?;
         writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
@@ -314,7 +317,7 @@ impl SimpleCodeGenUnit<()> for ListOfListingsGen {
 pub struct AppendixGen;
 
 impl SimpleCodeGenUnit<()> for AppendixGen {
-    fn gen((): (), out: &mut impl Write) -> Result<()> {
+    fn gen((): (), _range: Range<usize>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\appendix{{}}")?;
         writeln!(out, "\\renewcommand\\thelstlisting{{\\Alph{{lstlisting}}}}")?;
         writeln!(out, "\\setcounter{{lstlisting}}{{0}}")?;

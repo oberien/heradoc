@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{Result, Write};
+use std::io::Write;
 use std::path::PathBuf;
 
 use typed_arena::Arena;
@@ -7,6 +7,7 @@ use typed_arena::Arena;
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
+use crate::error::FatalResult;
 use crate::generator::Generator;
 use crate::resolve::Context;
 use crate::diagnostics::Input;
@@ -69,7 +70,7 @@ impl<'a> Backend<'a> for Thesis {
         Thesis
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
         // TODO: itemizespacing
         // documentclass
         write!(out, "\\documentclass[")?;
@@ -124,13 +125,13 @@ impl<'a> Backend<'a> for Thesis {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write) -> Result<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }
 }
 
-fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write) -> Result<()> {
+fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
     let arena = Arena::new();
     let mut gen = Generator::new(cfg, Thesis, out, &arena);
     let markdown = fs::read_to_string(&path)?;

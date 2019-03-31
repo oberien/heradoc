@@ -59,9 +59,9 @@ impl Resolver {
             }
         };
 
-        let target = Source::new(url, context, range, diagnostics)?;
+        let target = Source::new(url, context, range.clone(), diagnostics)?;
         // check if context is allowed to access target
-        self.check_access(context, &target, range, diagnostics)?;
+        self.check_access(context, &target, range.clone(), diagnostics)?;
 
         target.into_include(&self.remote, range, diagnostics)
     }
