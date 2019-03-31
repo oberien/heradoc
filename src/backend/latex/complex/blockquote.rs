@@ -1,10 +1,11 @@
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::Generator;
-
 use crate::generator::event::Event;
+use crate::error::Result;
 
 #[derive(Debug)]
 pub struct BlockQuoteGen {
@@ -13,7 +14,7 @@ pub struct BlockQuoteGen {
 
 impl<'a> CodeGenUnit<'a, ()> for BlockQuoteGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, _tag: (), _range: Range<usize>, _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         Ok(BlockQuoteGen { quote: Vec::new() })
     }
@@ -23,7 +24,7 @@ impl<'a> CodeGenUnit<'a, ()> for BlockQuoteGen {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         let out = gen.get_out();
         let quote = String::from_utf8(self.quote).expect("invalid UTF8");

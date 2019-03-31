@@ -25,14 +25,14 @@ use crate::generator::event::{
 };
 use crate::generator::{Generator, Stack};
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{Result, FatalResult};
 
 pub mod latex;
 
 pub fn generate<'a>(
     cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
     out: impl Write,
-) -> Result<()> {
+) -> FatalResult<()> {
     let mut gen = Generator::new(cfg, doc, out, arena);
     gen.generate(markdown)?;
     Ok(())
@@ -90,13 +90,13 @@ pub trait Backend<'a>: Debug {
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
 
     fn new() -> Self;
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()>;
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()>;
 }
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: T, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        cfg: &'a Config, tag: T, range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
@@ -107,7 +107,7 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
         Ok(Some(e))
     }
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()>;
 }
 

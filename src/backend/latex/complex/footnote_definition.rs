@@ -1,17 +1,18 @@
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::generator::Generator;
-
 use crate::generator::event::{Event, FootnoteDefinition};
+use crate::error::Result;
 
 #[derive(Debug)]
 pub struct FootnoteDefinitionGen;
 
 impl<'a> CodeGenUnit<'a, FootnoteDefinition<'a>> for FootnoteDefinitionGen {
     fn new(
-        _cfg: &'a Config, fnote: FootnoteDefinition<'a>,
+        _cfg: &'a Config, fnote: FootnoteDefinition<'a>, _range: Range<usize>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let FootnoteDefinition { label } = fnote;
@@ -22,7 +23,7 @@ impl<'a> CodeGenUnit<'a, FootnoteDefinition<'a>> for FootnoteDefinitionGen {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "}}")?;
         Ok(())

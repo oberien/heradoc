@@ -50,6 +50,7 @@ mod resolve;
 
 use crate::backend::latex::{Article, Report, Thesis};
 use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
+use crate::error::Fatal;
 
 fn main() {
     let args = CliArgs::from_args();
@@ -109,16 +110,20 @@ fn main() {
 }
 
 fn gen(cfg: &Config, markdown: String, out: impl Write) {
-    match cfg.document_type {
+    let res = match cfg.document_type {
         DocumentType::Article => {
-            backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap()
+            backend::generate(cfg, Article, &Arena::new(), markdown, out)
         },
         DocumentType::Report => {
-            backend::generate(cfg, Report, &Arena::new(), markdown, out).unwrap()
+            backend::generate(cfg, Report, &Arena::new(), markdown, out)
         },
         DocumentType::Thesis => {
-            backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap()
+            backend::generate(cfg, Thesis, &Arena::new(), markdown, out)
         },
+    };
+    match res {
+        Ok(()) => (),
+        Err(Fatal::Output(io)) => eprintln!("\n\nerror writing to output: {}", io),
     }
 }
 

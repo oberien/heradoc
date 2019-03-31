@@ -35,3 +35,9 @@ impl From<io::Error> for Error {
         Error::Fatal(err.into())
     }
 }
+
+impl From<Fatal> for Error {
+    fn from(err: Fatal) -> Self {
+        Error::Fatal(err)
+    }
+}

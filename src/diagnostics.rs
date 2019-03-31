@@ -88,19 +88,19 @@ impl<'a> Diagnostics<'a> {
     }
 
     pub fn bug<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
-        let mut diag = self.diagnostic(Severity::Bug, message.into())
-            .note("please report this");
+        let mut diag = Some(self.diagnostic(Severity::Bug, message.into())
+            .note("please report this"));
         backtrace::trace(|frame| {
             let ip = frame.ip();
             backtrace::resolve(ip, |symbol| {
-                diag = diag.note(format!(
+                diag = Some(diag.take().unwrap().note(format!(
                     "in heradoc file {:?} name {:?} line {:?} address {:?}",
                     symbol.filename(), symbol.name(), symbol.lineno(), symbol.addr()
-                ));
+                )));
             });
             true
         });
-        diag
+        diag.unwrap()
     }
     pub fn error<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Error, message.into())

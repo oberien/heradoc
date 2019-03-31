@@ -1,16 +1,18 @@
-use std::io::{Result, Write};
+use std::io::Write;
+use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::event::Event;
 use crate::generator::{Generator, Stack};
+use crate::generator::event::Event;
+use crate::error::Result;
 
 #[derive(Debug)]
 pub struct RuleGen;
 
 impl<'a> CodeGenUnit<'a, ()> for RuleGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, _tag: (), _range: Range<usize>, _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         Ok(RuleGen)
     }
@@ -23,7 +25,7 @@ impl<'a> CodeGenUnit<'a, ()> for RuleGen {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         let out = gen.get_out();
         // TODO: find out why text after the hrule is indented in the pdf
