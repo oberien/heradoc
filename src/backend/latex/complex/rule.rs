@@ -28,7 +28,6 @@ impl<'a> CodeGenUnit<'a, ()> for RuleGen {
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         let out = gen.get_out();
-        // TODO: find out why text after the hrule is indented in the pdf
         writeln!(out)?;
         writeln!(out, "\\vspace{{1em}}")?;
         writeln!(out, "\\hrule")?;
