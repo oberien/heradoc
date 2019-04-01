@@ -163,7 +163,7 @@ dependencies = [
 [[package]]
 name = "codespan"
 version = "0.2.1"
-source = "git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4#bc89c40c7169843bd9319368cd683b5fe7be47f4"
+source = "git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81#dc7b13739165fc58721415ce3120d05cf117ca81"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -172,9 +172,9 @@ dependencies = [
 [[package]]
 name = "codespan-reporting"
 version = "0.2.1"
-source = "git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4#bc89c40c7169843bd9319368cd683b5fe7be47f4"
+source = "git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81#dc7b13739165fc58721415ce3120d05cf117ca81"
 dependencies = [
- "codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)",
+ "codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81)",
  "termcolor 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -395,8 +395,8 @@ version = "0.1.0"
 dependencies = [
  "backtrace 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "boolinator 2.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)",
- "codespan-reporting 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)",
+ "codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81)",
+ "codespan-reporting 0.2.1 (git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81)",
  "enum-kinds 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.5.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "isolang 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1614,8 +1614,8 @@ dependencies = [
 "checksum cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "082bb9b28e00d3c9d39cc03e64ce4cea0f1bb9b3fde493f0cbc008472d22bdf4"
 "checksum clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b957d88f4b6a63b9d70d5f454ac8011819c6efa7727858f458ab71c756ce2d3e"
 "checksum cloudabi 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
-"checksum codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)" = "<none>"
-"checksum codespan-reporting 0.2.1 (git+https://github.com/oberien/codespan?rev=bc89c40c7169843bd9319368cd683b5fe7be47f4)" = "<none>"
+"checksum codespan 0.2.1 (git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81)" = "<none>"
+"checksum codespan-reporting 0.2.1 (git+https://github.com/oberien/codespan?rev=dc7b13739165fc58721415ce3120d05cf117ca81)" = "<none>"
 "checksum core-foundation 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "286e0b41c3a20da26536c6000a280585d519fd07b3956b43aed8a79e9edce980"
 "checksum core-foundation-sys 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "716c271e8613ace48344f723b60b900a93150271e5be206212d052bbc0883efa"
 "checksum crc 1.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d663548de7f5cca343f1e0a48d14dcfb0e9eb4e079ec58883b7251539fa10aeb"
