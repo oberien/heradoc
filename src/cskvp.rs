@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::ops::Range;
 use std::mem;
+use std::ops::Range;
 
 use quoted_string::test_utils::TestSpec;
 use single::{self, Single};
 
-use crate::ext::{CowExt, VecExt};
 use crate::diagnostics::Diagnostics;
+use crate::ext::{CowExt, VecExt};
 
 struct Diagnostic;
 
@@ -37,7 +37,10 @@ impl<'a> Default for Cskvp<'a> {
 }
 
 impl<'a> Cskvp<'a> {
-    pub fn new(s: Cow<'a, str>, range: Range<usize>, content_range: Range<usize>, mut diagnostics: Diagnostics<'a>) -> Cskvp<'a> {
+    pub fn new(
+        s: Cow<'a, str>, range: Range<usize>, content_range: Range<usize>,
+        mut diagnostics: Diagnostics<'a>,
+    ) -> Cskvp<'a> {
         let mut parser = Parser::new(s, content_range);
 
         let mut single = Vec::new();
@@ -53,7 +56,10 @@ impl<'a> Cskvp<'a> {
                         if label.is_some() {
                             diagnostics
                                 .warning("found two labels")
-                                .with_info_section(&label.as_ref().unwrap().1, "first label defined here")
+                                .with_info_section(
+                                    &label.as_ref().unwrap().1,
+                                    "first label defined here",
+                                )
                                 .with_info_section(&range, "second label defined here")
                                 .note("using the last")
                                 .emit();
@@ -86,13 +92,15 @@ impl<'a> Cskvp<'a> {
             Ok(val) => Some(val),
             Err(single::Error::NoElements) => None,
             Err(single::Error::MultipleElements) => {
-                let mut diag = Some(diagnostics
-                    .error("found multiple figure specifiers"));
+                let mut diag = Some(diagnostics.error("found multiple figure specifiers"));
                 for (_, range) in figures.iter().cloned().flatten() {
                     diag = Some(diag.take().unwrap().with_info_section(&range, "one defined here"));
                 }
                 diag.unwrap()
-                    .note("only one of `figure=true`, `figure=false`, `figure` and `nofigure` is allowed")
+                    .note(
+                        "only one of `figure=true`, `figure=false`, `figure` and `nofigure` is \
+                         allowed",
+                    )
                     .emit();
                 None
             },
@@ -149,12 +157,10 @@ impl<'a> Drop for Cskvp<'a> {
     fn drop(&mut self) {
         let mut has_warning = false;
         let range = &self.range;
-        let mut diag = self.diagnostics
+        let mut diag = self
+            .diagnostics
             .as_mut()
-            .map(|d| d
-                .warning("in element config")
-                .with_error_section(range, "")
-            );
+            .map(|d| d.warning("in element config").with_error_section(range, ""));
         if let Some((label, range)) = self.label.as_ref() {
             diag = diag.map(|d| {
                 d.warning(format!("label ignored: {}", label))
@@ -215,7 +221,9 @@ impl<'a> Parser<'a> {
         Parser { rest: s, range }
     }
 
-    fn next(&mut self, diagnostics: &mut Diagnostics<'a>) -> Result<Option<(Value<'a>, Range<usize>)>, Diagnostic> {
+    fn next(
+        &mut self, diagnostics: &mut Diagnostics<'a>,
+    ) -> Result<Option<(Value<'a>, Range<usize>)>, Diagnostic> {
         if self.rest.is_empty() {
             return Ok(None);
         }
@@ -238,7 +246,9 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn next_quoted(&mut self, diagnostics: &mut Diagnostics<'a>) -> Result<(Cow<'a, str>, Range<usize>), Diagnostic> {
+    fn next_quoted(
+        &mut self, diagnostics: &mut Diagnostics<'a>,
+    ) -> Result<(Cow<'a, str>, Range<usize>), Diagnostic> {
         assert!(self.rest.starts_with('"'));
         macro_rules! err {
             ($e:ident) => {{
@@ -248,7 +258,7 @@ impl<'a> Parser<'a> {
                     .note(format!("cause: {}", $e))
                     .emit();
                 return Err(Diagnostic);
-            }}
+            }};
         }
 
         let (content, quoted_string_len) = match &self.rest {
@@ -256,7 +266,8 @@ impl<'a> Parser<'a> {
                 Err((_, e)) => err!(e),
                 Ok(parsed) => {
                     self.rest = Cow::Borrowed(parsed.tail);
-                    let content = quoted_string::to_content::<TestSpec>(parsed.quoted_string).unwrap();
+                    let content =
+                        quoted_string::to_content::<TestSpec>(parsed.quoted_string).unwrap();
                     (content, parsed.quoted_string.len())
                 },
             },
@@ -297,13 +308,13 @@ impl<'a> Parser<'a> {
         let trimmed_end = len - trimmed_start - val.len();
         let range = Range {
             start: self_range.start + trimmed_start,
-            end: self_range.start + idx - trimmed_end
+            end: self_range.start + idx - trimmed_end,
         };
         (val, range)
     }
 
     fn next_single(
-        &mut self, delimiters: &[char], diagnostics: &mut Diagnostics<'a>
+        &mut self, delimiters: &[char], diagnostics: &mut Diagnostics<'a>,
     ) -> Result<(Cow<'a, str>, Range<usize>), Diagnostic> {
         let len = self.rest.len();
         self.rest.trim_start_inplace();

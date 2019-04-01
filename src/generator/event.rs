@@ -1,6 +1,6 @@
 use std::borrow::Cow;
-use std::path::PathBuf;
 use std::ops::Range;
+use std::path::PathBuf;
 
 pub use crate::frontend::{
     BiberReference,
@@ -20,8 +20,8 @@ pub use crate::frontend::{
 pub use pulldown_cmark::Alignment;
 
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
-use crate::resolve::Command;
 use crate::generator::Events;
+use crate::resolve::Command;
 
 // transformation of frontend::Event
 #[derive(Debug)]

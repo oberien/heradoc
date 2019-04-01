@@ -7,10 +7,10 @@ use typed_arena::Arena;
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
+use crate::diagnostics::Input;
 use crate::error::FatalResult;
 use crate::generator::Generator;
 use crate::resolve::Context;
-use crate::diagnostics::Input;
 
 #[derive(Debug)]
 pub struct Thesis;

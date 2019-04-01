@@ -1,8 +1,8 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
-use std::str::FromStr;
 use std::ops::Range;
+use std::str::FromStr;
 
 use lazy_static::lazy_static;
 use pulldown_cmark::{Options as CmarkOptions, Parser as CmarkParser};
@@ -69,7 +69,8 @@ impl<'a> Frontend<'a> {
                 | CmarkOptions::ENABLE_STRIKETHROUGH
                 | CmarkOptions::ENABLE_TASKLISTS,
             Some(&broken_link_callback),
-        ).into_offset_iter();
+        )
+        .into_offset_iter();
         Frontend {
             cfg,
             diagnostics,
@@ -83,9 +84,9 @@ impl<'a> Frontend<'a> {
             CmarkEvent::Text(text) => self.buffer.push_back((Event::Text(text), range)),
             CmarkEvent::Html(html) => self.buffer.push_back((Event::Html(html), range)),
             CmarkEvent::InlineHtml(html) => self.convert_inline_html(html, range),
-            CmarkEvent::FootnoteReference(label) => {
-                self.buffer.push_back((Event::FootnoteReference(FootnoteReference { label }), range))
-            },
+            CmarkEvent::FootnoteReference(label) => self
+                .buffer
+                .push_back((Event::FootnoteReference(FootnoteReference { label }), range)),
             CmarkEvent::SoftBreak => self.buffer.push_back((Event::SoftBreak, range)),
             CmarkEvent::HardBreak => self.buffer.push_back((Event::HardBreak, range)),
             CmarkEvent::TaskListMarker(checked) => {
@@ -93,8 +94,12 @@ impl<'a> Frontend<'a> {
             },
 
             // TODO: make this not duplicate
-            CmarkEvent::Start(CmarkTag::Rule) => self.buffer.push_back((Event::Start(Tag::Rule), range)),
-            CmarkEvent::End(CmarkTag::Rule) => self.buffer.push_back((Event::End(Tag::Rule), range)),
+            CmarkEvent::Start(CmarkTag::Rule) => {
+                self.buffer.push_back((Event::Start(Tag::Rule), range))
+            },
+            CmarkEvent::End(CmarkTag::Rule) => {
+                self.buffer.push_back((Event::End(Tag::Rule), range))
+            },
             CmarkEvent::Start(CmarkTag::BlockQuote) => {
                 self.buffer.push_back((Event::Start(Tag::BlockQuote), range))
             },
@@ -107,24 +112,28 @@ impl<'a> Frontend<'a> {
             CmarkEvent::End(CmarkTag::List(start_number)) if start_number.is_none() => {
                 self.buffer.push_back((Event::End(Tag::List), range))
             },
-            CmarkEvent::Start(CmarkTag::List(start_number)) => {
-                self.buffer.push_back((Event::Start(Tag::Enumerate(Enumerate {
-                    start_number: start_number.unwrap(),
-                })), range))
+            CmarkEvent::Start(CmarkTag::List(start_number)) => self.buffer.push_back((
+                Event::Start(Tag::Enumerate(Enumerate { start_number: start_number.unwrap() })),
+                range,
+            )),
+            CmarkEvent::End(CmarkTag::List(start_number)) => self.buffer.push_back((
+                Event::End(Tag::Enumerate(Enumerate { start_number: start_number.unwrap() })),
+                range,
+            )),
+            CmarkEvent::Start(CmarkTag::Item) => {
+                self.buffer.push_back((Event::Start(Tag::Item), range))
             },
-            CmarkEvent::End(CmarkTag::List(start_number)) => {
-                self.buffer.push_back((Event::End(Tag::Enumerate(Enumerate {
-                    start_number: start_number.unwrap(),
-                })), range))
+            CmarkEvent::End(CmarkTag::Item) => {
+                self.buffer.push_back((Event::End(Tag::Item), range))
             },
-            CmarkEvent::Start(CmarkTag::Item) => self.buffer.push_back((Event::Start(Tag::Item), range)),
-            CmarkEvent::End(CmarkTag::Item) => self.buffer.push_back((Event::End(Tag::Item), range)),
-            CmarkEvent::Start(CmarkTag::FootnoteDefinition(label)) => self
-                .buffer
-                .push_back((Event::Start(Tag::FootnoteDefinition(FootnoteDefinition { label })), range)),
-            CmarkEvent::End(CmarkTag::FootnoteDefinition(label)) => self
-                .buffer
-                .push_back((Event::End(Tag::FootnoteDefinition(FootnoteDefinition { label })), range)),
+            CmarkEvent::Start(CmarkTag::FootnoteDefinition(label)) => self.buffer.push_back((
+                Event::Start(Tag::FootnoteDefinition(FootnoteDefinition { label })),
+                range,
+            )),
+            CmarkEvent::End(CmarkTag::FootnoteDefinition(label)) => self.buffer.push_back((
+                Event::End(Tag::FootnoteDefinition(FootnoteDefinition { label })),
+                range,
+            )),
             CmarkEvent::Start(CmarkTag::HtmlBlock) => {
                 self.buffer.push_back((Event::Start(Tag::HtmlBlock), range))
             },
@@ -140,7 +149,9 @@ impl<'a> Frontend<'a> {
             CmarkEvent::Start(CmarkTag::TableRow) => {
                 self.buffer.push_back((Event::Start(Tag::TableRow), range))
             },
-            CmarkEvent::End(CmarkTag::TableRow) => self.buffer.push_back((Event::End(Tag::TableRow), range)),
+            CmarkEvent::End(CmarkTag::TableRow) => {
+                self.buffer.push_back((Event::End(Tag::TableRow), range))
+            },
             CmarkEvent::Start(CmarkTag::TableCell) => {
                 self.buffer.push_back((Event::Start(Tag::TableCell), range))
             },
@@ -167,10 +178,14 @@ impl<'a> Frontend<'a> {
             },
 
             CmarkEvent::Start(CmarkTag::Code) => self.convert_inline_code(range),
-            CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => self.convert_code_block(lang, range, None),
+            CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
+                self.convert_code_block(lang, range, None)
+            },
             CmarkEvent::Start(CmarkTag::Paragraph) => self.convert_paragraph(range),
             CmarkEvent::Start(CmarkTag::Header(level)) => self.convert_header(level, range, None),
-            CmarkEvent::Start(CmarkTag::Table(alignment)) => self.convert_table(alignment, range, None),
+            CmarkEvent::Start(CmarkTag::Table(alignment)) => {
+                self.convert_table(alignment, range, None)
+            },
             CmarkEvent::Start(CmarkTag::Link(typ, dst, title)) => {
                 self.convert_link(typ, dst, title, range)
             },
@@ -201,7 +216,9 @@ impl<'a> Frontend<'a> {
     /// Consumes and converts all elements until the next End event is received.
     /// Returns a concatenation of all text events (unrendered).
     #[inline]
-    fn convert_until_end_inclusive(&mut self, f: impl Fn(&CmarkTag<'_>) -> bool) -> (String, Option<Range<usize>>) {
+    fn convert_until_end_inclusive(
+        &mut self, f: impl Fn(&CmarkTag<'_>) -> bool,
+    ) -> (String, Option<Range<usize>>) {
         let mut text = String::new();
         let mut range: Option<Range<usize>> = None;
         loop {
@@ -305,7 +322,9 @@ impl<'a> Frontend<'a> {
         self.buffer.push_back((Event::End(tag), range));
     }
 
-    fn convert_code_block(&mut self, lang: Cow<'a, str>, range: Range<usize>, mut cskvp: Option<Cskvp<'a>>) {
+    fn convert_code_block(
+        &mut self, lang: Cow<'a, str>, range: Range<usize>, mut cskvp: Option<Cskvp<'a>>,
+    ) {
         let lang = match lang {
             Cow::Borrowed(s) => s,
             Cow::Owned(_) => unreachable!("CodeBlock language should be borrowed"),
@@ -331,8 +350,10 @@ impl<'a> Frontend<'a> {
                 end: code_block_cskvp_range.end,
             };
             let inline_cskvp = Cskvp::new(
-                Cow::Borrowed(&lang[pos + 1..]), code_block_cskvp_range.clone(),
-                code_block_cskvp_content_range, self.diagnostics.clone()
+                Cow::Borrowed(&lang[pos + 1..]),
+                code_block_cskvp_range.clone(),
+                code_block_cskvp_content_range,
+                self.diagnostics.clone(),
             );
             if let Some(c) = &mut cskvp {
                 self.diagnostics
@@ -392,23 +413,21 @@ impl<'a> Frontend<'a> {
                 self.buffer.push_back((Event::Latex(latex), latex_range));
                 return;
             },
-            _ => {
-                Tag::CodeBlock(CodeBlock {
-                    label: cskvp.take_label(),
-                    caption: cskvp.take_caption(),
-                    language: if language.is_empty() {
-                        None
-                    } else if language == "sequence" {
-                        self.diagnostics
-                            .warning("sequence is not yet implemented")
-                            .with_error_section(&range, "")
-                            .emit();
-                        None
-                    } else {
-                        Some((Cow::Borrowed(language), language_range))
-                    },
-                })
-            },
+            _ => Tag::CodeBlock(CodeBlock {
+                label: cskvp.take_label(),
+                caption: cskvp.take_caption(),
+                language: if language.is_empty() {
+                    None
+                } else if language == "sequence" {
+                    self.diagnostics
+                        .warning("sequence is not yet implemented")
+                        .with_error_section(&range, "")
+                        .emit();
+                    None
+                } else {
+                    Some((Cow::Borrowed(language), language_range))
+                },
+            }),
         };
 
         self.buffer.push_back((Event::Start(tag.clone()), range.clone()));
@@ -487,9 +506,8 @@ impl<'a> Frontend<'a> {
         text.truncate_end(1);
         text.truncate_start(1);
         let cskvp_content_range = Range { start: text_range.start + 1, end: text_range.end - 1 };
-        let mut cskvp = Cskvp::new(
-            text, text_range.clone(), cskvp_content_range, self.diagnostics.clone()
-        );
+        let mut cskvp =
+            Cskvp::new(text, text_range.clone(), cskvp_content_range, self.diagnostics.clone());
         // if next element could have a label, convert that element with the label
         // otherwise create label event
         match self.parser.peek().unwrap() {
@@ -508,7 +526,8 @@ impl<'a> Frontend<'a> {
                         .with_info_section(next_range, "but it can't be applied to this element")
                         .emit();
                 } else {
-                    self.buffer.push_back((Event::Label(cskvp.take_label().unwrap().0), text_range));
+                    self.buffer
+                        .push_back((Event::Label(cskvp.take_label().unwrap().0), text_range));
                 }
             },
         }
@@ -526,7 +545,7 @@ impl<'a> Frontend<'a> {
     }
 
     fn handle_cskvp(
-        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: Range<usize>
+        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: Range<usize>,
     ) {
         // check if we want a figure
         let figure = match cskvp.take_figure().map(|f| f.0).unwrap_or(self.cfg.figures) {
@@ -597,7 +616,7 @@ impl<'a> Frontend<'a> {
         let group0 = captures.as_ref().map(|c| c.get(0).unwrap());
         let inline_range = group0.map(|group| Range {
             start: text_range.clone().unwrap().start + group.start(),
-            end: text_range.unwrap().start + group.end()
+            end: text_range.unwrap().start + group.end(),
         });
 
         let autogenerated = text
@@ -622,7 +641,9 @@ impl<'a> Frontend<'a> {
             (Cow::Owned(inline.unwrap().to_string()), inline_range.unwrap())
         } else {
             prefix
-                .or_else(|| inline.map(|inline| (Cow::Owned(inline.to_string()), inline_range.unwrap())))
+                .or_else(|| {
+                    inline.map(|inline| (Cow::Owned(inline.to_string()), inline_range.unwrap()))
+                })
                 .unwrap_or_else(|| (Cow::Owned(autogenerated), range.clone()))
         };
 
@@ -631,7 +652,9 @@ impl<'a> Frontend<'a> {
         self.buffer.push_back((Event::End(tag), range));
     }
 
-    fn convert_table(&mut self, alignment: Vec<Alignment>, range: Range<usize>, cskvp: Option<Cskvp<'a>>) {
+    fn convert_table(
+        &mut self, alignment: Vec<Alignment>, range: Range<usize>, cskvp: Option<Cskvp<'a>>,
+    ) {
         let mut cskvp = cskvp.unwrap_or_default();
         let tag = Tag::Table(Table {
             label: cskvp.take_label(),
@@ -643,8 +666,17 @@ impl<'a> Frontend<'a> {
         self.buffer.push_back((Event::End(tag), range));
     }
 
-    fn convert_link(&mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>) {
-        let evt = match refs::parse_references(self.cfg, typ, dst, title, range.clone(), &mut self.diagnostics) {
+    fn convert_link(
+        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>,
+    ) {
+        let evt = match refs::parse_references(
+            self.cfg,
+            typ,
+            dst,
+            title,
+            range.clone(),
+            &mut self.diagnostics,
+        ) {
             ReferenceParseResult::BiberReferences(biber) => Event::BiberReferences(biber),
             ReferenceParseResult::InterLink(interlink) => Event::InterLink(interlink),
             ReferenceParseResult::Url(url) => Event::Url(url),
@@ -696,15 +728,18 @@ impl<'a> Frontend<'a> {
             LinkType::Autolink | LinkType::Email => unreachable!("{:?} can be images???", typ),
         };
         let mut cskvp = cskvp.unwrap_or_default();
-        self.buffer.push_back((Event::Include(Include {
-            label: cskvp.take_label(),
-            caption: cskvp.take_caption(),
-            title: if title.is_empty() { None } else { Some(title) },
-            alt_text,
-            dst,
-            scale: cskvp.take_double("scale"),
-            width: cskvp.take_double("width"),
-            height: cskvp.take_double("height"),
-        }), range))
+        self.buffer.push_back((
+            Event::Include(Include {
+                label: cskvp.take_label(),
+                caption: cskvp.take_caption(),
+                title: if title.is_empty() { None } else { Some(title) },
+                alt_text,
+                dst,
+                scale: cskvp.take_double("scale"),
+                width: cskvp.take_double("width"),
+                height: cskvp.take_double("height"),
+            }),
+            range,
+        ))
     }
 }

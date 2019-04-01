@@ -8,8 +8,8 @@
 //! This module provides an interface for both problems. First, it allows resolution of an url to
 //! an open read stream or to an auxiliary file. Secondly, this resolution will automatically apply
 //! a restrictive-by-default filter and error when violating security boundaries.
-use std::path::{Path, PathBuf};
 use std::ops::Range;
+use std::path::{Path, PathBuf};
 
 use url::Url;
 
@@ -21,7 +21,7 @@ pub use self::include::*;
 use self::remote::Remote;
 use self::source::{Source, SourceGroup};
 use crate::diagnostics::Diagnostics;
-use crate::error::{Result, Error};
+use crate::error::{Error, Result};
 
 pub struct Resolver {
     base: Url,
@@ -45,18 +45,19 @@ impl Resolver {
 
     /// Make a request to an uri in the context of a document with the specified source.
     pub fn resolve(
-        &self, context: &Context, url: &str, range: Range<usize>, diagnostics: &mut Diagnostics<'_>
+        &self, context: &Context, url: &str, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
     ) -> Result<Include> {
         let url = match self.base.join(url) {
             Ok(url) => url,
             Err(err) => {
-                diagnostics.error("couldn't resolve file")
+                diagnostics
+                    .error("couldn't resolve file")
                     .with_error_section(&range, "defined here")
                     .note(format!("tried to resolve {}", url))
                     .note(format!("malformed reference: {}", err))
                     .emit();
                 return Err(Error::Diagnostic);
-            }
+            },
         };
 
         let target = Source::new(url, context, range.clone(), diagnostics)?;
@@ -73,7 +74,7 @@ impl Resolver {
     /// later time. For example when requesting a remote document make a CORS check.
     fn check_access(
         &self, context: &Context, target: &Source, range: Range<usize>,
-        diagnostics: &mut Diagnostics<'_>
+        diagnostics: &mut Diagnostics<'_>,
     ) -> Result<()> {
         match (context, &target.group) {
             (Context::LocalRelative(_), SourceGroup::Implementation)
@@ -86,7 +87,9 @@ impl Resolver {
                 diagnostics
                     .error("permission denied")
                     .with_error_section(&range, "trying to include this")
-                    .note("local absolute path not allowed to access remote or local relative files")
+                    .note(
+                        "local absolute path not allowed to access remote or local relative files",
+                    )
                     .emit();
                 Err(Error::Diagnostic)
             },
@@ -137,9 +140,9 @@ impl Context {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::diagnostics::Input;
     use std::fs::File;
     use tempdir::TempDir;
-    use crate::diagnostics::Input;
 
     macro_rules! assert_match {
     ($left:expr, $right:pat if $cond:expr) => ({
@@ -175,8 +178,12 @@ mod tests {
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
-        let main = resolver.resolve(&top, "main.md", range.clone(), &mut diagnostics).expect("Failed to resolve direct path");
-        let sibling = resolver.resolve(&top, "image.png", range, &mut diagnostics).expect("Failed to resolve sibling file");
+        let main = resolver
+            .resolve(&top, "main.md", range.clone(), &mut diagnostics)
+            .expect("Failed to resolve direct path");
+        let sibling = resolver
+            .resolve(&top, "image.png", range, &mut diagnostics)
+            .expect("Failed to resolve sibling file");
 
         assert_match!(main, Include::Markdown(path, _) if path == &dir.path().join("main.md"));
         assert_match!(sibling, Include::Image(path) if path == &dir.path().join("image.png"));
@@ -189,8 +196,9 @@ mod tests {
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
-        let toc =
-            resolver.resolve(&top, "//toc", range, &mut diagnostics).expect("Failed to resolve path in different domain");
+        let toc = resolver
+            .resolve(&top, "//toc", range, &mut diagnostics)
+            .expect("Failed to resolve path in different domain");
 
         assert_eq!(toc, Include::Command(Command::Toc));
         drop(dir);
@@ -204,9 +212,12 @@ mod tests {
 
         let external = resolver
             .resolve(
-                &top, "https://raw.githubusercontent.com/oberien/heradoc/master/README.md",
-                range, &mut diagnostics,
-            ).expect("Failed to download external document");
+                &top,
+                "https://raw.githubusercontent.com/oberien/heradoc/master/README.md",
+                range,
+                &mut diagnostics,
+            )
+            .expect("Failed to download external document");
 
         assert_match!(external, Include::Markdown(_, Context::Remote(_)));
         drop(dir);

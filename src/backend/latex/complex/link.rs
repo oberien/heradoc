@@ -4,9 +4,9 @@ use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::Generator;
-use crate::generator::event::{Event, InterLink, Url};
 use crate::error::Result;
+use crate::generator::event::{Event, InterLink, Url};
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct UrlWithContentGen<'a> {
@@ -15,7 +15,8 @@ pub struct UrlWithContentGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Url<'a>> for UrlWithContentGen<'a> {
     fn new(
-        _cfg: &'a Config, url: Url<'a>, _range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, url: Url<'a>, _range: Range<usize>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Url { destination, title } = url;
         let out = gen.get_out();
@@ -29,7 +30,8 @@ impl<'a> CodeGenUnit<'a, Url<'a>> for UrlWithContentGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         let out = gen.get_out();
 
@@ -55,7 +57,8 @@ impl<'a> CodeGenUnit<'a, InterLink<'a>> for InterLinkWithContentGen {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())

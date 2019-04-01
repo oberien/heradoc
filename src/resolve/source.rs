@@ -1,15 +1,15 @@
 use std::env;
 use std::io;
+use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::ops::Range;
 
 use url::Url;
 
-use crate::error::{Result, Error};
+use crate::diagnostics::Diagnostics;
+use crate::error::{Error, Result};
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
-use crate::diagnostics::Diagnostics;
 
 /// Differentiate between sources based on their access right characteristics.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -39,7 +39,9 @@ pub enum SourceGroup {
     Remote,
 }
 
-fn error_include_local_from_remote(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>) -> Error {
+fn error_include_local_from_remote(
+    diagnostics: &mut Diagnostics<'_>, range: &Range<usize>,
+) -> Error {
     diagnostics
         .error("tried to include local file from remote origin")
         .with_error_section(range, "specified here")
@@ -58,11 +60,14 @@ fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: i
 }
 
 impl Source {
-    pub fn new(url: Url, context: &Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Self> {
+    pub fn new(
+        url: Url, context: &Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
+    ) -> Result<Self> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => {
-                    let workdir = context.path()
+                    let workdir = context
+                        .path()
                         .ok_or_else(|| error_include_local_from_remote(diagnostics, &range))?;
                     // url is "heradoc://document/path"
                     let path = to_path(&url.as_str()[19..], workdir)
@@ -72,7 +77,8 @@ impl Source {
                 _ => SourceGroup::Implementation,
             },
             "file" => {
-                let workdir = context.path()
+                let workdir = context
+                    .path()
                     .ok_or_else(|| error_include_local_from_remote(diagnostics, &range))?;
                 let path = to_path(url.path(), workdir)?;
                 let is_relative = match context {
@@ -91,7 +97,9 @@ impl Source {
         Ok(Source { url, group })
     }
 
-    pub fn into_include(self, remote: &Remote, range: Range<usize>, diagnostics: &mut Diagnostics<'_>) -> Result<Include> {
+    pub fn into_include(
+        self, remote: &Remote, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
+    ) -> Result<Include> {
         let Source { url, group } = self;
         match group {
             SourceGroup::Implementation => {
@@ -100,7 +108,10 @@ impl Source {
                         Ok(Include::Command(command))
                     } else {
                         diagnostics
-                            .error(format!("no heradoc implementation found for domain {:?}", domain))
+                            .error(format!(
+                                "no heradoc implementation found for domain {:?}",
+                                domain
+                            ))
                             .with_error_section(&range, "defined here")
                             .emit();
                         Err(Error::Diagnostic)
@@ -162,7 +173,7 @@ impl Source {
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
 fn to_include(
-    path: PathBuf, context: Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>
+    path: PathBuf, context: Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
 ) -> Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {

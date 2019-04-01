@@ -25,6 +25,7 @@ pub trait VecExt<T> {
 
 impl<A, B> VecExt<A> for Vec<(A, B)> {
     type Output = (A, B);
+
     fn remove_element<U>(&mut self, element: &U) -> Option<(A, B)>
     where
         A: PartialEq<U>,

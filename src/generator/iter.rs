@@ -1,15 +1,15 @@
-use std::ops::Range;
-use std::io::Write;
 use std::fs;
+use std::io::Write;
 use std::iter::Fuse;
+use std::ops::Range;
 
-use crate::error::{FatalResult, Error, Result};
-use crate::frontend::{Frontend, Event as FeEvent, EventKind as FeEventKind, Include as FeInclude};
-use crate::generator::Generator;
-use crate::generator::event::{Event, Image, Pdf};
 use crate::backend::Backend;
-use crate::resolve::{Include, Context};
 use crate::diagnostics::Input;
+use crate::error::{Error, FatalResult, Result};
+use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude};
+use crate::generator::event::{Event, Image, Pdf};
+use crate::generator::Generator;
+use crate::resolve::{Context, Include};
 
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
@@ -19,11 +19,7 @@ pub struct Iter<'a> {
 
 impl<'a> Iter<'a> {
     pub fn new(frontend: Frontend<'a>) -> Self {
-        Iter {
-            frontend: frontend.fuse(),
-            peek: None,
-            last_kind: FeEventKind::Start,
-        }
+        Iter { frontend: frontend.fuse(), peek: None, last_kind: FeEventKind::Start }
     }
 
     /// Retrieves and converts the next event that needs to be handled.
@@ -31,7 +27,9 @@ impl<'a> Iter<'a> {
     /// If it's an include which is handled, it'll be handled internally and the next event will
     /// be returned. If there is some diagnostic error, it'll skip over that event and return
     /// the next one which should be handled.
-    pub fn next(&mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> FatalResult<Option<(Event<'a>, Range<usize>)>> {
+    pub fn next(
+        &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+    ) -> FatalResult<Option<(Event<'a>, Range<usize>)>> {
         if let Some((peek, range, kind)) = self.peek.take() {
             self.last_kind = kind;
             return Ok(Some((peek, range)));
@@ -51,7 +49,9 @@ impl<'a> Iter<'a> {
         }
     }
 
-    pub fn peek(&mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> FatalResult<Option<(&Event<'a>, Range<usize>)>> {
+    pub fn peek(
+        &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+    ) -> FatalResult<Option<(&Event<'a>, Range<usize>)>> {
         if self.peek.is_none() {
             let old_kind = self.last_kind;
             let (peek, range) = match self.next(gen)? {
@@ -65,7 +65,9 @@ impl<'a> Iter<'a> {
     }
 
     /// Skips events until the next one that can be handled again.
-    pub fn skip(&mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> FatalResult<()> {
+    pub fn skip(
+        &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+    ) -> FatalResult<()> {
         match self.last_kind {
             // continue consuming until end
             FeEventKind::Start => (),
@@ -129,19 +131,19 @@ impl<'a> Iter<'a> {
         match include {
             Include::Command(command) => Ok(command.into()),
             Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(&path)
-                    .map_err(|err| {
-                        gen.diagnostics()
-                            .error("error reading markdown include file")
-                            .with_error_section(&range, "in this include")
-                            .error(format!("cause: {}", err))
-                            .emit();
-                        Error::Diagnostic
-                    })?;
+                let markdown = fs::read_to_string(&path).map_err(|err| {
+                    gen.diagnostics()
+                        .error("error reading markdown include file")
+                        .with_error_section(&range, "in this include")
+                        .error(format!("cause: {}", err))
+                        .emit();
+                    Error::Diagnostic
+                })?;
                 let input = match &context {
                     Context::Remote(url) => Input::Url(url.clone()),
-                    Context::LocalRelative(_)
-                    | Context::LocalAbsolute(_) => Input::File(path.clone()),
+                    Context::LocalRelative(_) | Context::LocalAbsolute(_) => {
+                        Input::File(path.clone())
+                    },
                 };
                 let events = gen.get_events(markdown, context, input);
                 Ok(Event::IncludeMarkdown(Box::new(events)))
@@ -149,15 +151,15 @@ impl<'a> Iter<'a> {
             Include::Image(path) => {
                 let (label, caption, title, alt_text, scale, width, height) =
                     if let Some(FeInclude {
-                                    label,
-                                    caption,
-                                    title,
-                                    alt_text,
-                                    dst: _dst,
-                                    scale,
-                                    width,
-                                    height,
-                                }) = image
+                        label,
+                        caption,
+                        title,
+                        alt_text,
+                        dst: _dst,
+                        scale,
+                        width,
+                        height,
+                    }) = image
                     {
                         (label, caption, title, alt_text, scale, width, height)
                     } else {

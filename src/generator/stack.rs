@@ -28,10 +28,14 @@ impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
     }
 
     pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
-        self.stack.iter_mut().rev()
+        self.stack
+            .iter_mut()
+            .rev()
             .filter_map(|state| match state {
                 StackElement::Context(_, diagnostics) => Some(diagnostics),
                 _ => None,
-            }).next().unwrap()
+            })
+            .next()
+            .unwrap()
     }
 }

@@ -4,9 +4,9 @@ use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::Generator;
-use crate::generator::event::{Event, Header};
 use crate::error::Result;
+use crate::generator::event::{Event, Header};
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct HeaderGen<'a> {
@@ -15,7 +15,8 @@ pub struct HeaderGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
     fn new(
-        _cfg: &'a Config, header: Header<'a>, _range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, header: Header<'a>, _range: Range<usize>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Header { label, level } = header;
         assert!(level >= 0, "Header level should be positive, but is {}", level);
@@ -24,7 +25,8 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label.0)?;
         Ok(())
@@ -38,7 +40,8 @@ pub struct BookHeaderGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
     fn new(
-        _cfg: &'a Config, header: Header<'a>, _range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, header: Header<'a>, _range: Range<usize>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let Header { label, level } = header;
         assert!(level >= 0, "Header level should be positive, but is {}", level);
@@ -51,7 +54,8 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label.0)?;
         Ok(())

@@ -1,7 +1,14 @@
 use std::borrow::Cow;
 use std::ops::Range;
 
-use pulldown_cmark::{Alignment, CowStr, Event as CmarkEvent, LinkType, OffsetIter, Tag as CmarkTag};
+use pulldown_cmark::{
+    Alignment,
+    CowStr,
+    Event as CmarkEvent,
+    LinkType,
+    OffsetIter,
+    Tag as CmarkTag,
+};
 
 pub struct ConvertCow<'a>(pub OffsetIter<'a>);
 
