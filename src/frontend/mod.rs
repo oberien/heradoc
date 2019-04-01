@@ -311,25 +311,42 @@ impl<'a> Frontend<'a> {
             Cow::Owned(_) => unreachable!("CodeBlock language should be borrowed"),
         };
 
+        let code_block_cskvp_range = self.diagnostics.first_line(&range);
+        let code_block_cskvp_range = Range {
+            start: code_block_cskvp_range.end - lang.len(),
+            end: code_block_cskvp_range.end,
+        };
+
         // check if language has label/config
         let language;
+        let language_range;
         if let Some(pos) = lang.find(',') {
             language = &lang[..pos];
-            let code_block_cskvp_range = self.diagnostics.first_line(&range);
+            language_range = Range {
+                start: code_block_cskvp_range.start,
+                end: code_block_cskvp_range.start + language.len(),
+            };
+            let code_block_cskvp_content_range = Range {
+                start: code_block_cskvp_range.start + pos + 1,
+                end: code_block_cskvp_range.end,
+            };
+            let inline_cskvp = Cskvp::new(
+                Cow::Borrowed(&lang[pos + 1..]), code_block_cskvp_range.clone(),
+                code_block_cskvp_content_range, self.diagnostics.clone()
+            );
             if let Some(c) = &mut cskvp {
                 self.diagnostics
-                    .error("code has both prefix and inline style labels / config")
-                    .with_section(&code_block_cskvp_range, "config specified here")
-                    .with_section(c.range(), "but config also specified here")
+                    .error("code has both prefix and inline style config")
+                    .with_info_section(c.range(), "prefix config defined here")
+                    .with_info_section(&code_block_cskvp_range, "inline config defined here")
                     .note("ignoring both")
                     .help("try removing one of them")
                     .emit();
                 c.clear();
             } else {
-                let cskvp = Cskvp::new(Cow::Borrowed(&lang[pos + 1..]), code_block_cskvp_range, self.diagnostics.clone());
                 // check for figure and handle it
                 self.handle_cskvp(
-                    cskvp,
+                    inline_cskvp,
                     CmarkEvent::Start(CmarkTag::CodeBlock(Cow::Borrowed(language))),
                     range,
                 );
@@ -337,6 +354,7 @@ impl<'a> Frontend<'a> {
             }
         } else {
             language = lang;
+            language_range = code_block_cskvp_range;
         }
 
         let mut cskvp = cskvp.unwrap_or_default();
@@ -383,11 +401,11 @@ impl<'a> Frontend<'a> {
                     } else if language == "sequence" {
                         self.diagnostics
                             .warning("sequence is not yet implemented")
-                            .with_section(&range, "")
+                            .with_error_section(&range, "")
                             .emit();
                         None
                     } else {
-                        Some(Cow::Borrowed(language))
+                        Some((Cow::Borrowed(language), language_range))
                     },
                 })
             },
@@ -468,7 +486,10 @@ impl<'a> Frontend<'a> {
         // parse label
         text.truncate_end(1);
         text.truncate_start(1);
-        let mut cskvp = Cskvp::new(text, text_range.clone(), self.diagnostics.clone());
+        let cskvp_content_range = Range { start: text_range.start + 1, end: text_range.end - 1 };
+        let mut cskvp = Cskvp::new(
+            text, text_range.clone(), cskvp_content_range, self.diagnostics.clone()
+        );
         // if next element could have a label, convert that element with the label
         // otherwise create label event
         match self.parser.peek().unwrap() {
@@ -483,11 +504,11 @@ impl<'a> Frontend<'a> {
                 if !cskvp.has_label() {
                     self.diagnostics
                         .error("found element config, but there wasn't an element ot apply it to")
-                        .with_section(cskvp.range(), "found element config here")
-                        .with_section(next_range, "but it can't be applied to this element")
+                        .with_error_section(cskvp.range(), "found element config here")
+                        .with_info_section(next_range, "but it can't be applied to this element")
                         .emit();
                 } else {
-                    self.buffer.push_back((Event::Label(cskvp.take_label().unwrap()), text_range));
+                    self.buffer.push_back((Event::Label(cskvp.take_label().unwrap().0), text_range));
                 }
             },
         }
@@ -508,7 +529,7 @@ impl<'a> Frontend<'a> {
         &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: Range<usize>
     ) {
         // check if we want a figure
-        let figure = match cskvp.take_figure().unwrap_or(self.cfg.figures) {
+        let figure = match cskvp.take_figure().map(|f| f.0).unwrap_or(self.cfg.figures) {
             false => None,
             true => match &next_element {
                 CmarkEvent::Start(CmarkTag::Table(_)) => Some(Tag::TableFigure(Figure {
@@ -591,18 +612,18 @@ impl<'a> Frontend<'a> {
         let label = if prefix.is_some() && inline.is_some() {
             self.diagnostics
                 .error("header has both prefix and inline style labels")
-                .with_section(&range, "header defined here")
-                .with_section(cskvp.range(), "prefix style defined here")
-                .with_section(&inline_range.unwrap(), "inline style defined here")
+                .with_error_section(&range, "header defined here")
+                .with_info_section(&prefix.unwrap().1, "prefix style defined here")
+                .with_info_section(inline_range.as_ref().unwrap(), "inline style defined here")
                 .note(format!("using the inline one"))
                 .help("try removing one of them")
                 .emit();
 
-            Cow::Owned(inline.unwrap().to_string())
+            (Cow::Owned(inline.unwrap().to_string()), inline_range.unwrap())
         } else {
             prefix
-                .or_else(|| inline.map(|inline| Cow::Owned(inline.to_string())))
-                .unwrap_or_else(|| Cow::Owned(autogenerated))
+                .or_else(|| inline.map(|inline| (Cow::Owned(inline.to_string()), inline_range.unwrap())))
+                .unwrap_or_else(|| (Cow::Owned(autogenerated), range.clone()))
         };
 
         let tag = Tag::Header(Header { label, level });

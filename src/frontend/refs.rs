@@ -51,7 +51,7 @@ pub fn parse_references<'a>(
         if cfg.bibliography.is_none() {
             diagnostics
                 .error("found biber reference, but no bibliography file found")
-                .with_section(&range, "referenced here")
+                .with_error_section(&range, "referenced here")
                 .note("rendering as text")
                 .emit();
             return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));

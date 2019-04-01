@@ -176,21 +176,21 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
         self
     }
 
-    /// message can be empty
-    pub fn with_section<S: Into<String>>(mut self, range: &Range<usize>, message: S) -> Self {
-        let style = if self.labels.len() == 0 {
-            LabelStyle::Primary
-        } else {
-            LabelStyle::Secondary
-        };
+    fn with_section<S: Into<String>>(mut self, style: LabelStyle, range: &Range<usize>, message: S) -> Self {
         let span = self.file_map.span().subspan(ByteOffset(range.start as i64), ByteOffset(range.end as i64));
         let message = message.into();
-        let message = if message.len() > 0 {
-            Some(message)
-        } else {
-            None
-        };
+        let message = Some(message);
         self.labels.push(Label { span, message, style });
         self
+    }
+
+    /// message can be empty
+    pub fn with_error_section<S: Into<String>>(mut self, range: &Range<usize>, message: S) -> Self {
+        self.with_section(LabelStyle::Primary, range, message)
+    }
+
+    /// message can be empty
+    pub fn with_info_section<S: Into<String>>(mut self, range: &Range<usize>, message: S) -> Self {
+        self.with_section(LabelStyle::Secondary, range, message)
     }
 }

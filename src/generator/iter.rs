@@ -133,7 +133,7 @@ impl<'a> Iter<'a> {
                     .map_err(|err| {
                         gen.diagnostics()
                             .error("error reading markdown include file")
-                            .with_section(&range, "in this include")
+                            .with_error_section(&range, "in this include")
                             .error(format!("cause: {}", err))
                             .emit();
                         Error::Diagnostic

@@ -33,20 +33,23 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
                 .open(&p);
             match res {
                 Ok(file) => break (file, p),
-                Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+                Err(ref e) if e.kind() == ErrorKind::AlreadyExists => {
                     i += 1;
                     continue
                 },
                 Err(e) => {
                     gen.diagnostics()
                         .bug("error creating temporary graphviz file")
-                        .with_section(&range, "for this graphviz code")
+                        .with_info_section(&range, "for this graphviz code")
+                        .note(format!("cause: {}", e))
                         .note("skipping over it")
                         .emit();
                     return Err(Error::Diagnostic);
                 }
             }
-            unreachable!();
+            // :thonking:
+            #[allow(unreachable_code)]
+            { unreachable!(); }
         };
         Ok(GraphvizGen { file, path, graphviz, range })
     }
@@ -72,7 +75,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             // TODO: parse the dot output and provide appropriate error messages
             gen.diagnostics()
                 .error("graphviz rendering failed")
-                .with_section(&self.range, "trying to render this graphviz cdoe block")
+                .with_error_section(&self.range, "trying to render this graphviz cdoe block")
                 .note(format!("`dot` returned error code {:?}", out.status.code()))
                 .note("logs written to dot_stdout.log and dot_stderr.log")
                 .note("skipping over it")
@@ -84,13 +87,13 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
         inline_fig.write_begin(&mut *out)?;
 
         write!(out, "\\includegraphics[")?;
-        if let Some(scale) = scale {
+        if let Some((scale, _)) = scale {
             write!(out, "scale={},", scale)?;
         }
-        if let Some(width) = width {
+        if let Some((width, _)) = width {
             write!(out, "width={},", width)?;
         }
-        if let Some(height) = height {
+        if let Some((height, _)) = height {
             write!(out, "height={},", height)?;
         }
         writeln!(out, "]{{{}.pdf}}", self.path.display())?;
