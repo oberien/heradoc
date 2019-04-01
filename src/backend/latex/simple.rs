@@ -22,15 +22,13 @@ pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     fn gen<'b, 'c>(
-        text: Cow<'a, str>, _range: Range<usize>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+        text: Cow<'a, str>, _range: Range<usize>,
+        stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
     ) -> Result<()> {
         // TODO: make code-blocks containing unicode allow inline-math
         // handle unicode
-        let strfn: fn(&str) -> &str = if stack.iter().any(|e| e.is_math()) {
-            |s| &s[1..s.len() - 1]
-        } else {
-            |s| s
-        };
+        let strfn: fn(&str) -> &str =
+            if stack.iter().any(|e| e.is_math()) { |s| &s[1..s.len() - 1] } else { |s| s };
 
         let in_inline_code = stack.iter().any(|e| e.is_inline_code());
         let in_code_or_math = stack.iter().any(|e| e.is_code() || e.is_math());
@@ -92,7 +90,9 @@ impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
 pub struct BiberReferencesGen;
 
 impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
-    fn gen(mut biber: Vec<BiberReference<'a>>, _range: Range<usize>, out: &mut impl Write) -> Result<()> {
+    fn gen(
+        mut biber: Vec<BiberReference<'a>>, _range: Range<usize>, out: &mut impl Write,
+    ) -> Result<()> {
         if biber.len() == 1 {
             let BiberReference { reference, attributes } = biber.pop().unwrap();
             match attributes {
@@ -221,7 +221,9 @@ impl SimpleCodeGenUnit<()> for SoftBreakGen {
 pub struct HardBreakGen;
 
 impl MediumCodeGenUnit<()> for HardBreakGen {
-    fn gen<'b, 'c>((): (), _range: Range<usize>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+    fn gen<'b, 'c>(
+        (): (), _range: Range<usize>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+    ) -> Result<()> {
         let in_table = stack.iter().any(|e| e.is_table());
         let out = stack.get_out();
 

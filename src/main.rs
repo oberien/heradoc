@@ -111,15 +111,9 @@ fn main() {
 
 fn gen(cfg: &Config, markdown: String, out: impl Write) {
     let res = match cfg.document_type {
-        DocumentType::Article => {
-            backend::generate(cfg, Article, &Arena::new(), markdown, out)
-        },
-        DocumentType::Report => {
-            backend::generate(cfg, Report, &Arena::new(), markdown, out)
-        },
-        DocumentType::Thesis => {
-            backend::generate(cfg, Thesis, &Arena::new(), markdown, out)
-        },
+        DocumentType::Article => backend::generate(cfg, Article, &Arena::new(), markdown, out),
+        DocumentType::Report => backend::generate(cfg, Report, &Arena::new(), markdown, out),
+        DocumentType::Thesis => backend::generate(cfg, Thesis, &Arena::new(), markdown, out),
     };
     match res {
         Ok(()) => (),

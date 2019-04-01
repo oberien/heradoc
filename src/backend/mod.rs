@@ -5,6 +5,8 @@ use std::ops::Range;
 
 use typed_arena::Arena;
 
+use crate::config::Config;
+use crate::error::{FatalResult, Result};
 use crate::generator::event::{
     BiberReference,
     CodeBlock,
@@ -24,8 +26,6 @@ use crate::generator::event::{
     Url,
 };
 use crate::generator::{Generator, Stack};
-use crate::config::Config;
-use crate::error::{Result, FatalResult};
 
 pub mod latex;
 
@@ -96,7 +96,8 @@ pub trait Backend<'a>: Debug {
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: T, range: Range<usize>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        cfg: &'a Config, tag: T, range: Range<usize>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
@@ -107,7 +108,8 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
         Ok(Some(e))
     }
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<(&Event<'a>, Range<usize>)>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()>;
 }
 
@@ -116,11 +118,15 @@ pub trait SimpleCodeGenUnit<T> {
 }
 
 pub trait MediumCodeGenUnit<T> {
-    fn gen<'a, 'b>(data: T, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()>;
+    fn gen<'a, 'b>(
+        data: T, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+    ) -> Result<()>;
 }
 
 impl<T: SimpleCodeGenUnit<D>, D> MediumCodeGenUnit<D> for T {
-    fn gen<'a, 'b>(data: D, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()> {
+    fn gen<'a, 'b>(
+        data: D, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+    ) -> Result<()> {
         T::gen(data, range, &mut stack.get_out())
     }
 }

@@ -1,14 +1,14 @@
 use std::borrow::Cow;
-use std::str::FromStr;
 use std::ops::Range;
+use std::str::FromStr;
 
 pub use pulldown_cmark::LinkType;
 
 use super::event::{BiberReference, InterLink, Url};
 use crate::config::Config;
+use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::Command;
-use crate::diagnostics::Diagnostics;
 
 #[derive(Debug)]
 pub enum ReferenceParseResult<'a> {
@@ -23,8 +23,8 @@ pub enum ReferenceParseResult<'a> {
 }
 
 pub fn parse_references<'a>(
-    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>,
-    range: Range<usize>, diagnostics: &mut Diagnostics<'a>,
+    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>,
+    diagnostics: &mut Diagnostics<'a>,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
     // title

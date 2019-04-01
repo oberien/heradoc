@@ -1,16 +1,16 @@
 #![allow(unused)]
 
-use std::rc::Rc;
-use std::ops::Range;
-use std::path::PathBuf;
 use std::fmt;
 use std::io::Write;
+use std::ops::Range;
+use std::path::PathBuf;
+use std::rc::Rc;
 
-use url::Url;
-use codespan::{FileMap, FileName, ByteOffset, Span};
-use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
-use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 use backtrace::Backtrace;
+use codespan::{ByteOffset, FileMap, FileName, Span};
+use codespan_reporting::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
+use url::Url;
 
 use crate::resolve::Context;
 
@@ -21,10 +21,7 @@ pub struct Diagnostics<'a> {
 
 impl<'a> Clone for Diagnostics<'a> {
     fn clone(&self) -> Self {
-        Diagnostics {
-            file_map: self.file_map.clone(),
-            out: Diagnostics::create_out_stream(),
-        }
+        Diagnostics { file_map: self.file_map.clone(), out: Diagnostics::create_out_stream() }
     }
 }
 
@@ -57,22 +54,17 @@ impl<'a> Diagnostics<'a> {
         };
         let file_map = Rc::new(FileMap::new(source, markdown));
 
-        Diagnostics {
-            file_map,
-            out: Diagnostics::create_out_stream(),
-        }
+        Diagnostics { file_map, out: Diagnostics::create_out_stream() }
     }
 
     pub fn first_line(&self, range: &Range<usize>) -> Range<usize> {
-        let start = Span::from_offset(self.file_map.span().start(), ByteOffset(range.start as i64)).end();
+        let start =
+            Span::from_offset(self.file_map.span().start(), ByteOffset(range.start as i64)).end();
         let line = self.file_map.location(start).unwrap().0;
         let line_span = self.file_map.line_span(line).unwrap();
         // get rid of newline
         let len = self.file_map.src_slice(line_span).unwrap().trim_end().len();
-        Range {
-            start: range.start,
-            end: range.start + len,
-        }
+        Range { start: range.start, end: range.start + len }
     }
 
     fn diagnostic(&mut self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
@@ -88,29 +80,36 @@ impl<'a> Diagnostics<'a> {
     }
 
     pub fn bug<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
-        let mut diag = Some(self.diagnostic(Severity::Bug, message.into())
-            .note("please report this"));
+        let mut diag =
+            Some(self.diagnostic(Severity::Bug, message.into()).note("please report this"));
         backtrace::trace(|frame| {
             let ip = frame.ip();
             backtrace::resolve(ip, |symbol| {
                 diag = Some(diag.take().unwrap().note(format!(
                     "in heradoc file {:?} name {:?} line {:?} address {:?}",
-                    symbol.filename(), symbol.name(), symbol.lineno(), symbol.addr()
+                    symbol.filename(),
+                    symbol.name(),
+                    symbol.lineno(),
+                    symbol.addr()
                 )));
             });
             true
         });
         diag.unwrap()
     }
+
     pub fn error<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Error, message.into())
     }
+
     pub fn warning<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Warning, message.into())
     }
+
     pub fn note<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Note, message.into())
     }
+
     pub fn help<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Help, message.into())
     }
@@ -158,15 +157,19 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     pub fn bug<S: Into<String>>(self, message: S) -> Self {
         self.diagnostic(Severity::Bug, message.into())
     }
+
     pub fn error<S: Into<String>>(self, message: S) -> Self {
         self.diagnostic(Severity::Error, message.into())
     }
+
     pub fn warning<S: Into<String>>(self, message: S) -> Self {
         self.diagnostic(Severity::Warning, message.into())
     }
+
     pub fn note<S: Into<String>>(self, message: S) -> Self {
         self.diagnostic(Severity::Note, message.into())
     }
+
     pub fn help<S: Into<String>>(self, message: S) -> Self {
         self.diagnostic(Severity::Help, message.into())
     }
@@ -176,8 +179,13 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
         self
     }
 
-    fn with_section<S: Into<String>>(mut self, style: LabelStyle, range: &Range<usize>, message: S) -> Self {
-        let span = self.file_map.span().subspan(ByteOffset(range.start as i64), ByteOffset(range.end as i64));
+    fn with_section<S: Into<String>>(
+        mut self, style: LabelStyle, range: &Range<usize>, message: S,
+    ) -> Self {
+        let span = self
+            .file_map
+            .span()
+            .subspan(ByteOffset(range.start as i64), ByteOffset(range.end as i64));
         let message = message.into();
         let message = Some(message);
         self.labels.push(Label { span, message, style });

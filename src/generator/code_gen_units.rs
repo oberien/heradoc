@@ -3,11 +3,11 @@ use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
+use crate::diagnostics::Diagnostics;
+use crate::error::Result;
 use crate::generator::event::{Event, Tag};
 use crate::generator::{Generator, Stack};
 use crate::resolve::Context;
-use crate::diagnostics::Diagnostics;
-use crate::error::Result;
 
 #[derive(Debug)]
 pub enum StackElement<'a, D: Backend<'a>> {

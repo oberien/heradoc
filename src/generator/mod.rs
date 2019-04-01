@@ -1,15 +1,15 @@
+use std::fmt;
 use std::fs;
 use std::io::Write;
 use std::ops::Range;
-use std::fmt;
 
 use typed_arena::Arena;
 
 use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
+use crate::diagnostics::{Diagnostics, Input};
 use crate::frontend::Frontend;
 use crate::resolve::{Context, Include, Resolver};
-use crate::diagnostics::{Diagnostics, Input};
 
 mod code_gen_units;
 pub mod event;
@@ -20,7 +20,7 @@ pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
 use self::event::Event;
-use crate::error::{FatalResult, Result, Error};
+use crate::error::{Error, FatalResult, Result};
 use crate::generator::iter::Iter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
@@ -71,11 +71,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         let diagnostics = Diagnostics::new(markdown, input);
         let frontend = Frontend::new(self.cfg, markdown, diagnostics.clone());
         let events = Iter::new(frontend);
-        Events {
-            events,
-            diagnostics,
-            context,
-        }
+        Events { events, diagnostics, context }
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
@@ -153,8 +149,12 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Some(Event::InlineHtml(html)) => B::Text::gen(html, range, &mut stack)?,
             Some(Event::Latex(latex)) => B::Latex::gen(latex, range, &mut stack)?,
             Some(Event::IncludeMarkdown(events)) => self.generate_body(*events)?,
-            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, range, &mut stack)?,
-            Some(Event::BiberReferences(biber)) => B::BiberReferences::gen(biber, range, &mut stack)?,
+            Some(Event::FootnoteReference(fnote)) => {
+                B::FootnoteReference::gen(fnote, range, &mut stack)?
+            },
+            Some(Event::BiberReferences(biber)) => {
+                B::BiberReferences::gen(biber, range, &mut stack)?
+            },
             Some(Event::Url(url)) => B::Url::gen(url, range, &mut stack)?,
             Some(Event::InterLink(interlink)) => B::InterLink::gen(interlink, range, &mut stack)?,
             Some(Event::Image(img)) => B::Image::gen(img, range, &mut stack)?,
@@ -162,7 +162,9 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, range, &mut stack)?,
             Some(Event::SoftBreak) => B::SoftBreak::gen((), range, &mut stack)?,
             Some(Event::HardBreak) => B::HardBreak::gen((), range, &mut stack)?,
-            Some(Event::TaskListMarker(marker)) => B::TaskListMarker::gen(marker, range, &mut stack)?,
+            Some(Event::TaskListMarker(marker)) => {
+                B::TaskListMarker::gen(marker, range, &mut stack)?
+            },
             Some(Event::TableOfContents) => B::TableOfContents::gen((), range, &mut stack)?,
             Some(Event::Bibliography) => B::Bibliography::gen((), range, &mut stack)?,
             Some(Event::ListOfTables) => B::ListOfTables::gen((), range, &mut stack)?,
@@ -188,21 +190,27 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
-        self.stack.iter_mut().rev()
+        self.stack
+            .iter_mut()
+            .rev()
             .filter_map(|state| match state {
                 StackElement::Context(_, diagnostics) => Some(diagnostics),
                 _ => None,
-            }).next().unwrap()
+            })
+            .next()
+            .unwrap()
     }
 
     fn resolve(&mut self, url: &str, range: Range<usize>) -> Result<Include> {
-        let (context, diagnostics) = self.stack
+        let (context, diagnostics) = self
+            .stack
             .iter_mut()
             .rev()
             .find_map(|se| match se {
                 StackElement::Context(context, diagnostics) => Some((context, diagnostics)),
                 _ => None,
-            }).expect("no Context???");
+            })
+            .expect("no Context???");
         self.resolver.resolve(context, url, range, diagnostics)
     }
 }

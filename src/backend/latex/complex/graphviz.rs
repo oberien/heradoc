@@ -1,15 +1,15 @@
 use std::fs::{File, OpenOptions};
-use std::io::{Write, ErrorKind};
+use std::io::{ErrorKind, Write};
+use std::ops::Range;
 use std::path::PathBuf;
 use std::process::Command;
-use std::ops::Range;
 
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
-use crate::generator::Generator;
+use crate::error::{Error, Result};
 use crate::generator::event::{Event, Graphviz};
-use crate::error::{Result, Error};
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {
@@ -27,15 +27,12 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
         let mut i = 0;
         let (file, path) = loop {
             let p = cfg.out_dir.join(format!("graphviz_{}", i));
-            let res =  OpenOptions::new()
-                .create_new(true)
-                .write(true)
-                .open(&p);
+            let res = OpenOptions::new().create_new(true).write(true).open(&p);
             match res {
                 Ok(file) => break (file, p),
                 Err(ref e) if e.kind() == ErrorKind::AlreadyExists => {
                     i += 1;
-                    continue
+                    continue;
                 },
                 Err(e) => {
                     gen.diagnostics()
@@ -45,11 +42,13 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
                         .note("skipping over it")
                         .emit();
                     return Err(Error::Diagnostic);
-                }
+                },
             }
             // :thonking:
             #[allow(unreachable_code)]
-            { unreachable!(); }
+            {
+                unreachable!();
+            }
         };
         Ok(GraphvizGen { file, path, graphviz, range })
     }
@@ -59,7 +58,8 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
         drop(self.file);
         let Graphviz { label, caption, scale, width, height } = self.graphviz;
