@@ -19,13 +19,13 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
 
         let out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}[")?;
-        if let Some(label) = label {
+        if let Some((label, _)) = label {
             write!(out, "label={{{}}},", label)?;
         }
-        if let Some(caption) = caption {
+        if let Some((caption, _)) = caption {
             write!(out, "caption={{{}}},", caption)?;
         }
-        if let Some(language) = language {
+        if let Some((language, _)) = language {
             write!(out, "language={{{}}},", language)?;
         }
         writeln!(out, "]")?;

@@ -158,13 +158,13 @@ impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
             write!(out, "\\includegraphics[")?;
         }
 
-        if let Some(scale) = scale {
+        if let Some((scale, _)) = scale {
             write!(out, "scale={}", scale)?;
         }
-        if let Some(width) = width {
+        if let Some((width, _)) = width {
             write!(out, "width={},", width)?;
         }
-        if let Some(height) = height {
+        if let Some((height, _)) = height {
             write!(out, "height={},", height)?;
         }
 

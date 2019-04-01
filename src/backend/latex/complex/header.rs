@@ -10,7 +10,7 @@ use crate::error::Result;
 
 #[derive(Debug)]
 pub struct HeaderGen<'a> {
-    label: Cow<'a, str>,
+    label: (Cow<'a, str>, Range<usize>),
 }
 
 impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
@@ -26,14 +26,14 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
-        writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label)?;
+        writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label.0)?;
         Ok(())
     }
 }
 
 #[derive(Debug)]
 pub struct BookHeaderGen<'a> {
-    label: Cow<'a, str>,
+    label: (Cow<'a, str>, Range<usize>),
 }
 
 impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
@@ -53,7 +53,7 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<(&Event<'a>, Range<usize>)>,
     ) -> Result<()> {
-        writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label)?;
+        writeln!(gen.get_out(), "}}\\label{{{}}}\n", self.label.0)?;
         Ok(())
     }
 }

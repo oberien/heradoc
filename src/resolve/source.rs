@@ -42,7 +42,7 @@ pub enum SourceGroup {
 fn error_include_local_from_remote(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>) -> Error {
     diagnostics
         .error("tried to include local file from remote origin")
-        .with_section(range, "specified here")
+        .with_error_section(range, "specified here")
         .note("local files can only be included from within local files")
         .emit();
     Error::Diagnostic
@@ -51,7 +51,7 @@ fn error_include_local_from_remote(diagnostics: &mut Diagnostics<'_>, range: &Ra
 fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: io::Error) -> Error {
     diagnostics
         .bug("error converting url to path")
-        .with_section(&range, "defined here")
+        .with_info_section(&range, "defined here")
         .error(format!("cause: {}", err))
         .emit();
     Error::Diagnostic
@@ -101,14 +101,14 @@ impl Source {
                     } else {
                         diagnostics
                             .error(format!("no heradoc implementation found for domain {:?}", domain))
-                            .with_section(&range, "defined here")
+                            .with_error_section(&range, "defined here")
                             .emit();
                         Err(Error::Diagnostic)
                     }
                 } else {
                     diagnostics
                         .error("no heradoc implementation domain found")
-                        .with_section(&range, "defined here")
+                        .with_error_section(&range, "defined here")
                         .emit();
                     Err(Error::Diagnostic)
                 }
@@ -127,7 +127,7 @@ impl Source {
                     Err(RemoteError::Io(err)) => {
                         diagnostics
                             .error("error writing downloaded content to cache")
-                            .with_section(&range, "trying to download this")
+                            .with_error_section(&range, "trying to download this")
                             .error(format!("cause: {}", err))
                             .emit();
                         return Err(Error::Diagnostic);
@@ -135,7 +135,7 @@ impl Source {
                     Err(RemoteError::Request(err)) => {
                         diagnostics
                             .error("error downloading content")
-                            .with_section(&range, "trying to download this")
+                            .with_error_section(&range, "trying to download this")
                             .error(format!("cause: {}", err))
                             .emit();
                         return Err(Error::Diagnostic);
@@ -172,14 +172,14 @@ fn to_include(
         Some(ext) => {
             diagnostics
                 .error(format!("unknown file format {:?}", ext))
-                .with_section(&range, "trying to include this")
+                .with_error_section(&range, "trying to include this")
                 .emit();
             Err(Error::Diagnostic)
         },
         None => {
             diagnostics
                 .error("no file extension")
-                .with_section(&range, "trying to include this")
+                .with_error_section(&range, "trying to include this")
                 .note("need file extension to differentiate file type")
                 .emit();
             Err(Error::Diagnostic)

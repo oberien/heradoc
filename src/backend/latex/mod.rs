@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::io::{Result, Write};
+use std::ops::Range;
 
 mod complex;
 mod document;
@@ -70,20 +71,20 @@ use self::complex::{
 /// Thus we create an inline figure / table with placement specifier `H` (from the `float` package).
 #[derive(Debug)]
 struct InlineEnvironment<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
     environment: &'static str,
 }
 
 impl<'a> InlineEnvironment<'a> {
     pub fn new_figure(
-        label: Option<Cow<'a, str>>, caption: Option<Cow<'a, str>>,
+        label: Option<(Cow<'a, str>, Range<usize>)>, caption: Option<(Cow<'a, str>, Range<usize>)>,
     ) -> InlineEnvironment<'a> {
         InlineEnvironment { label, caption, environment: "figure" }
     }
 
     pub fn new_table(
-        label: Option<Cow<'a, str>>, caption: Option<Cow<'a, str>>,
+        label: Option<(Cow<'a, str>, Range<usize>)>, caption: Option<(Cow<'a, str>, Range<usize>)>,
     ) -> InlineEnvironment<'a> {
         InlineEnvironment { label, caption, environment: "table" }
     }
@@ -100,7 +101,7 @@ impl<'a> InlineEnvironment<'a> {
             return Ok(());
         }
 
-        if let Some(caption) = &self.caption {
+        if let Some((caption, _)) = &self.caption {
             if self.label.is_some() {
                 writeln!(out, "\\caption{{{}}}", caption)?;
             } else {
@@ -110,7 +111,7 @@ impl<'a> InlineEnvironment<'a> {
             writeln!(out, "\\caption{{}}")?;
         }
 
-        if let Some(label) = &self.label {
+        if let Some((label, _)) = &self.label {
             writeln!(out, "\\label{{{}}}", label)?;
         }
 

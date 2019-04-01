@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::ops::Range;
 
 pub use pulldown_cmark::Alignment;
 
@@ -99,15 +100,15 @@ pub enum Tag<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Header<'a> {
-    pub label: Cow<'a, str>,
+    pub label: (Cow<'a, str>, Range<usize>),
     pub level: i32,
 }
 
 #[derive(Debug, Clone)]
 pub struct CodeBlock<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
-    pub language: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
+    pub language: Option<(Cow<'a, str>, Range<usize>)>,
 }
 
 #[derive(Debug, Clone)]
@@ -122,41 +123,41 @@ pub struct FootnoteDefinition<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Figure<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Table<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
     pub alignment: Vec<Alignment>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Include<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
     pub title: Option<Cow<'a, str>>,
     /// rendered already
     pub alt_text: Option<String>,
     pub dst: Cow<'a, str>,
-    pub scale: Option<Cow<'a, str>>,
-    pub width: Option<Cow<'a, str>>,
-    pub height: Option<Cow<'a, str>>,
+    pub scale: Option<(Cow<'a, str>, Range<usize>)>,
+    pub width: Option<(Cow<'a, str>, Range<usize>)>,
+    pub height: Option<(Cow<'a, str>, Range<usize>)>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Equation<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Graphviz<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
-    pub scale: Option<Cow<'a, str>>,
-    pub width: Option<Cow<'a, str>>,
-    pub height: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
+    pub scale: Option<(Cow<'a, str>, Range<usize>)>,
+    pub width: Option<(Cow<'a, str>, Range<usize>)>,
+    pub height: Option<(Cow<'a, str>, Range<usize>)>,
 }

@@ -37,8 +37,8 @@ pub type TableFigureGen<'a> = AnyFigureGen<'a, Table>;
 #[derive(Debug)]
 #[doc(hidden)]
 pub struct AnyFigureGen<'a, T: Environment> {
-    label: Option<Cow<'a, str>>,
-    caption: Option<Cow<'a, str>>,
+    label: Option<(Cow<'a, str>, Range<usize>)>,
+    caption: Option<(Cow<'a, str>, Range<usize>)>,
     _marker: PhantomData<T>,
 }
 
@@ -56,10 +56,10 @@ impl<'a, T: Environment + Debug> CodeGenUnit<'a, Figure<'a>> for AnyFigureGen<'a
     ) -> Result<()> {
         let out = gen.get_out();
         match self.caption {
-            Some(caption) => writeln!(out, "\\caption{{{}}}", caption)?,
+            Some((caption, _)) => writeln!(out, "\\caption{{{}}}", caption)?,
             None => writeln!(out, "\\caption{{}}")?,
         }
-        if let Some(label) = self.label {
+        if let Some((label, _)) = self.label {
             writeln!(out, "\\label{{{}}}", label)?;
         }
         writeln!(out, "\\end{{{}}}", T::to_str())?;

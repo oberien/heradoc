@@ -1,5 +1,5 @@
 {#label}
-```rust, #label2
+```rust, #label2, figure=true, nofigure, figure
 let foo = bar;
 ```
 

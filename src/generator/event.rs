@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::path::PathBuf;
+use std::ops::Range;
 
 pub use crate::frontend::{
     BiberReference,
@@ -91,15 +92,15 @@ pub enum Tag<'a> {
 /// Image to display as figure.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Image<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<(Cow<'a, str>, Range<usize>)>,
+    pub caption: Option<(Cow<'a, str>, Range<usize>)>,
     pub title: Option<Cow<'a, str>>,
     pub alt_text: Option<String>,
     /// Path to read image from.
     pub path: PathBuf,
-    pub scale: Option<Cow<'a, str>>,
-    pub width: Option<Cow<'a, str>>,
-    pub height: Option<Cow<'a, str>>,
+    pub scale: Option<(Cow<'a, str>, Range<usize>)>,
+    pub width: Option<(Cow<'a, str>, Range<usize>)>,
+    pub height: Option<(Cow<'a, str>, Range<usize>)>,
 }
 
 /// Pdf to include at that point inline.

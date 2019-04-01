@@ -16,19 +16,21 @@ impl StrExt for str {
 
 // https://github.com/rust-lang/rust/issues/40062
 pub trait VecExt<T> {
-    fn remove_element<U>(&mut self, element: &U) -> Option<T>
+    type Output;
+    fn remove_element<U>(&mut self, element: &U) -> Option<Self::Output>
     where
         T: PartialEq<U>,
         U: ?Sized;
 }
 
-impl<T> VecExt<T> for Vec<T> {
-    fn remove_element<U>(&mut self, element: &U) -> Option<T>
+impl<A, B> VecExt<A> for Vec<(A, B)> {
+    type Output = (A, B);
+    fn remove_element<U>(&mut self, element: &U) -> Option<(A, B)>
     where
-        T: PartialEq<U>,
+        A: PartialEq<U>,
         U: ?Sized,
     {
-        let pos = self.iter().position(|s| *s == *element)?;
+        let pos = self.iter().position(|(a, _)| *a == *element)?;
         Some(self.remove(pos))
     }
 }

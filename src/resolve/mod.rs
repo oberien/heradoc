@@ -51,7 +51,7 @@ impl Resolver {
             Ok(url) => url,
             Err(err) => {
                 diagnostics.error("couldn't resolve file")
-                    .with_section(&range, "defined here")
+                    .with_error_section(&range, "defined here")
                     .note(format!("tried to resolve {}", url))
                     .note(format!("malformed reference: {}", err))
                     .emit();
@@ -85,7 +85,7 @@ impl Resolver {
             | (Context::LocalAbsolute(_), SourceGroup::Remote) => {
                 diagnostics
                     .error("permission denied")
-                    .with_section(&range, "trying to include this")
+                    .with_error_section(&range, "trying to include this")
                     .note("local absolute path not allowed to access remote or local relative files")
                     .emit();
                 Err(Error::Diagnostic)
@@ -97,7 +97,7 @@ impl Resolver {
                 } else {
                     diagnostics
                         .error("permission denied")
-                        .with_section(&range, "trying to include this")
+                        .with_error_section(&range, "trying to include this")
                         .note(format!("not allowed to access absolute path {:?}", path))
                         .emit();
                     Err(Error::Diagnostic)
@@ -109,7 +109,7 @@ impl Resolver {
             (Context::Remote(_), _) => {
                 diagnostics
                     .error("permission denied")
-                    .with_section(&range, "trying to include this")
+                    .with_error_section(&range, "trying to include this")
                     .note("remote file can only include other remote content")
                     .emit();
                 Err(Error::Diagnostic)
