@@ -27,3 +27,6 @@ regex = "1.1.0"
 lazy_static = "1.2.0"
 single = "1.0.0"
 quoted-string = "0.6.0"
+
+[profile.release]
+debug = true

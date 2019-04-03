@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Write, BufWriter};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -493,7 +493,7 @@ impl FileOrStdio {
         match self {
             FileOrStdio::StdIo => Box::new(Box::leak(Box::new(io::stdout())).lock()),
             FileOrStdio::File(path) => {
-                Box::new(File::create(path).expect("can't open output source"))
+                Box::new(BufWriter::new(File::create(path).expect("can't open output source")))
             },
         }
     }
