@@ -13,8 +13,8 @@
 #![warn(trivial_numeric_casts)]
 #![warn(unused_import_braces)]
 #![warn(unused_qualifications)]
-#![warn(variant_size_differences)]
 // for now
+#![allow(variant_size_differences)]
 #![allow(missing_docs)]
 // seems to have quite some unchangeable false positives
 // might need further inspection
