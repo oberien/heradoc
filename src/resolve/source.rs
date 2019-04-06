@@ -1,12 +1,12 @@
 use std::env;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 use url::Url;
 
 use crate::diagnostics::Diagnostics;
-use crate::error::{Error, Result};
+use crate::error::{Error, Fatal, Result};
 use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
@@ -39,6 +39,31 @@ pub enum SourceGroup {
     Remote,
 }
 
+#[derive(Debug)]
+enum PathError {
+    /// The url does not contain a path.
+    NoPath,
+
+    /// `file:` url included a hostname that was not a local prefix on Windows, or empty on Linux.
+    ///
+    /// See `Url::to_file_path` for details.
+    InvalidBase,
+
+    /// A path component mapped to more than one path component or was otherwise invalid.
+    InvalidComponent,
+
+    /// Some path component did not map to any path component.
+    ///
+    /// I don't expect this to ever occur, this error is Fatal.
+    MissingComponent,
+
+    /// Could not determine canonical path.
+    ///
+    /// Canonicalization is important to ensure that the file does not refer to internal files,
+    /// potentially circumventing access restrictions.
+    NoCanonical(io::Error),
+}
+
 fn error_include_local_from_remote(
     diagnostics: &Diagnostics<'_>, range: SourceRange,
 ) -> Error {
@@ -50,13 +75,30 @@ fn error_include_local_from_remote(
     Error::Diagnostic
 }
 
-fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: io::Error) -> Error {
+fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathError) -> Error {
+    let (diagnostics, error) = match &err {
+        PathError::NoPath | PathError::MissingComponent => {
+            (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InternalError))
+        },
+        PathError::InvalidBase | PathError::InvalidComponent | PathError::NoCanonical(_) => {
+            (diagnostics.error("error converting url to path"), Error::Diagnostic)
+        }
+    };
+
+    let message = match err {
+        PathError::NoPath => "since the file url does not contain a path".into(),
+        PathError::InvalidBase => "since the file url contains an unexpected base".into(),
+        PathError::InvalidComponent => "since the url segment is not a valid path component".into(),
+        PathError::MissingComponent => "since an url segment did not correspond to any path component".into(),
+        PathError::NoCanonical(io) => format!("couldn't determine canonical filepath: {}", io),
+    };
+
     diagnostics
-        .bug("error converting url to path")
         .with_info_section(range, "defined here")
-        .error(format!("cause: {}", err))
+        .error(message)
         .emit();
-    Error::Diagnostic
+
+    error
 }
 
 impl Source {
@@ -69,8 +111,7 @@ impl Source {
                     let workdir = context
                         .path()
                         .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                    // url is "heradoc://document/path"
-                    let path = to_path(&url.as_str()[19..], workdir)
+                    let path = to_path(&url, workdir)
                         .map_err(|err| error_to_path(diagnostics, range, err))?;
                     SourceGroup::LocalRelative(path)
                 },
@@ -80,7 +121,11 @@ impl Source {
                 let workdir = context
                     .path()
                     .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                let path = to_path(url.path(), workdir)?;
+                let path = url
+                    .to_file_path()
+                    .map_err(|()| PathError::InvalidBase)
+                    .map_err(|err| error_to_path(diagnostics, range, err))?;
+                let path = workdir.join(path);
                 let is_relative = match context {
                     Context::LocalRelative(workdir) => path.starts_with(workdir),
                     _ => false,
@@ -199,11 +244,28 @@ fn to_include(
     }
 }
 
-fn to_path<P: AsRef<Path>>(path: &str, workdir: P) -> io::Result<PathBuf> {
-    let path = Path::new(&path);
-    let old_workdir = env::current_dir()?;
-    env::set_current_dir(workdir)?;
-    let path = path.canonicalize()?;
-    env::set_current_dir(old_workdir)?;
-    Ok(path)
+fn to_path<P: AsRef<Path>>(url: &Url, workdir: P) -> std::result::Result<PathBuf, PathError> {
+    let mut full_path = workdir.as_ref().to_path_buf();
+
+    url
+        .path_segments()
+        .ok_or(PathError::NoPath)?
+        .try_for_each(|segment| {
+            let mut components = Path::new(segment)
+                .components();
+            let file = match components.next() {
+                Some(Component::Normal(file)) => file,
+                Some(_) => return Err(PathError::InvalidComponent),
+                _ => return Err(PathError::MissingComponent),
+            };
+            if components.next().is_some() {
+                return Err(PathError::InvalidComponent)
+            }
+            full_path.push(file);
+            Ok(())
+        })?;
+
+    full_path
+        .canonicalize()
+        .map_err(PathError::NoCanonical)
 }
