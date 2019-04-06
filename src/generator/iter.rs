@@ -14,6 +14,10 @@ use crate::resolve::{Context, Include};
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
     peek: Option<(Event<'a>, Range<usize>, FeEventKind)>,
+    /// Contains the kind of the last FeEvent returned from `Self::next()`.
+    ///
+    /// This is used to `skip` correctly over events when an event couldn't be handled correctly.
+    /// For example if this is `Start`, we'll skip until the corresponding `End` event.
     last_kind: FeEventKind,
 }
 
@@ -91,11 +95,7 @@ impl<'a> Iter<'a> {
         }
         let mut depth = 0;
         loop {
-            let evt = if let Some((peek, _, _)) = self.peek.take() {
-                peek
-            } else {
-                self.next(gen)?.unwrap().0
-            };
+            let evt = self.next(gen)?.unwrap().0;
             match evt {
                 Event::Start(_) => depth += 1,
                 Event::End(_) if depth > 0 => depth -= 1,
@@ -136,6 +136,7 @@ impl<'a> Iter<'a> {
                         .error("error reading markdown include file")
                         .with_error_section(&range, "in this include")
                         .error(format!("cause: {}", err))
+                        .note(format!("reading from path {}", path.display()))
                         .emit();
                     Error::Diagnostic
                 })?;

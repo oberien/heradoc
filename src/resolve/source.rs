@@ -135,11 +135,12 @@ impl Source {
             SourceGroup::Remote => {
                 let downloaded = match remote.http(&url) {
                     Ok(downloaded) => downloaded,
-                    Err(RemoteError::Io(err)) => {
+                    Err(RemoteError::Io(err, path)) => {
                         diagnostics
                             .error("error writing downloaded content to cache")
                             .with_error_section(&range, "trying to download this")
                             .error(format!("cause: {}", err))
+                            .note(format!("file: {}", path.display()))
                             .emit();
                         return Err(Error::Diagnostic);
                     },
