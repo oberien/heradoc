@@ -1,4 +1,4 @@
-#![allow(unused)]
+#![allow(dead_code)]
 
 use std::fmt;
 use std::io::Write;
@@ -6,13 +6,10 @@ use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use backtrace::Backtrace;
 use codespan::{ByteOffset, FileMap, FileName, Span};
 use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
 use url::Url;
-
-use crate::resolve::Context;
 
 pub struct Diagnostics<'a> {
     file_map: Rc<FileMap<&'a str>>,
@@ -29,7 +26,7 @@ impl<'a> fmt::Debug for Diagnostics<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Diagnostics")
             .field("file_map", &self.file_map)
-            .field("out", &"Rc(StandardStream)")
+            .field("out", &"StandardStream")
             .finish()
     }
 }
@@ -134,9 +131,10 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
 
         // ignore output errors, because where would we log them anyway?!
         for diagnostic in diagnostics {
-            let _ = codespan_reporting::emit_single(&mut *out, file_map, &diagnostic);
+            codespan_reporting::emit_single(&mut *out, file_map, &diagnostic)
+                .expect("stdout is gone???");
         }
-        writeln!(out);
+        writeln!(out).expect("stdout is gone???");
     }
 
     fn diagnostic(self, new_severity: Severity, new_message: String) -> Self {
@@ -193,12 +191,12 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     }
 
     /// message can be empty
-    pub fn with_error_section<S: Into<String>>(mut self, range: &Range<usize>, message: S) -> Self {
+    pub fn with_error_section<S: Into<String>>(self, range: &Range<usize>, message: S) -> Self {
         self.with_section(LabelStyle::Primary, range, message)
     }
 
     /// message can be empty
-    pub fn with_info_section<S: Into<String>>(mut self, range: &Range<usize>, message: S) -> Self {
+    pub fn with_info_section<S: Into<String>>(self, range: &Range<usize>, message: S) -> Self {
         self.with_section(LabelStyle::Secondary, range, message)
     }
 }

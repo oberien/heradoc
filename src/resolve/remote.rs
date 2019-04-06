@@ -25,7 +25,8 @@ pub struct Downloaded {
 #[derive(Debug)]
 pub enum Error {
     Request(RequestError),
-    Io(io::Error),
+    /// Error and path to file tha caused this error.
+    Io(io::Error, PathBuf),
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -48,7 +49,8 @@ struct FileKey {
 
 impl Remote {
     pub fn new(download_folder: PathBuf) -> Result<Self, Error> {
-        fs::create_dir_all(&download_folder)?;
+        fs::create_dir_all(&download_folder)
+            .map_err(|io| (io, download_folder.clone()))?;
 
         let client = Client::builder()
             // TODO: how should redirects interact relative references etc. ?
@@ -68,7 +70,8 @@ impl Remote {
         let key = FileKey::from(&response);
         let path = self.target_path(&key);
 
-        fs::create_dir_all(path.parent().unwrap())?;
+        fs::create_dir_all(path.parent().unwrap())
+            .map_err(|io| (io, path.parent().unwrap().to_owned()))?;
 
         // Replace whatever file already existed.
         //
@@ -76,9 +79,11 @@ impl Remote {
         // processes that already own the old file handle. The old file is merely unlinked.
         // TODO: proper caching
         let _ = fs::remove_file(&path);
-        let mut file = OpenOptions::new().write(true).create_new(true).open(&path)?;
+        let mut file = OpenOptions::new().write(true).create_new(true).open(&path)
+            .map_err(|io| (io, path.clone()))?;
 
-        io::copy(&mut response, &mut file)?;
+        io::copy(&mut response, &mut file)
+            .map_err(|io| (io, path.clone()))?;
 
         let content_type = key.content_type();
 
@@ -159,9 +164,9 @@ impl From<RequestError> for Error {
     }
 }
 
-impl From<io::Error> for Error {
-    fn from(inner: io::Error) -> Self {
-        Error::Io(inner)
+impl From<(io::Error, PathBuf)> for Error {
+    fn from((inner, path): (io::Error, PathBuf)) -> Self {
+        Error::Io(inner, path)
     }
 }
 

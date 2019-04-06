@@ -189,21 +189,8 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .unwrap_or(&mut self.default_out)
     }
 
-    pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
-        self.stack
-            .iter_mut()
-            .rev()
-            .filter_map(|state| match state {
-                StackElement::Context(_, diagnostics) => Some(diagnostics),
-                _ => None,
-            })
-            .next()
-            .unwrap()
-    }
-
-    fn resolve(&mut self, url: &str, range: Range<usize>) -> Result<Include> {
-        let (context, diagnostics) = self
-            .stack
+    fn top_context(&mut self) -> (&mut Context, &mut Diagnostics<'a>, &mut Resolver) {
+        let (context, diagnostics) = self.stack
             .iter_mut()
             .rev()
             .find_map(|se| match se {
@@ -211,6 +198,17 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 _ => None,
             })
             .expect("no Context???");
-        self.resolver.resolve(context, url, range, diagnostics)
+        // partial self borrows aren't a thing, so we need to return the resolver as well as it's
+        // needed in Self::resolve
+        (context, diagnostics, &mut self.resolver)
+    }
+
+    pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
+        self.top_context().1
+    }
+
+    fn resolve(&mut self, url: &str, range: Range<usize>) -> Result<Include> {
+        let (context, diagnostics, resolver) = self.top_context();
+        resolver.resolve(context, url, range, diagnostics)
     }
 }

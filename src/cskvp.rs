@@ -160,7 +160,8 @@ impl<'a> Drop for Cskvp<'a> {
         let mut diag = self
             .diagnostics
             .as_mut()
-            .map(|d| d.warning("in element config").with_error_section(range, ""));
+            .map(|d| d.warning("unknown attributes in element config")
+                .with_info_section(range, "in this element config"));
         if let Some((label, range)) = self.label.as_ref() {
             diag = diag.map(|d| {
                 d.warning(format!("label ignored: {}", label))
