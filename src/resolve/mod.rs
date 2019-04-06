@@ -224,4 +224,18 @@ mod tests {
         assert_match!(external, Include::Markdown(_, Context::Remote(_)));
         drop(dir);
     }
+
+    #[test]
+    fn local_resolves_not_exist_not_internal_bug() {
+        let (dir, range, mut diagnostics) = prepare();
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+
+        let error = resolver
+            .resolve(&top, "this_file_does_not_exist.md", range, &mut diagnostics)
+            .expect_err("Can not resolve source for files that do not exist on disk");
+
+        assert_match!(error, Error::Diagnostic);
+        drop(dir);
+    }
 }
