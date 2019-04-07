@@ -8,7 +8,6 @@
 //! This module provides an interface for both problems. First, it allows resolution of an url to
 //! an open read stream or to an auxiliary file. Secondly, this resolution will automatically apply
 //! a restrictive-by-default filter and error when violating security boundaries.
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use url::Url;
@@ -22,6 +21,7 @@ use self::remote::Remote;
 use self::source::{Source, SourceGroup};
 use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Result};
+use crate::frontend::range::SourceRange;
 
 pub struct Resolver {
     base: Url,
@@ -45,14 +45,14 @@ impl Resolver {
 
     /// Make a request to an uri in the context of a document with the specified source.
     pub fn resolve(
-        &self, context: &Context, url: &str, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
+        &self, context: &Context, url: &str, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
     ) -> Result<Include> {
         let url = match self.base.join(url) {
             Ok(url) => url,
             Err(err) => {
                 diagnostics
                     .error("couldn't resolve file")
-                    .with_error_section(&range, "defined here")
+                    .with_error_section(range, "defined here")
                     .note(format!("tried to resolve {}", url))
                     .note(format!("malformed reference: {}", err))
                     .emit();
@@ -73,7 +73,7 @@ impl Resolver {
     /// invoking user.  Even more restrictive, the target handler could terminate the request at a
     /// later time. For example when requesting a remote document make a CORS check.
     fn check_access(
-        &self, context: &Context, target: &Source, range: Range<usize>,
+        &self, context: &Context, target: &Source, range: SourceRange,
         diagnostics: &mut Diagnostics<'_>,
     ) -> Result<()> {
         match (context, &target.group) {
@@ -86,7 +86,7 @@ impl Resolver {
             | (Context::LocalAbsolute(_), SourceGroup::Remote) => {
                 diagnostics
                     .error("permission denied")
-                    .with_error_section(&range, "trying to include this")
+                    .with_error_section(range, "trying to include this")
                     .note(
                         "local absolute path not allowed to access remote or local relative files",
                     )
@@ -100,7 +100,7 @@ impl Resolver {
                 } else {
                     diagnostics
                         .error("permission denied")
-                        .with_error_section(&range, "trying to include this")
+                        .with_error_section(range, "trying to include this")
                         .note(format!("not allowed to access absolute path {:?}", path))
                         .emit();
                     Err(Error::Diagnostic)
@@ -112,7 +112,7 @@ impl Resolver {
             (Context::Remote(_), _) => {
                 diagnostics
                     .error("permission denied")
-                    .with_error_section(&range, "trying to include this")
+                    .with_error_section(range, "trying to include this")
                     .note("remote file can only include other remote content")
                     .emit();
                 Err(Error::Diagnostic)
@@ -161,13 +161,13 @@ mod tests {
     });
 }
 
-    fn prepare() -> (TempDir, Range<usize>, Diagnostics<'_>) {
+    fn prepare() -> (TempDir, SourceRange, Diagnostics<'_>) {
         let dir = TempDir::new("heradoc-test").expect("Can't create tempdir");
         let _ = File::create(dir.path().join("main.md")).expect("Can't create main.md");
         let _ = File::create(dir.path().join("test.md")).expect("Can't create main.md");
         let _ = File::create(dir.path().join("image.png")).expect("Can't create image.png");
         let _ = File::create(dir.path().join("pdf.pdf")).expect("Can't create pdf.pdf");
-        let mut range = Range { start: 0, end: 0 };
+        let mut range = SourceRange { start: 0, end: 0 };
         let mut diagnostics = Diagnostics::new("", Input::Stdin);
         (dir, range, diagnostics)
     }

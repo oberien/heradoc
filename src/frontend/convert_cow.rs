@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::ops::Range;
 
 use pulldown_cmark::{
     Alignment,
@@ -10,13 +9,15 @@ use pulldown_cmark::{
     Tag as CmarkTag,
 };
 
+use crate::frontend::range::WithRange;
+
 pub struct ConvertCow<'a>(pub OffsetIter<'a>);
 
 impl<'a> Iterator for ConvertCow<'a> {
-    type Item = (Event<'a>, Range<usize>);
+    type Item = WithRange<Event<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(e, r)| (e.into(), r))
+        self.0.next().map(|(e, r)| WithRange(e.into(), r.into()))
     }
 }
 

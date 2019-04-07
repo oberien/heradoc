@@ -1,9 +1,9 @@
 use std::io::Write;
-use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::Result;
+use crate::frontend::range::WithRange;
 use crate::generator::event::Event;
 use crate::generator::Generator;
 
@@ -12,7 +12,7 @@ pub struct InlineEmphasisGen;
 
 impl<'a> CodeGenUnit<'a, ()> for InlineEmphasisGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _range: Range<usize>,
+        _cfg: &'a Config, _: WithRange<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\emph{{")?;
@@ -21,7 +21,7 @@ impl<'a> CodeGenUnit<'a, ()> for InlineEmphasisGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<(&Event<'a>, Range<usize>)>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
@@ -33,7 +33,7 @@ pub struct InlineStrongGen;
 
 impl<'a> CodeGenUnit<'a, ()> for InlineStrongGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _range: Range<usize>,
+        _cfg: &'a Config, _: WithRange<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\textbf{{")?;
@@ -42,7 +42,7 @@ impl<'a> CodeGenUnit<'a, ()> for InlineStrongGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<(&Event<'a>, Range<usize>)>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
@@ -54,7 +54,7 @@ pub struct InlineStrikethroughGen;
 
 impl<'a> CodeGenUnit<'a, ()> for InlineStrikethroughGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _range: Range<usize>,
+        _cfg: &'a Config, _: WithRange<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\sout{{")?;
@@ -63,7 +63,7 @@ impl<'a> CodeGenUnit<'a, ()> for InlineStrikethroughGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<(&Event<'a>, Range<usize>)>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
@@ -75,7 +75,7 @@ pub struct InlineCodeGen;
 
 impl<'a> CodeGenUnit<'a, ()> for InlineCodeGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _range: Range<usize>,
+        _cfg: &'a Config, _: WithRange<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\texttt{{")?;
@@ -84,7 +84,7 @@ impl<'a> CodeGenUnit<'a, ()> for InlineCodeGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<(&Event<'a>, Range<usize>)>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())

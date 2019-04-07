@@ -1,9 +1,9 @@
 use std::io::Write;
-use std::ops::Range;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::Result;
+use crate::frontend::range::WithRange;
 use crate::generator::event::Event;
 use crate::generator::{Generator, Stack};
 
@@ -12,7 +12,7 @@ pub struct RuleGen;
 
 impl<'a> CodeGenUnit<'a, ()> for RuleGen {
     fn new(
-        _cfg: &'a Config, _tag: (), _range: Range<usize>,
+        _cfg: &'a Config, _: WithRange<()>,
         _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         Ok(RuleGen)
@@ -27,7 +27,7 @@ impl<'a> CodeGenUnit<'a, ()> for RuleGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<(&Event<'a>, Range<usize>)>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         let out = gen.get_out();
         writeln!(out)?;
