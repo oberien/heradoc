@@ -238,4 +238,32 @@ mod tests {
         assert_match!(error, Error::Diagnostic);
         drop(dir);
     }
+
+    #[test]
+    fn local_absolute_url_to_relative() {
+        let (dir, range, mut diagnostics) = prepare();
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+
+        let url = Url::from_file_path(dir.path().join("main.md")).unwrap();
+        let main = resolver
+            .resolve(&top, url.as_str(), range, &mut diagnostics)
+            .expect("Failed to resolve absolute file url");
+
+        assert_match!(main, Include::Markdown(_, Context::LocalRelative(_)));
+    }
+
+    #[test]
+    fn local_url_does_not_exist() {
+        let (dir, range, mut diagnostics) = prepare();
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+
+        let url = Url::from_file_path(dir.path().join("this_file_does_not_exist.md")).unwrap();
+        let error = resolver
+            .resolve(&top, url.as_str(), range, &mut diagnostics)
+            .expect_err("Failed to resolve absolute file url");
+
+        assert_match!(error, Error::Diagnostic);
+    }
 }

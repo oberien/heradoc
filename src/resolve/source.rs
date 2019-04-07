@@ -1,4 +1,3 @@
-use std::env;
 use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
@@ -61,7 +60,7 @@ enum PathError {
     ///
     /// Canonicalization is important to ensure that the file does not refer to internal files,
     /// potentially circumventing access restrictions.
-    NoCanonical(io::Error),
+    NoCanonical(PathBuf, io::Error),
 }
 
 fn error_include_local_from_remote(
@@ -80,17 +79,17 @@ fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathErr
         PathError::NoPath | PathError::MissingComponent => {
             (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InternalError))
         },
-        PathError::InvalidBase | PathError::InvalidComponent | PathError::NoCanonical(_) => {
+        PathError::InvalidBase | PathError::InvalidComponent | PathError::NoCanonical(..) => {
             (diagnostics.error("error converting url to path"), Error::Diagnostic)
         }
     };
 
     let message = match err {
-        PathError::NoPath => "since the file url does not contain a path".into(),
+        PathError::NoPath => "since this file url does not contain a path".into(),
         PathError::InvalidBase => "since the file url contains an unexpected base".into(),
         PathError::InvalidComponent => "since the url segment is not a valid path component".into(),
         PathError::MissingComponent => "since an url segment did not correspond to any path component".into(),
-        PathError::NoCanonical(io) => format!("couldn't determine canonical filepath: {}", io),
+        PathError::NoCanonical(path, io) => format!("couldn't determine canonical filepath of {:?}: {}", path, io),
     };
 
     diagnostics
@@ -118,17 +117,31 @@ impl Source {
                 _ => SourceGroup::Implementation,
             },
             "file" => {
-                let workdir = context
-                    .path()
-                    .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                let path = url
-                    .to_file_path()
-                    .map_err(|()| PathError::InvalidBase)
-                    .map_err(|err| error_to_path(diagnostics, range, err))?;
-                let path = workdir.join(path);
-                let is_relative = match context {
-                    Context::LocalRelative(workdir) => path.starts_with(workdir),
-                    _ => false,
+                let path;
+                let is_relative;
+                if url.cannot_be_a_base() { // Relative file path.
+                    let workdir = context
+                        .path()
+                        .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
+                    path = to_path(&url, workdir)
+                        .map_err(|err| error_to_path(diagnostics, range, err))?;
+                    is_relative = true;
+                } else { // Absolute file path.
+                    path = url
+                        .to_file_path()
+                        .map_err(|()| PathError::InvalidBase)
+                        .and_then(|path| {
+                            let canonical = path.canonicalize();
+                            canonical.map_err(|io| PathError::NoCanonical(path, io))
+                        })
+                        .map_err(|err| error_to_path(diagnostics, range, err))?;
+                    // Absolute path is considered effectively relative if it points to the working
+                    // directory and occurs in a local context. All other contexts consider all
+                    // paths with a non-relative base absolute.
+                    is_relative = match context {
+                        Context::LocalRelative(workdir) => path.starts_with(workdir),
+                        _ => false,
+                    };
                 };
                 if is_relative {
                     SourceGroup::LocalRelative(path)
@@ -265,7 +278,8 @@ fn to_path<P: AsRef<Path>>(url: &Url, workdir: P) -> std::result::Result<PathBuf
             Ok(())
         })?;
 
-    full_path
-        .canonicalize()
-        .map_err(PathError::NoCanonical)
+    let path = full_path
+        .canonicalize();
+
+    path.map_err(|io| PathError::NoCanonical(full_path, io))
 }
