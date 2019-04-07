@@ -1,6 +1,5 @@
 use std::env;
 use std::io;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -8,6 +7,7 @@ use url::Url;
 
 use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Result};
+use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
 
@@ -40,7 +40,7 @@ pub enum SourceGroup {
 }
 
 fn error_include_local_from_remote(
-    diagnostics: &mut Diagnostics<'_>, range: &Range<usize>,
+    diagnostics: &mut Diagnostics<'_>, range: SourceRange,
 ) -> Error {
     diagnostics
         .error("tried to include local file from remote origin")
@@ -50,10 +50,10 @@ fn error_include_local_from_remote(
     Error::Diagnostic
 }
 
-fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: io::Error) -> Error {
+fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: SourceRange, err: io::Error) -> Error {
     diagnostics
         .bug("error converting url to path")
-        .with_info_section(&range, "defined here")
+        .with_info_section(range, "defined here")
         .error(format!("cause: {}", err))
         .emit();
     Error::Diagnostic
@@ -61,17 +61,17 @@ fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: &Range<usize>, err: i
 
 impl Source {
     pub fn new(
-        url: Url, context: &Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
+        url: Url, context: &Context, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
     ) -> Result<Self> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => {
                     let workdir = context
                         .path()
-                        .ok_or_else(|| error_include_local_from_remote(diagnostics, &range))?;
+                        .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
                     // url is "heradoc://document/path"
                     let path = to_path(&url.as_str()[19..], workdir)
-                        .map_err(|err| error_to_path(diagnostics, &range, err))?;
+                        .map_err(|err| error_to_path(diagnostics, range, err))?;
                     SourceGroup::LocalRelative(path)
                 },
                 _ => SourceGroup::Implementation,
@@ -79,7 +79,7 @@ impl Source {
             "file" => {
                 let workdir = context
                     .path()
-                    .ok_or_else(|| error_include_local_from_remote(diagnostics, &range))?;
+                    .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
                 let path = to_path(url.path(), workdir)?;
                 let is_relative = match context {
                     Context::LocalRelative(workdir) => path.starts_with(workdir),
@@ -98,7 +98,7 @@ impl Source {
     }
 
     pub fn into_include(
-        self, remote: &Remote, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
+        self, remote: &Remote, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
     ) -> Result<Include> {
         let Source { url, group } = self;
         match group {
@@ -112,14 +112,14 @@ impl Source {
                                 "no heradoc implementation found for domain {:?}",
                                 domain
                             ))
-                            .with_error_section(&range, "defined here")
+                            .with_error_section(range, "defined here")
                             .emit();
                         Err(Error::Diagnostic)
                     }
                 } else {
                     diagnostics
                         .error("no heradoc implementation domain found")
-                        .with_error_section(&range, "defined here")
+                        .with_error_section(range, "defined here")
                         .emit();
                     Err(Error::Diagnostic)
                 }
@@ -138,7 +138,7 @@ impl Source {
                     Err(RemoteError::Io(err, path)) => {
                         diagnostics
                             .error("error writing downloaded content to cache")
-                            .with_error_section(&range, "trying to download this")
+                            .with_error_section(range, "trying to download this")
                             .error(format!("cause: {}", err))
                             .note(format!("file: {}", path.display()))
                             .emit();
@@ -147,7 +147,7 @@ impl Source {
                     Err(RemoteError::Request(err)) => {
                         diagnostics
                             .error("error downloading content")
-                            .with_error_section(&range, "trying to download this")
+                            .with_error_section(range, "trying to download this")
                             .error(format!("cause: {}", err))
                             .emit();
                         return Err(Error::Diagnostic);
@@ -174,7 +174,7 @@ impl Source {
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
 fn to_include(
-    path: PathBuf, context: Context, range: Range<usize>, diagnostics: &mut Diagnostics<'_>,
+    path: PathBuf, context: Context, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
 ) -> Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
@@ -184,14 +184,14 @@ fn to_include(
         Some(ext) => {
             diagnostics
                 .error(format!("unknown file format {:?}", ext))
-                .with_error_section(&range, "trying to include this")
+                .with_error_section(range, "trying to include this")
                 .emit();
             Err(Error::Diagnostic)
         },
         None => {
             diagnostics
                 .error("no file extension")
-                .with_error_section(&range, "trying to include this")
+                .with_error_section(range, "trying to include this")
                 .note("need file extension to differentiate file type")
                 .emit();
             Err(Error::Diagnostic)

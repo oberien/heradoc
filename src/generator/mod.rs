@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fs;
 use std::io::Write;
-use std::ops::Range;
 
 use typed_arena::Arena;
 
@@ -9,6 +8,7 @@ use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
 use crate::diagnostics::{Diagnostics, Input};
 use crate::frontend::Frontend;
+use crate::frontend::range::{SourceRange, WithRange};
 use crate::resolve::{Context, Include, Resolver};
 
 mod code_gen_units;
@@ -101,9 +101,9 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.stack.push(StackElement::Context(events.context, events.diagnostics));
         let mut events = events.events;
 
-        while let Some((event, range)) = events.next(self)? {
+        while let Some(WithRange(event, range)) = events.next(self)? {
             let peek = events.peek(self)?;
-            match self.visit_event(event, range, peek) {
+            match self.visit_event(WithRange(event, range), peek) {
                 Ok(()) => {},
                 Err(Error::Diagnostic) => events.skip(self)?,
                 Err(Error::Fatal(fatal)) => return Err(fatal),
@@ -120,8 +120,9 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn visit_event(
-        &mut self, event: Event<'a>, range: Range<usize>, peek: Option<(&Event<'a>, Range<usize>)>,
+        &mut self, event: WithRange<Event<'a>>, peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
+        let WithRange(event, range) = event;
         if let Event::End(tag) = event {
             let state = self.stack.pop().unwrap();
             state.finish(tag, self, peek)?;
@@ -141,36 +142,36 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             None => (),
             Some(Event::End(_)) => unreachable!(),
             Some(Event::Start(tag)) => {
-                let state = StackElement::new(self.cfg, tag, range, self)?;
+                let state = StackElement::new(self.cfg, WithRange(tag, range), self)?;
                 self.stack.push(state);
             },
-            Some(Event::Text(text)) => B::Text::gen(text, range, &mut stack)?,
-            Some(Event::Html(html)) => B::Text::gen(html, range, &mut stack)?,
-            Some(Event::InlineHtml(html)) => B::Text::gen(html, range, &mut stack)?,
-            Some(Event::Latex(latex)) => B::Latex::gen(latex, range, &mut stack)?,
+            Some(Event::Text(text)) => B::Text::gen(WithRange(text, range), &mut stack)?,
+            Some(Event::Html(html)) => B::Text::gen(WithRange(html, range), &mut stack)?,
+            Some(Event::InlineHtml(html)) => B::Text::gen(WithRange(html, range), &mut stack)?,
+            Some(Event::Latex(latex)) => B::Latex::gen(WithRange(latex, range), &mut stack)?,
             Some(Event::IncludeMarkdown(events)) => self.generate_body(*events)?,
             Some(Event::FootnoteReference(fnote)) => {
-                B::FootnoteReference::gen(fnote, range, &mut stack)?
+                B::FootnoteReference::gen(WithRange(fnote, range), &mut stack)?
             },
             Some(Event::BiberReferences(biber)) => {
-                B::BiberReferences::gen(biber, range, &mut stack)?
+                B::BiberReferences::gen(WithRange(biber, range), &mut stack)?
             },
-            Some(Event::Url(url)) => B::Url::gen(url, range, &mut stack)?,
-            Some(Event::InterLink(interlink)) => B::InterLink::gen(interlink, range, &mut stack)?,
-            Some(Event::Image(img)) => B::Image::gen(img, range, &mut stack)?,
-            Some(Event::Label(label)) => B::Label::gen(label, range, &mut stack)?,
-            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, range, &mut stack)?,
-            Some(Event::SoftBreak) => B::SoftBreak::gen((), range, &mut stack)?,
-            Some(Event::HardBreak) => B::HardBreak::gen((), range, &mut stack)?,
+            Some(Event::Url(url)) => B::Url::gen(WithRange(url, range), &mut stack)?,
+            Some(Event::InterLink(interlink)) => B::InterLink::gen(WithRange(interlink, range), &mut stack)?,
+            Some(Event::Image(img)) => B::Image::gen(WithRange(img, range), &mut stack)?,
+            Some(Event::Label(label)) => B::Label::gen(WithRange(label, range), &mut stack)?,
+            Some(Event::Pdf(pdf)) => B::Pdf::gen(WithRange(pdf, range), &mut stack)?,
+            Some(Event::SoftBreak) => B::SoftBreak::gen(WithRange((), range), &mut stack)?,
+            Some(Event::HardBreak) => B::HardBreak::gen(WithRange((), range), &mut stack)?,
             Some(Event::TaskListMarker(marker)) => {
-                B::TaskListMarker::gen(marker, range, &mut stack)?
+                B::TaskListMarker::gen(WithRange(marker, range), &mut stack)?
             },
-            Some(Event::TableOfContents) => B::TableOfContents::gen((), range, &mut stack)?,
-            Some(Event::Bibliography) => B::Bibliography::gen((), range, &mut stack)?,
-            Some(Event::ListOfTables) => B::ListOfTables::gen((), range, &mut stack)?,
-            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), range, &mut stack)?,
-            Some(Event::ListOfListings) => B::ListOfListings::gen((), range, &mut stack)?,
-            Some(Event::Appendix) => B::Appendix::gen((), range, &mut stack)?,
+            Some(Event::TableOfContents) => B::TableOfContents::gen(WithRange((), range), &mut stack)?,
+            Some(Event::Bibliography) => B::Bibliography::gen(WithRange((), range), &mut stack)?,
+            Some(Event::ListOfTables) => B::ListOfTables::gen(WithRange((), range), &mut stack)?,
+            Some(Event::ListOfFigures) => B::ListOfFigures::gen(WithRange((), range), &mut stack)?,
+            Some(Event::ListOfListings) => B::ListOfListings::gen(WithRange((), range), &mut stack)?,
+            Some(Event::Appendix) => B::Appendix::gen(WithRange((), range), &mut stack)?,
         }
 
         Ok(())
@@ -207,7 +208,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.top_context().1
     }
 
-    fn resolve(&mut self, url: &str, range: Range<usize>) -> Result<Include> {
+    fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {
         let (context, diagnostics, resolver) = self.top_context();
         resolver.resolve(context, url, range, diagnostics)
     }

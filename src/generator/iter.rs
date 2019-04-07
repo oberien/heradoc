@@ -1,19 +1,19 @@
 use std::fs;
 use std::io::Write;
 use std::iter::Fuse;
-use std::ops::Range;
 
 use crate::backend::Backend;
 use crate::diagnostics::Input;
 use crate::error::{Error, FatalResult, Result};
 use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude};
+use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Image, Pdf};
 use crate::generator::Generator;
 use crate::resolve::{Context, Include};
 
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
-    peek: Option<(Event<'a>, Range<usize>, FeEventKind)>,
+    peek: Option<(WithRange<Event<'a>>, FeEventKind)>,
     /// Contains the kind of the last FeEvent returned from `Self::next()`.
     ///
     /// This is used to `skip` correctly over events when an event couldn't be handled correctly.
@@ -33,18 +33,18 @@ impl<'a> Iter<'a> {
     /// the next one which should be handled.
     pub fn next(
         &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-    ) -> FatalResult<Option<(Event<'a>, Range<usize>)>> {
-        if let Some((peek, range, kind)) = self.peek.take() {
+    ) -> FatalResult<Option<WithRange<Event<'a>>>> {
+        if let Some((peek, kind)) = self.peek.take() {
             self.last_kind = kind;
-            return Ok(Some((peek, range)));
+            return Ok(Some(peek));
         }
         loop {
             match self.frontend.next() {
                 None => return Ok(None),
-                Some((event, range)) => {
+                Some(WithRange(event, range)) => {
                     self.last_kind = FeEventKind::from(&event);
-                    match self.convert_event(event, range.clone(), gen) {
-                        Ok(event) => return Ok(Some((event, range))),
+                    match self.convert_event(WithRange(event, range), gen) {
+                        Ok(event) => return Ok(Some(WithRange(event, range))),
                         Err(Error::Diagnostic) => self.skip(gen)?,
                         Err(Error::Fatal(fatal)) => return Err(fatal),
                     }
@@ -55,17 +55,17 @@ impl<'a> Iter<'a> {
 
     pub fn peek(
         &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-    ) -> FatalResult<Option<(&Event<'a>, Range<usize>)>> {
+    ) -> FatalResult<Option<WithRange<&Event<'a>>>> {
         if self.peek.is_none() {
             let old_kind = self.last_kind;
-            let (peek, range) = match self.next(gen)? {
+            let peek = match self.next(gen)? {
                 Some(peek) => peek,
                 None => return Ok(None),
             };
-            self.peek = Some((peek, range, self.last_kind));
+            self.peek = Some((peek, self.last_kind));
             self.last_kind = old_kind;
         }
-        Ok(self.peek.as_ref().map(|(peek, range, _)| (peek, range.clone())))
+        Ok(self.peek.as_ref().map(|(peek, _)| peek.as_ref()))
     }
 
     /// Skips events until the next one that can be handled again.
@@ -108,24 +108,25 @@ impl<'a> Iter<'a> {
     /// Converts an event, resolving any includes. If the include is handled, returns Ok(None).
     /// If it fails, returns the original event.
     fn convert_event(
-        &mut self, event: FeEvent<'a>, range: Range<usize>,
+        &mut self, event: WithRange<FeEvent<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
+        let WithRange(event, range) = event;
         match event {
             FeEvent::Include(image) => {
-                let include = gen.resolve(&image.dst, range.clone())?;
-                self.convert_include(include, Some(image), range, gen)
+                let include = gen.resolve(&image.dst, range)?;
+                self.convert_include(WithRange(include, range), Some(image), gen)
             },
             FeEvent::ResolveInclude(include) => {
-                let include = gen.resolve(&include, range.clone())?;
-                self.convert_include(include, None, range, gen)
+                let include = gen.resolve(&include, range)?;
+                self.convert_include(WithRange(include, range), None, gen)
             },
             e => Ok(e.into()),
         }
     }
 
     fn convert_include(
-        &mut self, include: Include, image: Option<FeInclude<'a>>, range: Range<usize>,
+        &mut self, WithRange(include, range): WithRange<Include>, image: Option<FeInclude<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
         match include {
@@ -134,7 +135,7 @@ impl<'a> Iter<'a> {
                 let markdown = fs::read_to_string(&path).map_err(|err| {
                     gen.diagnostics()
                         .error("error reading markdown include file")
-                        .with_error_section(&range, "in this include")
+                        .with_error_section(range, "in this include")
                         .error(format!("cause: {}", err))
                         .note(format!("reading from path {}", path.display()))
                         .emit();

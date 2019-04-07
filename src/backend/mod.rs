@@ -1,12 +1,12 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::io::Write;
-use std::ops::Range;
 
 use typed_arena::Arena;
 
 use crate::config::Config;
 use crate::error::{FatalResult, Result};
+use crate::frontend::range::WithRange;
 use crate::generator::event::{
     BiberReference,
     CodeBlock,
@@ -96,7 +96,7 @@ pub trait Backend<'a>: Debug {
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: T, range: Range<usize>,
+        cfg: &'a Config, tag: WithRange<T>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
@@ -109,24 +109,24 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
     }
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        peek: Option<(&Event<'a>, Range<usize>)>,
+        peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()>;
 }
 
 pub trait SimpleCodeGenUnit<T> {
-    fn gen(data: T, range: Range<usize>, out: &mut impl Write) -> Result<()>;
+    fn gen(data: WithRange<T>, out: &mut impl Write) -> Result<()>;
 }
 
 pub trait MediumCodeGenUnit<T> {
     fn gen<'a, 'b>(
-        data: T, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+        data: WithRange<T>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()>;
 }
 
 impl<T: SimpleCodeGenUnit<D>, D> MediumCodeGenUnit<D> for T {
     fn gen<'a, 'b>(
-        data: D, range: Range<usize>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+        data: WithRange<D>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()> {
-        T::gen(data, range, &mut stack.get_out())
+        T::gen(data, &mut stack.get_out())
     }
 }

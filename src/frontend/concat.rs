@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 use std::iter::Peekable;
-use std::ops::Range;
+
+use str_concat;
 
 use super::convert_cow::{ConvertCow, Event};
-use str_concat;
+use crate::frontend::range::WithRange;
 
 pub struct Concat<'a>(Peekable<ConvertCow<'a>>);
 
@@ -14,17 +15,16 @@ impl<'a> Concat<'a> {
 }
 
 impl<'a> Iterator for Concat<'a> {
-    type Item = (Event<'a>, Range<usize>);
+    type Item = WithRange<Event<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (mut t, mut range) = match self.0.next() {
-            None => return None,
-            Some((Event::Text(t), range)) => (t, range),
-            Some((evt, range)) => return Some((evt, range)),
+        let WithRange(mut t, mut range) = match self.0.next()? {
+            WithRange(Event::Text(t), range) => WithRange(t, range),
+            evt => return Some(evt),
         };
 
-        while let Some(Event::Text(_)) = self.0.peek().map(|t| &t.0) {
-            let (evt, r) = self.0.next().unwrap();
+        while let Some(Event::Text(_)) = self.0.peek().map(|t| t.as_ref().element()) {
+            let WithRange(evt, r) = self.0.next().unwrap();
             // TODO: why are both variants needed?
             assert!(range.end == r.start || range.end + 1 == r.start);
             range.end = r.end;
@@ -48,6 +48,6 @@ impl<'a> Iterator for Concat<'a> {
                 Cow::Owned(ref mut o) => o.push_str(&next),
             }
         }
-        Some((Event::Text(t), range))
+        Some(WithRange(Event::Text(t), range))
     }
 }

@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
-use std::ops::Range;
 use std::str::FromStr;
 
 use lazy_static::lazy_static;
@@ -11,6 +10,7 @@ use regex::Regex;
 mod concat;
 mod convert_cow;
 mod event;
+pub mod range;
 mod refs;
 
 pub use self::event::*;
@@ -18,6 +18,7 @@ pub use self::refs::LinkType;
 
 use self::concat::Concat;
 use self::convert_cow::{ConvertCow, Event as CmarkEvent, Tag as CmarkTag};
+use self::range::{WithRange, SourceRange};
 use self::refs::ReferenceParseResult;
 use crate::config::Config;
 use crate::cskvp::Cskvp;
@@ -29,20 +30,20 @@ pub struct Frontend<'a> {
     cfg: &'a Config,
     diagnostics: Diagnostics<'a>,
     parser: Peekable<Concat<'a>>,
-    buffer: VecDeque<(Event<'a>, Range<usize>)>,
+    buffer: VecDeque<WithRange<Event<'a>>>,
 }
 
 impl<'a> Iterator for Frontend<'a> {
-    type Item = (Event<'a>, Range<usize>);
+    type Item = WithRange<Event<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some((evt, range)) = self.buffer.pop_front() {
-                return Some((evt, range));
+            if let Some(evt) = self.buffer.pop_front() {
+                return Some(evt);
             }
 
-            let (evt, range) = self.parser.next()?;
-            self.convert_event(evt, range);
+            let evt = self.parser.next()?;
+            self.convert_event(evt);
         }
     }
 }
@@ -79,138 +80,120 @@ impl<'a> Frontend<'a> {
         }
     }
 
-    fn convert_event(&mut self, evt: CmarkEvent<'a>, range: Range<usize>) {
-        match evt {
-            CmarkEvent::Text(text) => self.buffer.push_back((Event::Text(text), range)),
-            CmarkEvent::Html(html) => self.buffer.push_back((Event::Html(html), range)),
-            CmarkEvent::InlineHtml(html) => self.convert_inline_html(html, range),
-            CmarkEvent::FootnoteReference(label) => self
-                .buffer
-                .push_back((Event::FootnoteReference(FootnoteReference { label }), range)),
-            CmarkEvent::SoftBreak => self.buffer.push_back((Event::SoftBreak, range)),
-            CmarkEvent::HardBreak => self.buffer.push_back((Event::HardBreak, range)),
-            CmarkEvent::TaskListMarker(checked) => {
-                self.buffer.push_back((Event::TaskListMarker(TaskListMarker { checked }), range))
-            },
+    fn convert_event(&mut self, evt: WithRange<CmarkEvent<'a>>) {
+        let range = evt.range();
+        let evt = evt.map(|evt| {
+            match evt {
+                CmarkEvent::Text(text) => Some(Event::Text(text)),
+                CmarkEvent::Html(html) => Some(Event::Html(html)),
+                CmarkEvent::FootnoteReference(label) => {
+                    Some(Event::FootnoteReference(FootnoteReference { label }))
+                },
+                CmarkEvent::SoftBreak => Some(Event::SoftBreak),
+                CmarkEvent::HardBreak => Some(Event::HardBreak),
+                CmarkEvent::TaskListMarker(checked) => {
+                    Some(Event::TaskListMarker(TaskListMarker { checked }))
+                },
 
-            // TODO: make this not duplicate
-            CmarkEvent::Start(CmarkTag::Rule) => {
-                self.buffer.push_back((Event::Start(Tag::Rule), range))
-            },
-            CmarkEvent::End(CmarkTag::Rule) => {
-                self.buffer.push_back((Event::End(Tag::Rule), range))
-            },
-            CmarkEvent::Start(CmarkTag::BlockQuote) => {
-                self.buffer.push_back((Event::Start(Tag::BlockQuote), range))
-            },
-            CmarkEvent::End(CmarkTag::BlockQuote) => {
-                self.buffer.push_back((Event::End(Tag::BlockQuote), range))
-            },
-            CmarkEvent::Start(CmarkTag::List(start_number)) if start_number.is_none() => {
-                self.buffer.push_back((Event::Start(Tag::List), range))
-            },
-            CmarkEvent::End(CmarkTag::List(start_number)) if start_number.is_none() => {
-                self.buffer.push_back((Event::End(Tag::List), range))
-            },
-            CmarkEvent::Start(CmarkTag::List(start_number)) => self.buffer.push_back((
-                Event::Start(Tag::Enumerate(Enumerate { start_number: start_number.unwrap() })),
-                range,
-            )),
-            CmarkEvent::End(CmarkTag::List(start_number)) => self.buffer.push_back((
-                Event::End(Tag::Enumerate(Enumerate { start_number: start_number.unwrap() })),
-                range,
-            )),
-            CmarkEvent::Start(CmarkTag::Item) => {
-                self.buffer.push_back((Event::Start(Tag::Item), range))
-            },
-            CmarkEvent::End(CmarkTag::Item) => {
-                self.buffer.push_back((Event::End(Tag::Item), range))
-            },
-            CmarkEvent::Start(CmarkTag::FootnoteDefinition(label)) => self.buffer.push_back((
-                Event::Start(Tag::FootnoteDefinition(FootnoteDefinition { label })),
-                range,
-            )),
-            CmarkEvent::End(CmarkTag::FootnoteDefinition(label)) => self.buffer.push_back((
-                Event::End(Tag::FootnoteDefinition(FootnoteDefinition { label })),
-                range,
-            )),
-            CmarkEvent::Start(CmarkTag::HtmlBlock) => {
-                self.buffer.push_back((Event::Start(Tag::HtmlBlock), range))
-            },
-            CmarkEvent::End(CmarkTag::HtmlBlock) => {
-                self.buffer.push_back((Event::End(Tag::HtmlBlock), range))
-            },
-            CmarkEvent::Start(CmarkTag::TableHead) => {
-                self.buffer.push_back((Event::Start(Tag::TableHead), range))
-            },
-            CmarkEvent::End(CmarkTag::TableHead) => {
-                self.buffer.push_back((Event::End(Tag::TableHead), range))
-            },
-            CmarkEvent::Start(CmarkTag::TableRow) => {
-                self.buffer.push_back((Event::Start(Tag::TableRow), range))
-            },
-            CmarkEvent::End(CmarkTag::TableRow) => {
-                self.buffer.push_back((Event::End(Tag::TableRow), range))
-            },
-            CmarkEvent::Start(CmarkTag::TableCell) => {
-                self.buffer.push_back((Event::Start(Tag::TableCell), range))
-            },
-            CmarkEvent::End(CmarkTag::TableCell) => {
-                self.buffer.push_back((Event::End(Tag::TableCell), range))
-            },
-            CmarkEvent::Start(CmarkTag::Emphasis) => {
-                self.buffer.push_back((Event::Start(Tag::InlineEmphasis), range))
-            },
-            CmarkEvent::End(CmarkTag::Emphasis) => {
-                self.buffer.push_back((Event::End(Tag::InlineEmphasis), range))
-            },
-            CmarkEvent::Start(CmarkTag::Strong) => {
-                self.buffer.push_back((Event::Start(Tag::InlineStrong), range))
-            },
-            CmarkEvent::End(CmarkTag::Strong) => {
-                self.buffer.push_back((Event::End(Tag::InlineStrong), range))
-            },
-            CmarkEvent::Start(CmarkTag::Strikethrough) => {
-                self.buffer.push_back((Event::Start(Tag::InlineStrikethrough), range))
-            },
-            CmarkEvent::End(CmarkTag::Strikethrough) => {
-                self.buffer.push_back((Event::End(Tag::InlineStrikethrough), range))
-            },
+                // TODO: make this not duplicate
+                CmarkEvent::Start(CmarkTag::Rule) => Some(Event::Start(Tag::Rule)),
+                CmarkEvent::End(CmarkTag::Rule) => Some(Event::End(Tag::Rule)),
+                CmarkEvent::Start(CmarkTag::BlockQuote) => Some(Event::Start(Tag::BlockQuote)),
+                CmarkEvent::End(CmarkTag::BlockQuote) => Some(Event::End(Tag::BlockQuote)),
+                CmarkEvent::Start(CmarkTag::List(start_number)) if start_number.is_none() => {
+                    Some(Event::Start(Tag::List))
+                },
+                CmarkEvent::End(CmarkTag::List(start_number)) if start_number.is_none() => {
+                    Some(Event::End(Tag::List))
+                },
+                CmarkEvent::Start(CmarkTag::List(start_number)) => {
+                    Some(Event::Start(Tag::Enumerate(Enumerate { start_number: start_number.unwrap() })))
+                },
+                CmarkEvent::End(CmarkTag::List(start_number)) => {
+                    Some(Event::End(Tag::Enumerate(Enumerate { start_number: start_number.unwrap() })))
+                },
+                CmarkEvent::Start(CmarkTag::Item) => Some(Event::Start(Tag::Item)),
+                CmarkEvent::End(CmarkTag::Item) => Some(Event::End(Tag::Item)),
+                CmarkEvent::Start(CmarkTag::FootnoteDefinition(label)) => {
+                    Some(Event::Start(Tag::FootnoteDefinition(FootnoteDefinition { label })))
+                },
+                CmarkEvent::End(CmarkTag::FootnoteDefinition(label)) => {
+                    Some(Event::End(Tag::FootnoteDefinition(FootnoteDefinition { label })))
+                },
+                CmarkEvent::Start(CmarkTag::HtmlBlock) => Some(Event::Start(Tag::HtmlBlock)),
+                CmarkEvent::End(CmarkTag::HtmlBlock) => Some(Event::End(Tag::HtmlBlock)),
+                CmarkEvent::Start(CmarkTag::TableHead) => Some(Event::Start(Tag::TableHead)),
+                CmarkEvent::End(CmarkTag::TableHead) => Some(Event::End(Tag::TableHead)),
+                CmarkEvent::Start(CmarkTag::TableRow) => Some(Event::Start(Tag::TableRow)),
+                CmarkEvent::End(CmarkTag::TableRow) => Some(Event::End(Tag::TableRow)),
+                CmarkEvent::Start(CmarkTag::TableCell) => Some(Event::Start(Tag::TableCell)),
+                CmarkEvent::End(CmarkTag::TableCell) => Some(Event::End(Tag::TableCell)),
+                CmarkEvent::Start(CmarkTag::Emphasis) => Some(Event::Start(Tag::InlineEmphasis)),
+                CmarkEvent::End(CmarkTag::Emphasis) => Some(Event::End(Tag::InlineEmphasis)),
+                CmarkEvent::Start(CmarkTag::Strong) => Some(Event::Start(Tag::InlineStrong)),
+                CmarkEvent::End(CmarkTag::Strong) => Some(Event::End(Tag::InlineStrong)),
+                CmarkEvent::Start(CmarkTag::Strikethrough) => Some(Event::Start(Tag::InlineStrikethrough)),
+                CmarkEvent::End(CmarkTag::Strikethrough) => Some(Event::End(Tag::InlineStrikethrough)),
 
-            CmarkEvent::Start(CmarkTag::Code) => self.convert_inline_code(range),
-            CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
-                self.convert_code_block(lang, range, None)
-            },
-            CmarkEvent::Start(CmarkTag::Paragraph) => self.convert_paragraph(range),
-            CmarkEvent::Start(CmarkTag::Header(level)) => self.convert_header(level, range, None),
-            CmarkEvent::Start(CmarkTag::Table(alignment)) => {
-                self.convert_table(alignment, range, None)
-            },
-            CmarkEvent::Start(CmarkTag::Link(typ, dst, title)) => {
-                self.convert_link(typ, dst, title, range)
-            },
-            CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => {
-                self.convert_image(typ, dst, title, range, None)
-            },
+                CmarkEvent::InlineHtml(html) => {
+                    self.convert_inline_html(WithRange(html, range));
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::Code) => {
+                    self.convert_inline_code(WithRange((), range));
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
+                    self.convert_code_block(WithRange(lang, range), None);
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::Paragraph) => {
+                    self.convert_paragraph(WithRange((), range));
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::Header(level)) => {
+                    self.convert_header(WithRange(level, range), None);
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::Table(alignment)) => {
+                    self.convert_table(WithRange(alignment, range), None);
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::Link(typ, dst, title)) => {
+                    self.convert_link(typ, dst, title, range);
+                    None
+                },
+                CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => {
+                    self.convert_image(typ, dst, title, range, None);
+                    None
+                },
 
-            CmarkEvent::End(CmarkTag::Code)
-            | CmarkEvent::End(CmarkTag::CodeBlock(_))
-            | CmarkEvent::End(CmarkTag::Paragraph)
-            | CmarkEvent::End(CmarkTag::Header(_))
-            | CmarkEvent::End(CmarkTag::Table(_))
-            | CmarkEvent::End(CmarkTag::Link(..))
-            | CmarkEvent::End(CmarkTag::Image(..)) => {
-                panic!("End tag should be consumed when handling the start tag: {:?}", evt)
-            },
+                CmarkEvent::End(CmarkTag::Code)
+                | CmarkEvent::End(CmarkTag::CodeBlock(_))
+                | CmarkEvent::End(CmarkTag::Paragraph)
+                | CmarkEvent::End(CmarkTag::Header(_))
+                | CmarkEvent::End(CmarkTag::Table(_))
+                | CmarkEvent::End(CmarkTag::Link(..))
+                | CmarkEvent::End(CmarkTag::Image(..)) => {
+                    panic!("End tag should be consumed when handling the start tag: {:?}", evt)
+                },
+            }
+        });
+
+        if let WithRange(Some(evt), range) = evt {
+            self.buffer.push_back(WithRange(evt, range));
         }
     }
 
-    fn convert_inline_html(&mut self, html: Cow<'a, str>, range: Range<usize>) {
-        // TODO: proper HTML tag parsing
-        match html.as_ref() {
-            "<br>" | "<br/>" | "<br />" => self.buffer.push_back((Event::HardBreak, range)),
-            _ => self.buffer.push_back((Event::InlineHtml(html), range)),
-        }
+    fn convert_inline_html(&mut self, html: WithRange<Cow<'a, str>>) {
+        let evt = html.map(|html| {
+            // TODO: proper HTML tag parsing
+            match html.as_ref() {
+                "<br>" | "<br/>" | "<br />" => Event::HardBreak,
+                _ => Event::InlineHtml(html),
+            }
+        });
+        self.buffer.push_back(evt);
     }
 
     /// Consumes and converts all elements until the next End event is received.
@@ -218,18 +201,18 @@ impl<'a> Frontend<'a> {
     #[inline]
     fn convert_until_end_inclusive(
         &mut self, f: impl Fn(&CmarkTag<'_>) -> bool,
-    ) -> (String, Option<Range<usize>>) {
+    ) -> (String, Option<SourceRange>) {
         let mut text = String::new();
-        let mut range: Option<Range<usize>> = None;
+        let mut range: Option<SourceRange> = None;
         loop {
-            let (evt, evt_range) = self.parser.next().unwrap();
+            let WithRange(evt, evt_range) = self.parser.next().unwrap();
             if let Some(range) = &mut range {
                 range.end = evt_range.end;
             } else {
                 range = Some(evt_range.clone());
             }
             match &evt {
-                CmarkEvent::End(tag) if f(tag) => return (text, range),
+                CmarkEvent::End(ref tag) if f(tag) => return (text, range),
                 CmarkEvent::Text(t) => {
                     if !text.is_empty() {
                         text.push(' ');
@@ -239,7 +222,7 @@ impl<'a> Frontend<'a> {
                 _ => (),
             }
 
-            self.convert_event(evt, evt_range);
+            self.convert_event(WithRange(evt, evt_range));
         }
     }
 
@@ -248,7 +231,7 @@ impl<'a> Frontend<'a> {
     fn consume_until_end_inclusive(&mut self) {
         let mut nest = 0;
         loop {
-            match self.parser.next().unwrap().0 {
+            match self.parser.next().unwrap().element() {
                 CmarkEvent::Start(_) => nest += 1,
                 CmarkEvent::End(_) if nest > 0 => nest -= 1,
                 CmarkEvent::End(_) => return,
@@ -263,7 +246,7 @@ impl<'a> Frontend<'a> {
         let mut s = String::with_capacity(100);
         let mut nest = 0;
         loop {
-            match self.parser.next().unwrap().0 {
+            match self.parser.next().unwrap().element() {
                 CmarkEvent::Start(_) => nest += 1,
                 CmarkEvent::End(_) if nest > 0 => nest -= 1,
                 CmarkEvent::End(_) => break,
@@ -278,14 +261,14 @@ impl<'a> Frontend<'a> {
         s
     }
 
-    fn convert_inline_code(&mut self, range: Range<usize>) {
+    fn convert_inline_code(&mut self, WithRange((), range): WithRange<()>) {
         // check if code is math mode
-        let (evt, _text_range) = self.parser.next().unwrap();
+        let WithRange(evt, _text_range) = self.parser.next().unwrap();
         let mut text = match evt {
             CmarkEvent::Text(text) => text,
             CmarkEvent::End(CmarkTag::Code) => {
-                self.buffer.push_back((Event::Start(Tag::InlineCode), range.clone()));
-                self.buffer.push_back((Event::End(Tag::InlineCode), range));
+                self.buffer.push_back(WithRange(Event::Start(Tag::InlineCode), range));
+                self.buffer.push_back(WithRange(Event::End(Tag::InlineCode), range));
                 return;
             },
             e => unreachable!(
@@ -308,7 +291,7 @@ impl<'a> Frontend<'a> {
                         CmarkEvent::End(CmarkTag::Code) => (),
                         _ => unreachable!("InlineCode should only contain a single text event"),
                     }
-                    self.buffer.push_back((Event::Latex(text), range));
+                    self.buffer.push_back(WithRange(Event::Latex(text), range));
                     return;
                 },
                 _ => Tag::InlineCode,
@@ -316,22 +299,22 @@ impl<'a> Frontend<'a> {
         } else {
             Tag::InlineCode
         };
-        self.buffer.push_back((Event::Start(tag.clone()), range.clone()));
-        self.buffer.push_back((Event::Text(text), range.clone()));
+        self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
+        self.buffer.push_back(WithRange(Event::Text(text), range));
         self.convert_until_end_inclusive(|t| if let CmarkTag::Code = t { true } else { false });
-        self.buffer.push_back((Event::End(tag), range));
+        self.buffer.push_back(WithRange(Event::End(tag), range));
     }
 
     fn convert_code_block(
-        &mut self, lang: Cow<'a, str>, range: Range<usize>, mut cskvp: Option<Cskvp<'a>>,
+        &mut self, WithRange(lang, range): WithRange<Cow<'a, str>>, mut cskvp: Option<Cskvp<'a>>,
     ) {
         let lang = match lang {
             Cow::Borrowed(s) => s,
             Cow::Owned(_) => unreachable!("CodeBlock language should be borrowed"),
         };
 
-        let code_block_cskvp_range = self.diagnostics.first_line(&range);
-        let code_block_cskvp_range = Range {
+        let code_block_cskvp_range = self.diagnostics.first_line(range);
+        let code_block_cskvp_range = SourceRange {
             start: code_block_cskvp_range.end - lang.len(),
             end: code_block_cskvp_range.end,
         };
@@ -341,11 +324,11 @@ impl<'a> Frontend<'a> {
         let language_range;
         if let Some(pos) = lang.find(',') {
             language = &lang[..pos];
-            language_range = Range {
+            language_range = SourceRange {
                 start: code_block_cskvp_range.start,
                 end: code_block_cskvp_range.start + language.len(),
             };
-            let code_block_cskvp_content_range = Range {
+            let code_block_cskvp_content_range = SourceRange {
                 start: code_block_cskvp_range.start + pos + 1,
                 end: code_block_cskvp_range.end,
             };
@@ -359,7 +342,7 @@ impl<'a> Frontend<'a> {
                 self.diagnostics
                     .error("code has both prefix and inline style config")
                     .with_info_section(c.range(), "prefix config defined here")
-                    .with_info_section(&code_block_cskvp_range, "inline config defined here")
+                    .with_info_section(code_block_cskvp_range, "inline config defined here")
                     .note("ignoring both")
                     .help("try removing one of them")
                     .emit();
@@ -399,7 +382,7 @@ impl<'a> Frontend<'a> {
             },
             "inlinelatex" => {
                 // code is just a single block of text
-                let (evt, latex_range) = self.parser.next().unwrap();
+                let WithRange(evt, latex_range) = self.parser.next().unwrap();
                 let latex = match evt {
                     CmarkEvent::Text(text) => text,
                     _ => unreachable!(),
@@ -410,7 +393,7 @@ impl<'a> Frontend<'a> {
                     _ => unreachable!(),
                 }
 
-                self.buffer.push_back((Event::Latex(latex), latex_range));
+                self.buffer.push_back(WithRange(Event::Latex(latex), latex_range));
                 return;
             },
             _ => Tag::CodeBlock(CodeBlock {
@@ -421,29 +404,29 @@ impl<'a> Frontend<'a> {
                 } else if language == "sequence" {
                     self.diagnostics
                         .warning("sequence is not yet implemented")
-                        .with_error_section(&range, "")
+                        .with_error_section(range, "")
                         .emit();
                     None
                 } else {
-                    Some((Cow::Borrowed(language), language_range))
+                    Some(WithRange(Cow::Borrowed(language), language_range))
                 },
             }),
         };
 
-        self.buffer.push_back((Event::Start(tag.clone()), range.clone()));
+        self.buffer.push_back(WithRange(Event::Start(tag.clone()), range.clone()));
         self.convert_until_end_inclusive(
             |t| if let CmarkTag::CodeBlock(_) = t { true } else { false },
         );
-        self.buffer.push_back((Event::End(tag), range));
+        self.buffer.push_back(WithRange(Event::End(tag), range));
     }
 
-    fn convert_paragraph(&mut self, range: Range<usize>) {
+    fn convert_paragraph(&mut self, WithRange((), range): WithRange<()>) {
         // check for label/config (Start(Paragraph), Text("{#foo,config...}"),
         // End(Paragraph)/SoftBreak)
 
         macro_rules! handle_normal {
             () => {{
-                self.buffer.push_back((Event::Start(Tag::Paragraph), range.clone()));
+                self.buffer.push_back(WithRange(Event::Start(Tag::Paragraph), range.clone()));
                 self.convert_until_end_inclusive(|t| {
                     if let CmarkTag::Paragraph = t {
                         true
@@ -451,12 +434,12 @@ impl<'a> Frontend<'a> {
                         false
                     }
                 });
-                self.buffer.push_back((Event::End(Tag::Paragraph), range));
+                self.buffer.push_back(WithRange(Event::End(Tag::Paragraph), range));
                 return;
             }};
         };
 
-        let text = match self.parser.peek().map(|t| &t.0) {
+        let text = match self.parser.peek().map(|t| t.as_ref().element()) {
             Some(CmarkEvent::Text(text)) => text, // continue
             _ => handle_normal!(),
         };
@@ -466,7 +449,7 @@ impl<'a> Frontend<'a> {
             handle_normal!();
         }
         // consume text
-        let (evt, text_range) = self.parser.next().unwrap();
+        let WithRange(evt, text_range) = self.parser.next().unwrap();
         let mut text = match evt {
             CmarkEvent::Text(text) => text,
             _ => unreachable!(),
@@ -474,13 +457,13 @@ impl<'a> Frontend<'a> {
 
         // TODO: look ahead further to enable Start(Paragraph), Label, End(Paragraph),
         // Start(Paragraph), Image, …
-        let end_paragraph = match self.parser.peek().map(|t| &t.0) {
+        let end_paragraph = match self.parser.peek().map(|t| t.as_ref().element()) {
             Some(CmarkEvent::End(CmarkTag::Paragraph)) => true,
             Some(CmarkEvent::SoftBreak) => false,
             _ => {
                 // not a label, reset our look-ahead and generate original
-                self.buffer.push_back((Event::Start(Tag::Paragraph), range.clone()));
-                self.buffer.push_back((Event::Text(text), text_range));
+                self.buffer.push_back(WithRange(Event::Start(Tag::Paragraph), range));
+                self.buffer.push_back(WithRange(Event::Text(text), text_range));
                 self.convert_until_end_inclusive(|t| {
                     if let CmarkTag::Paragraph = t {
                         true
@@ -488,7 +471,7 @@ impl<'a> Frontend<'a> {
                         false
                     }
                 });
-                self.buffer.push_back((Event::End(Tag::Paragraph), range));
+                self.buffer.push_back(WithRange(Event::End(Tag::Paragraph), range));
                 return;
             },
         };
@@ -499,26 +482,26 @@ impl<'a> Frontend<'a> {
         // if it's a label at the beginning of a paragraph, create that paragraph before creating
         // the element
         if !end_paragraph {
-            self.buffer.push_back((Event::Start(Tag::Paragraph), range.clone()));
+            self.buffer.push_back(WithRange(Event::Start(Tag::Paragraph), range));
         }
 
         // parse label
         text.truncate_end(1);
         text.truncate_start(1);
-        let cskvp_content_range = Range { start: text_range.start + 1, end: text_range.end - 1 };
+        let cskvp_content_range = SourceRange { start: text_range.start + 1, end: text_range.end - 1 };
         let mut cskvp =
-            Cskvp::new(text, text_range.clone(), cskvp_content_range, self.diagnostics.clone());
+            Cskvp::new(text, text_range, cskvp_content_range, self.diagnostics.clone());
         // if next element could have a label, convert that element with the label
         // otherwise create label event
         match self.parser.peek().unwrap() {
-            (CmarkEvent::Start(CmarkTag::Header(_)), _)
-            | (CmarkEvent::Start(CmarkTag::CodeBlock(_)), _)
-            | (CmarkEvent::Start(CmarkTag::Table(_)), _)
-            | (CmarkEvent::Start(CmarkTag::Image(..)), _) => {
-                let (next_element, next_range) = self.parser.next().unwrap();
+            WithRange(CmarkEvent::Start(CmarkTag::Header(_)), _)
+            | WithRange(CmarkEvent::Start(CmarkTag::CodeBlock(_)), _)
+            | WithRange(CmarkEvent::Start(CmarkTag::Table(_)), _)
+            | WithRange(CmarkEvent::Start(CmarkTag::Image(..)), _) => {
+                let WithRange(next_element, next_range) = self.parser.next().unwrap();
                 self.handle_cskvp(cskvp, next_element, next_range)
             },
-            (_, next_range) => {
+            &WithRange(_, next_range) => {
                 if !cskvp.has_label() {
                     self.diagnostics
                         .error("found element config, but there wasn't an element ot apply it to")
@@ -527,7 +510,7 @@ impl<'a> Frontend<'a> {
                         .emit();
                 } else {
                     self.buffer
-                        .push_back((Event::Label(cskvp.take_label().unwrap().0), text_range));
+                        .push_back(WithRange(Event::Label(cskvp.take_label().unwrap().element()), text_range));
                 }
             },
         }
@@ -540,15 +523,15 @@ impl<'a> Frontend<'a> {
                     false
                 }
             });
-            self.buffer.push_back((Event::End(Tag::Paragraph), range));
+            self.buffer.push_back(WithRange(Event::End(Tag::Paragraph), range));
         }
     }
 
     fn handle_cskvp(
-        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: Range<usize>,
+        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: SourceRange,
     ) {
         // check if we want a figure
-        let figure = match cskvp.take_figure().map(|f| f.0).unwrap_or(self.cfg.figures) {
+        let figure = match cskvp.take_figure().map(|f| f.element()).unwrap_or(self.cfg.figures) {
             false => None,
             true => match &next_element {
                 CmarkEvent::Start(CmarkTag::Table(_)) => Some(Tag::TableFigure(Figure {
@@ -562,31 +545,31 @@ impl<'a> Frontend<'a> {
             },
         };
         if let Some(figure) = figure.clone() {
-            self.buffer.push_back((Event::Start(figure), next_range.clone()));
+            self.buffer.push_back(WithRange(Event::Start(figure), next_range));
         }
 
         match next_element {
             CmarkEvent::Start(CmarkTag::Header(label)) => {
-                self.convert_header(label, next_range.clone(), Some(cskvp))
+                self.convert_header(WithRange(label, next_range), Some(cskvp))
             },
             CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
-                self.convert_code_block(lang, next_range.clone(), Some(cskvp))
+                self.convert_code_block(WithRange(lang, next_range), Some(cskvp))
             },
             CmarkEvent::Start(CmarkTag::Table(alignment)) => {
-                self.convert_table(alignment, next_range.clone(), Some(cskvp))
+                self.convert_table(WithRange(alignment, next_range), Some(cskvp))
             },
             CmarkEvent::Start(CmarkTag::Image(typ, dst, title)) => {
-                self.convert_image(typ, dst, title, next_range.clone(), Some(cskvp))
+                self.convert_image(typ, dst, title, next_range, Some(cskvp))
             },
             element => panic!("handle_cskvp called with unknown element {:?}", element),
         }
 
         if let Some(figure) = figure {
-            self.buffer.push_back((Event::End(figure), next_range));
+            self.buffer.push_back(WithRange(Event::End(figure), next_range));
         }
     }
 
-    fn convert_header(&mut self, level: i32, range: Range<usize>, cskvp: Option<Cskvp<'a>>) {
+    fn convert_header(&mut self, WithRange(level, range): WithRange<i32>, cskvp: Option<Cskvp<'a>>) {
         let mut cskvp = cskvp.unwrap_or_default();
         // header can have 3 different labels:
         // • `{#foo}\n\n# Header`: "prefix" style
@@ -614,8 +597,8 @@ impl<'a> Frontend<'a> {
         let captures = RE.captures(&text);
         let inline = captures.as_ref().map(|c| c.get(1).unwrap().as_str());
         let group0 = captures.as_ref().map(|c| c.get(0).unwrap());
-        let inline_range = group0.map(|group| Range {
-            start: text_range.clone().unwrap().start + group.start(),
+        let inline_range = group0.map(|group| SourceRange {
+            start: text_range.unwrap().start + group.start(),
             end: text_range.unwrap().start + group.end(),
         });
 
@@ -631,29 +614,29 @@ impl<'a> Frontend<'a> {
         let label = if prefix.is_some() && inline.is_some() {
             self.diagnostics
                 .error("header has both prefix and inline style labels")
-                .with_error_section(&range, "header defined here")
-                .with_info_section(&prefix.unwrap().1, "prefix style defined here")
-                .with_info_section(inline_range.as_ref().unwrap(), "inline style defined here")
+                .with_error_section(range, "header defined here")
+                .with_info_section(prefix.unwrap().range(), "prefix style defined here")
+                .with_info_section(inline_range.unwrap(), "inline style defined here")
                 .note(format!("using the inline one"))
                 .help("try removing one of them")
                 .emit();
 
-            (Cow::Owned(inline.unwrap().to_string()), inline_range.unwrap())
+            WithRange(Cow::Owned(inline.unwrap().to_string()), inline_range.unwrap())
         } else {
             prefix
                 .or_else(|| {
-                    inline.map(|inline| (Cow::Owned(inline.to_string()), inline_range.unwrap()))
+                    inline.map(|inline| WithRange(Cow::Owned(inline.to_string()), inline_range.unwrap()))
                 })
-                .unwrap_or_else(|| (Cow::Owned(autogenerated), range.clone()))
+                .unwrap_or_else(|| WithRange(Cow::Owned(autogenerated), range))
         };
 
         let tag = Tag::Header(Header { label, level });
-        self.buffer.insert(current_index, (Event::Start(tag.clone()), range.clone()));
-        self.buffer.push_back((Event::End(tag), range));
+        self.buffer.insert(current_index, WithRange(Event::Start(tag.clone()), range));
+        self.buffer.push_back(WithRange(Event::End(tag), range));
     }
 
     fn convert_table(
-        &mut self, alignment: Vec<Alignment>, range: Range<usize>, cskvp: Option<Cskvp<'a>>,
+        &mut self, WithRange(alignment, range): WithRange<Vec<Alignment>>, cskvp: Option<Cskvp<'a>>,
     ) {
         let mut cskvp = cskvp.unwrap_or_default();
         let tag = Tag::Table(Table {
@@ -661,20 +644,20 @@ impl<'a> Frontend<'a> {
             caption: cskvp.take_caption(),
             alignment,
         });
-        self.buffer.push_back((Event::Start(tag.clone()), range.clone()));
+        self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
         self.convert_until_end_inclusive(|t| if let CmarkTag::Table(_) = t { true } else { false });
-        self.buffer.push_back((Event::End(tag), range));
+        self.buffer.push_back(WithRange(Event::End(tag), range));
     }
 
     fn convert_link(
-        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>,
+        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
     ) {
         let evt = match refs::parse_references(
             self.cfg,
             typ,
             dst,
             title,
-            range.clone(),
+            range,
             &mut self.diagnostics,
         ) {
             ReferenceParseResult::BiberReferences(biber) => Event::BiberReferences(biber),
@@ -692,7 +675,7 @@ impl<'a> Frontend<'a> {
         };
         match evt {
             Event::Start(tag) => {
-                self.buffer.push_back((Event::Start(tag.clone()), range.clone()));
+                self.buffer.push_back(WithRange(Event::Start(tag.clone()), range.clone()));
                 self.convert_until_end_inclusive(|t| {
                     if let CmarkTag::Link(..) = t {
                         true
@@ -700,17 +683,17 @@ impl<'a> Frontend<'a> {
                         false
                     }
                 });
-                self.buffer.push_back((Event::End(tag), range));
+                self.buffer.push_back(WithRange(Event::End(tag), range));
             },
             evt => {
-                self.buffer.push_back((evt, range));
+                self.buffer.push_back(WithRange(evt, range));
                 self.consume_until_end_inclusive();
             },
         }
     }
 
     fn convert_image(
-        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: Range<usize>,
+        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
         cskvp: Option<Cskvp<'a>>,
     ) {
         // TODO: maybe not concat all text-like events but actually forward events
@@ -728,7 +711,7 @@ impl<'a> Frontend<'a> {
             LinkType::Autolink | LinkType::Email => unreachable!("{:?} can be images???", typ),
         };
         let mut cskvp = cskvp.unwrap_or_default();
-        self.buffer.push_back((
+        self.buffer.push_back(WithRange(
             Event::Include(Include {
                 label: cskvp.take_label(),
                 caption: cskvp.take_caption(),

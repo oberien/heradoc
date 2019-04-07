@@ -2,7 +2,6 @@
 
 use std::fmt;
 use std::io::Write;
-use std::ops::Range;
 use std::path::PathBuf;
 use std::rc::Rc;
 
@@ -10,6 +9,8 @@ use codespan::{ByteOffset, FileMap, FileName, Span};
 use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
 use url::Url;
+
+use crate::frontend::range::SourceRange;
 
 pub struct Diagnostics<'a> {
     file_map: Rc<FileMap<&'a str>>,
@@ -54,14 +55,14 @@ impl<'a> Diagnostics<'a> {
         Diagnostics { file_map, out: Diagnostics::create_out_stream() }
     }
 
-    pub fn first_line(&self, range: &Range<usize>) -> Range<usize> {
+    pub fn first_line(&self, range: SourceRange) -> SourceRange {
         let start =
             Span::from_offset(self.file_map.span().start(), ByteOffset(range.start as i64)).end();
         let line = self.file_map.location(start).unwrap().0;
         let line_span = self.file_map.line_span(line).unwrap();
         // get rid of newline
         let len = self.file_map.src_slice(line_span).unwrap().trim_end().len();
-        Range { start: range.start, end: range.start + len }
+        SourceRange { start: range.start, end: range.start + len }
     }
 
     fn diagnostic(&mut self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
@@ -178,7 +179,7 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     }
 
     fn with_section<S: Into<String>>(
-        mut self, style: LabelStyle, range: &Range<usize>, message: S,
+        mut self, style: LabelStyle, range: SourceRange, message: S,
     ) -> Self {
         let span = self
             .file_map
@@ -191,12 +192,12 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     }
 
     /// message can be empty
-    pub fn with_error_section<S: Into<String>>(self, range: &Range<usize>, message: S) -> Self {
+    pub fn with_error_section<S: Into<String>>(self, range: SourceRange, message: S) -> Self {
         self.with_section(LabelStyle::Primary, range, message)
     }
 
     /// message can be empty
-    pub fn with_info_section<S: Into<String>>(self, range: &Range<usize>, message: S) -> Self {
+    pub fn with_info_section<S: Into<String>>(self, range: SourceRange, message: S) -> Self {
         self.with_section(LabelStyle::Secondary, range, message)
     }
 }
