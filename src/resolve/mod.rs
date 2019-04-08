@@ -189,7 +189,6 @@ mod tests {
 
         assert_match!(main, Include::Markdown(path, _) if path == &dir.path().join("main.md"));
         assert_match!(sibling, Include::Image(path) if path == &dir.path().join("image.png"));
-        drop(dir);
     }
 
     #[test]
@@ -203,7 +202,6 @@ mod tests {
             .expect("Failed to resolve path in different domain");
 
         assert_eq!(toc, Include::Command(Command::Toc));
-        drop(dir);
     }
 
     #[test]
@@ -222,7 +220,6 @@ mod tests {
             .expect("Failed to download external document");
 
         assert_match!(external, Include::Markdown(_, Context::Remote(_)));
-        drop(dir);
     }
 
     #[test]
@@ -233,10 +230,9 @@ mod tests {
 
         let error = resolver
             .resolve(&top, "this_file_does_not_exist.md", range, &mut diagnostics)
-            .expect_err("Can not resolve source for files that do not exist on disk");
+            .expect_err("Only files that exist on disk can be resolved");
 
         assert_match!(error, Error::Diagnostic);
-        drop(dir);
     }
 
     #[test]
