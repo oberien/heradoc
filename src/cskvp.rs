@@ -9,6 +9,7 @@ use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, VecExt};
 use crate::frontend::range::{SourceRange, WithRange};
 
+#[derive(Debug, PartialEq, Eq)]
 struct Diagnostic;
 
 #[derive(Debug)]
@@ -347,16 +348,26 @@ mod test {
 
     #[test]
     fn test_parser() {
-        let mut diagnostics = Diagnostics::new("", Input::Stdin);
-        let s = r#"foo, bar = " baz, \"qux\"", quux"#;
+        let s = r#"foo, bar = " baz, \"qux\"", quux, corge="grault"#;
         let s_range = SourceRange { start: 0, end: s.len() };
+        let mut diagnostics = Diagnostics::new(s, Input::Stdin);
         let mut parser = Parser::new(Cow::Borrowed(s), s_range);
-        assert_eq!(parser.next(&mut diagnostics), Some(Value::Single(Cow::Borrowed("foo"))));
         assert_eq!(
-            parser.next(&mut diagnostics),
-            Some(Value::Double(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string())))
+            parser.next(&mut diagnostics).unwrap(),
+            Some(WithRange(Value::Single(Cow::Borrowed("foo")), (0..3).into()))
         );
-        assert_eq!(parser.next(&mut diagnostics), Some(Value::Single(Cow::Borrowed("quux"))));
+        assert_eq!(
+            parser.next(&mut diagnostics).unwrap(),
+            Some(WithRange(
+                Value::Double(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string())),
+                (5..26).into()
+            ))
+        );
+        assert_eq!(
+            parser.next(&mut diagnostics).unwrap(),
+            Some(WithRange(Value::Single(Cow::Borrowed("quux")), (28..32).into()))
+        );
+        assert_eq!(parser.next(&mut diagnostics), Err(Diagnostic));
     }
 
     #[test]

@@ -161,14 +161,14 @@ mod tests {
     });
 }
 
-    fn prepare() -> (TempDir, SourceRange, Diagnostics<'_>) {
+    fn prepare() -> (TempDir, SourceRange, Diagnostics<'static>) {
         let dir = TempDir::new("heradoc-test").expect("Can't create tempdir");
         let _ = File::create(dir.path().join("main.md")).expect("Can't create main.md");
         let _ = File::create(dir.path().join("test.md")).expect("Can't create main.md");
         let _ = File::create(dir.path().join("image.png")).expect("Can't create image.png");
         let _ = File::create(dir.path().join("pdf.pdf")).expect("Can't create pdf.pdf");
-        let mut range = SourceRange { start: 0, end: 0 };
-        let mut diagnostics = Diagnostics::new("", Input::Stdin);
+        let range = SourceRange { start: 0, end: 0 };
+        let diagnostics = Diagnostics::new("", Input::Stdin);
         (dir, range, diagnostics)
     }
 
