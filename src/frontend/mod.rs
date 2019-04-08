@@ -209,7 +209,7 @@ impl<'a> Frontend<'a> {
             if let Some(range) = &mut range {
                 range.end = evt_range.end;
             } else {
-                range = Some(evt_range.clone());
+                range = Some(evt_range);
             }
             match &evt {
                 CmarkEvent::End(ref tag) if f(tag) => return (text, range),
@@ -334,7 +334,7 @@ impl<'a> Frontend<'a> {
             };
             let inline_cskvp = Cskvp::new(
                 Cow::Borrowed(&lang[pos + 1..]),
-                code_block_cskvp_range.clone(),
+                code_block_cskvp_range,
                 code_block_cskvp_content_range,
                 self.diagnostics.clone(),
             );
@@ -413,7 +413,7 @@ impl<'a> Frontend<'a> {
             }),
         };
 
-        self.buffer.push_back(WithRange(Event::Start(tag.clone()), range.clone()));
+        self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
         self.convert_until_end_inclusive(
             |t| if let CmarkTag::CodeBlock(_) = t { true } else { false },
         );
@@ -426,7 +426,7 @@ impl<'a> Frontend<'a> {
 
         macro_rules! handle_normal {
             () => {{
-                self.buffer.push_back(WithRange(Event::Start(Tag::Paragraph), range.clone()));
+                self.buffer.push_back(WithRange(Event::Start(Tag::Paragraph), range));
                 self.convert_until_end_inclusive(|t| {
                     if let CmarkTag::Paragraph = t {
                         true
@@ -675,7 +675,7 @@ impl<'a> Frontend<'a> {
         };
         match evt {
             Event::Start(tag) => {
-                self.buffer.push_back(WithRange(Event::Start(tag.clone()), range.clone()));
+                self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
                 self.convert_until_end_inclusive(|t| {
                     if let CmarkTag::Link(..) = t {
                         true

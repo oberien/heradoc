@@ -60,9 +60,9 @@ impl Resolver {
             },
         };
 
-        let target = Source::new(url, context, range.clone(), diagnostics)?;
+        let target = Source::new(url, context, range, diagnostics)?;
         // check if context is allowed to access target
-        self.check_access(context, &target, range.clone(), diagnostics)?;
+        self.check_access(context, &target, range, diagnostics)?;
 
         target.into_include(&self.remote, range, diagnostics)
     }
@@ -179,7 +179,7 @@ mod tests {
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
         let main = resolver
-            .resolve(&top, "main.md", range.clone(), &mut diagnostics)
+            .resolve(&top, "main.md", range, &mut diagnostics)
             .expect("Failed to resolve direct path");
         let sibling = resolver
             .resolve(&top, "image.png", range, &mut diagnostics)
