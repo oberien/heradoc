@@ -30,3 +30,6 @@ quoted-string = "0.6.0"
 
 [profile.release]
 debug = true
+
+[profile.bench]
+debug = true
