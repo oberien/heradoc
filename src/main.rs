@@ -33,10 +33,12 @@ use std::fs::{self, File};
 use std::io::{self, Result, Write};
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 use structopt::StructOpt;
 use tempdir::TempDir;
 use typed_arena::Arena;
+use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 
 mod backend;
 mod config;
@@ -110,10 +112,12 @@ fn main() {
 }
 
 fn gen(cfg: &Config, markdown: String, out: impl Write) {
+    // TODO: make this configurable
+    let stderr = Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto)));
     let res = match cfg.document_type {
-        DocumentType::Article => backend::generate(cfg, Article, &Arena::new(), markdown, out),
-        DocumentType::Report => backend::generate(cfg, Report, &Arena::new(), markdown, out),
-        DocumentType::Thesis => backend::generate(cfg, Thesis, &Arena::new(), markdown, out),
+        DocumentType::Article => backend::generate(cfg, Article, &Arena::new(), markdown, out, stderr),
+        DocumentType::Report => backend::generate(cfg, Report, &Arena::new(), markdown, out, stderr),
+        DocumentType::Thesis => backend::generate(cfg, Thesis, &Arena::new(), markdown, out, stderr),
     };
     match res {
         Ok(()) => (),

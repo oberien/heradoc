@@ -1,4 +1,7 @@
 use std::io::Write;
+use std::sync::{Arc, Mutex};
+
+use codespan_reporting::termcolor::StandardStream;
 
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
@@ -63,7 +66,7 @@ impl<'a> Backend<'a> for Report {
         Report
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
         // TODO: itemizespacing
         // documentclass
         write!(out, "\\documentclass[")?;
@@ -125,7 +128,7 @@ impl<'a> Backend<'a> for Report {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

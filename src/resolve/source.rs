@@ -40,7 +40,7 @@ pub enum SourceGroup {
 }
 
 fn error_include_local_from_remote(
-    diagnostics: &mut Diagnostics<'_>, range: SourceRange,
+    diagnostics: &Diagnostics<'_>, range: SourceRange,
 ) -> Error {
     diagnostics
         .error("tried to include local file from remote origin")
@@ -50,7 +50,7 @@ fn error_include_local_from_remote(
     Error::Diagnostic
 }
 
-fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: SourceRange, err: io::Error) -> Error {
+fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: io::Error) -> Error {
     diagnostics
         .bug("error converting url to path")
         .with_info_section(range, "defined here")
@@ -61,7 +61,7 @@ fn error_to_path(diagnostics: &mut Diagnostics<'_>, range: SourceRange, err: io:
 
 impl Source {
     pub fn new(
-        url: Url, context: &Context, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
+        url: Url, context: &Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Self> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
@@ -98,7 +98,7 @@ impl Source {
     }
 
     pub fn into_include(
-        self, remote: &Remote, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
+        self, remote: &Remote, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
         let Source { url, group } = self;
         match group {
@@ -174,7 +174,7 @@ impl Source {
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
 fn to_include(
-    path: PathBuf, context: Context, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
+    path: PathBuf, context: Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
 ) -> Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {

@@ -24,7 +24,7 @@ pub enum ReferenceParseResult<'a> {
 
 pub fn parse_references<'a>(
     cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
-    diagnostics: &mut Diagnostics<'a>,
+    diagnostics: &Diagnostics<'a>,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
     // title
