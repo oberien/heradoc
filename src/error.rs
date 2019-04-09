@@ -13,8 +13,15 @@ pub enum Fatal {
     /// Output file write error.
     Output(io::Error),
 
-    /// An unrecoverable internal error.
-    InternalError,
+    /// An unrecoverable internal error (ICE).
+    ///
+    /// Used for assertions that are made but not completely or badly proven. For cases where this
+    /// can be related directly to an particular structure in an input file this error also
+    /// provides opportunities to log the relevant context in diagnostics as opposed to `unwrap` or
+    /// `expect` panicking.  For example this may occur due to an interface of a dependency being
+    /// more general than its usage herein but we can not expect full control over its
+    /// implementation.
+    InteralCompilerError,
 }
 
 impl From<io::Error> for Fatal {

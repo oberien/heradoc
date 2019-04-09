@@ -77,7 +77,7 @@ fn error_include_local_from_remote(
 fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathError) -> Error {
     let (diagnostics, error) = match &err {
         PathError::NoPath | PathError::MissingComponent => {
-            (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InternalError))
+            (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InteralCompilerError))
         },
         PathError::InvalidBase | PathError::InvalidComponent | PathError::NoCanonical(..) => {
             (diagnostics.error("error converting url to path"), Error::Diagnostic)
