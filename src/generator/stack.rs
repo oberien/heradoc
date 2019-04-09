@@ -28,7 +28,7 @@ impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
     }
 
     #[allow(dead_code)]
-    pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
+    pub fn diagnostics(&mut self) -> &Diagnostics<'a> {
         self.stack
             .iter_mut()
             .rev()

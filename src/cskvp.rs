@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
+use std::sync::Arc;
 
 use quoted_string::test_utils::TestSpec;
 use single::{self, Single};
@@ -14,7 +15,7 @@ struct Diagnostic;
 
 #[derive(Debug)]
 pub struct Cskvp<'a> {
-    diagnostics: Option<Diagnostics<'a>>,
+    diagnostics: Option<Arc<Diagnostics<'a>>>,
     range: SourceRange,
     label: Option<WithRange<Cow<'a, str>>>,
     caption: Option<WithRange<Cow<'a, str>>>,
@@ -40,14 +41,14 @@ impl<'a> Default for Cskvp<'a> {
 impl<'a> Cskvp<'a> {
     pub fn new(
         s: Cow<'a, str>, range: SourceRange, content_range: SourceRange,
-        mut diagnostics: Diagnostics<'a>,
+        diagnostics: Arc<Diagnostics<'a>>,
     ) -> Cskvp<'a> {
         let mut parser = Parser::new(s, content_range);
 
         let mut single = Vec::new();
         let mut double = HashMap::new();
         let mut label: Option<WithRange<_>> = None;
-        while let Ok(Some(WithRange(value, range))) = parser.next(&mut diagnostics) {
+        while let Ok(Some(WithRange(value, range))) = parser.next(&diagnostics) {
             match value {
                 Value::Double(key, value) => {
                     double.insert(key, WithRange(value, range));
@@ -224,7 +225,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next(
-        &mut self, diagnostics: &mut Diagnostics<'a>,
+        &mut self, diagnostics: &Diagnostics<'a>,
     ) -> Result<Option<WithRange<Value<'a>>>, Diagnostic> {
         if self.rest.is_empty() {
             return Ok(None);
@@ -249,7 +250,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next_quoted(
-        &mut self, diagnostics: &mut Diagnostics<'a>,
+        &mut self, diagnostics: &Diagnostics<'a>,
     ) -> Result<WithRange<Cow<'a, str>>, Diagnostic> {
         assert!(self.rest.starts_with('"'));
         macro_rules! err {
@@ -316,7 +317,7 @@ impl<'a> Parser<'a> {
     }
 
     fn next_single(
-        &mut self, delimiters: &[char], diagnostics: &mut Diagnostics<'a>,
+        &mut self, delimiters: &[char], diagnostics: &Diagnostics<'a>,
     ) -> Result<WithRange<Cow<'a, str>>, Diagnostic> {
         let len = self.rest.len();
         self.rest.trim_start_inplace();
@@ -344,30 +345,32 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use std::sync::Mutex;
+    use codespan_reporting::termcolor::{ColorChoice, StandardStream};
     use crate::diagnostics::Input;
 
     #[test]
     fn test_parser() {
         let s = r#"foo, bar = " baz, \"qux\"", quux, corge="grault"#;
         let s_range = SourceRange { start: 0, end: s.len() };
-        let mut diagnostics = Diagnostics::new(s, Input::Stdin);
+        let diagnostics = Diagnostics::new(s, Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
         let mut parser = Parser::new(Cow::Borrowed(s), s_range);
         assert_eq!(
-            parser.next(&mut diagnostics).unwrap(),
+            parser.next(&diagnostics).unwrap(),
             Some(WithRange(Value::Single(Cow::Borrowed("foo")), (0..3).into()))
         );
         assert_eq!(
-            parser.next(&mut diagnostics).unwrap(),
+            parser.next(&diagnostics).unwrap(),
             Some(WithRange(
                 Value::Double(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string())),
                 (5..26).into()
             ))
         );
         assert_eq!(
-            parser.next(&mut diagnostics).unwrap(),
+            parser.next(&diagnostics).unwrap(),
             Some(WithRange(Value::Single(Cow::Borrowed("quux")), (28..32).into()))
         );
-        assert_eq!(parser.next(&mut diagnostics), Err(Diagnostic));
+        assert_eq!(parser.next(&diagnostics), Err(Diagnostic));
     }
 
     #[test]

@@ -1,8 +1,10 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::io::Write;
+use std::sync::{Arc, Mutex};
 
 use typed_arena::Arena;
+use codespan_reporting::termcolor::StandardStream;
 
 use crate::config::Config;
 use crate::error::{FatalResult, Result};
@@ -31,9 +33,9 @@ pub mod latex;
 
 pub fn generate<'a>(
     cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
-    out: impl Write,
+    out: impl Write, stderr: Arc<Mutex<StandardStream>>,
 ) -> FatalResult<()> {
-    let mut gen = Generator::new(cfg, doc, out, arena);
+    let mut gen = Generator::new(cfg, doc, out, arena, stderr);
     gen.generate(markdown)?;
     Ok(())
 }
@@ -90,8 +92,8 @@ pub trait Backend<'a>: Debug {
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
 
     fn new() -> Self;
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()>;
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()>;
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
 }
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {

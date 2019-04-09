@@ -45,7 +45,7 @@ impl Resolver {
 
     /// Make a request to an uri in the context of a document with the specified source.
     pub fn resolve(
-        &self, context: &Context, url: &str, range: SourceRange, diagnostics: &mut Diagnostics<'_>,
+        &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
         let url = match self.base.join(url) {
             Ok(url) => url,
@@ -74,7 +74,7 @@ impl Resolver {
     /// later time. For example when requesting a remote document make a CORS check.
     fn check_access(
         &self, context: &Context, target: &Source, range: SourceRange,
-        diagnostics: &mut Diagnostics<'_>,
+        diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
         match (context, &target.group) {
             (Context::LocalRelative(_), SourceGroup::Implementation)
@@ -140,9 +140,11 @@ impl Context {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::diagnostics::Input;
     use std::fs::File;
+    use std::sync::{Arc, Mutex};
     use tempdir::TempDir;
+    use codespan_reporting::termcolor::{ColorChoice, StandardStream};
+    use crate::diagnostics::Input;
 
     macro_rules! assert_match {
     ($left:expr, $right:pat if $cond:expr) => ({
@@ -168,21 +170,21 @@ mod tests {
         let _ = File::create(dir.path().join("image.png")).expect("Can't create image.png");
         let _ = File::create(dir.path().join("pdf.pdf")).expect("Can't create pdf.pdf");
         let range = SourceRange { start: 0, end: 0 };
-        let diagnostics = Diagnostics::new("", Input::Stdin);
+        let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
         (dir, range, diagnostics)
     }
 
     #[test]
     fn standard_resolves() {
-        let (dir, range, mut diagnostics) = prepare();
+        let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
         let main = resolver
-            .resolve(&top, "main.md", range, &mut diagnostics)
+            .resolve(&top, "main.md", range, &diagnostics)
             .expect("Failed to resolve direct path");
         let sibling = resolver
-            .resolve(&top, "image.png", range, &mut diagnostics)
+            .resolve(&top, "image.png", range, &diagnostics)
             .expect("Failed to resolve sibling file");
 
         assert_match!(main, Include::Markdown(path, _) if path == &dir.path().join("main.md"));
@@ -192,12 +194,12 @@ mod tests {
 
     #[test]
     fn domain_resolves() {
-        let (dir, range, mut diagnostics) = prepare();
+        let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
         let toc = resolver
-            .resolve(&top, "//toc", range, &mut diagnostics)
+            .resolve(&top, "//toc", range, &diagnostics)
             .expect("Failed to resolve path in different domain");
 
         assert_eq!(toc, Include::Command(Command::Toc));
@@ -206,7 +208,7 @@ mod tests {
 
     #[test]
     fn http_resolves_needs_internet() {
-        let (dir, range, mut diagnostics) = prepare();
+        let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
         let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
 
@@ -215,7 +217,7 @@ mod tests {
                 &top,
                 "https://raw.githubusercontent.com/oberien/heradoc/master/README.md",
                 range,
-                &mut diagnostics,
+                &diagnostics,
             )
             .expect("Failed to download external document");
 

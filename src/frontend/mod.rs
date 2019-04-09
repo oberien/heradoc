@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use lazy_static::lazy_static;
 use pulldown_cmark::{Options as CmarkOptions, Parser as CmarkParser};
@@ -28,7 +29,7 @@ use crate::resolve::Command;
 
 pub struct Frontend<'a> {
     cfg: &'a Config,
-    diagnostics: Diagnostics<'a>,
+    diagnostics: Arc<Diagnostics<'a>>,
     parser: Peekable<Concat<'a>>,
     buffer: VecDeque<WithRange<Event<'a>>>,
 }
@@ -62,7 +63,7 @@ fn broken_link_callback(normalized_ref: &str, text_ref: &str) -> Option<(String,
 }
 
 impl<'a> Frontend<'a> {
-    pub fn new(cfg: &'a Config, markdown: &'a str, diagnostics: Diagnostics<'a>) -> Frontend<'a> {
+    pub fn new(cfg: &'a Config, markdown: &'a str, diagnostics: Arc<Diagnostics<'a>>) -> Frontend<'a> {
         let parser = CmarkParser::new_with_broken_link_callback(
             markdown,
             CmarkOptions::ENABLE_FOOTNOTES
@@ -336,7 +337,7 @@ impl<'a> Frontend<'a> {
                 Cow::Borrowed(&lang[pos + 1..]),
                 code_block_cskvp_range,
                 code_block_cskvp_content_range,
-                self.diagnostics.clone(),
+                Arc::clone(&self.diagnostics),
             );
             if let Some(c) = &mut cskvp {
                 self.diagnostics

@@ -1,8 +1,10 @@
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use typed_arena::Arena;
+use codespan_reporting::termcolor::StandardStream;
 
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
@@ -70,7 +72,7 @@ impl<'a> Backend<'a> for Thesis {
         Thesis
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
         // TODO: itemizespacing
         // documentclass
         write!(out, "\\documentclass[")?;
@@ -109,10 +111,10 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\cleardoublepage{{}}")?;
 
         if let Some(abstract1) = &cfg.abstract1 {
-            gen(abstract1.clone(), cfg, out)?;
+            gen(abstract1.clone(), cfg, out, Arc::clone(&stderr))?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            gen(abstract2.clone(), cfg, out)?;
+            gen(abstract2.clone(), cfg, out, Arc::clone(&stderr))?;
         }
 
         writeln!(out)?;
@@ -125,15 +127,15 @@ impl<'a> Backend<'a> for Thesis {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }
 }
 
-fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write) -> FatalResult<()> {
+fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
     let arena = Arena::new();
-    let mut gen = Generator::new(cfg, Thesis, out, &arena);
+    let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
     let markdown = fs::read_to_string(&path)?;
     let context = Context::LocalRelative(path.clone());
     let input = Input::File(path);

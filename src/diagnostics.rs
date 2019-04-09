@@ -3,31 +3,25 @@
 use std::fmt;
 use std::io::Write;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use codespan::{ByteOffset, FileMap, FileName, Span};
-use codespan_reporting::termcolor::{ColorChoice, StandardStream};
+use codespan_reporting::termcolor::StandardStream;
 use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
 use url::Url;
 
 use crate::frontend::range::SourceRange;
 
 pub struct Diagnostics<'a> {
-    file_map: Rc<FileMap<&'a str>>,
-    out: StandardStream,
-}
-
-impl<'a> Clone for Diagnostics<'a> {
-    fn clone(&self) -> Self {
-        Diagnostics { file_map: self.file_map.clone(), out: Diagnostics::create_out_stream() }
-    }
+    file_map: FileMap<&'a str>,
+    stderr: Arc<Mutex<StandardStream>>,
 }
 
 impl<'a> fmt::Debug for Diagnostics<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Diagnostics")
             .field("file_map", &self.file_map)
-            .field("out", &"StandardStream")
+            .field("out", &"Arc(Mutex(StandardStream))")
             .finish()
     }
 }
@@ -39,20 +33,15 @@ pub enum Input {
 }
 
 impl<'a> Diagnostics<'a> {
-    fn create_out_stream() -> StandardStream {
-        // TODO: make this configurable
-        StandardStream::stderr(ColorChoice::Auto)
-    }
-
-    pub fn new(markdown: &'a str, input: Input) -> Diagnostics<'a> {
+    pub fn new(markdown: &'a str, input: Input, stderr: Arc<Mutex<StandardStream>>) -> Diagnostics<'a> {
         let source = match input {
             Input::File(path) => FileName::real(path),
             Input::Stdin => FileName::Virtual("stdin".into()),
             Input::Url(url) => FileName::Virtual(url.as_str().to_owned().into()),
         };
-        let file_map = Rc::new(FileMap::new(source, markdown));
+        let file_map = FileMap::new(source, markdown);
 
-        Diagnostics { file_map, out: Diagnostics::create_out_stream() }
+        Diagnostics { file_map, stderr }
     }
 
     pub fn first_line(&self, range: SourceRange) -> SourceRange {
@@ -65,10 +54,11 @@ impl<'a> Diagnostics<'a> {
         SourceRange { start: range.start, end: range.start + len }
     }
 
-    fn diagnostic(&mut self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
+    fn diagnostic(&self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
         DiagnosticBuilder {
             file_map: &self.file_map,
-            out: &mut self.out,
+            // we're borrowing anyway, no need to increase refcount
+            stderr: &self.stderr,
             diagnostics: Vec::new(),
             severity,
             message,
@@ -77,7 +67,7 @@ impl<'a> Diagnostics<'a> {
         }
     }
 
-    pub fn bug<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn bug<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
         let mut diag =
             Some(self.diagnostic(Severity::Bug, message.into()).note("please report this"));
         backtrace::trace(|frame| {
@@ -96,19 +86,19 @@ impl<'a> Diagnostics<'a> {
         diag.unwrap()
     }
 
-    pub fn error<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn error<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Error, message.into())
     }
 
-    pub fn warning<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn warning<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Warning, message.into())
     }
 
-    pub fn note<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn note<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Note, message.into())
     }
 
-    pub fn help<S: Into<String>>(&mut self, message: S) -> DiagnosticBuilder<'a, '_> {
+    pub fn help<S: Into<String>>(&self, message: S) -> DiagnosticBuilder<'a, '_> {
         self.diagnostic(Severity::Help, message.into())
     }
 }
@@ -116,7 +106,7 @@ impl<'a> Diagnostics<'a> {
 #[must_use = "call `emit` to emit the diagnostic"]
 pub struct DiagnosticBuilder<'a: 'b, 'b> {
     file_map: &'b FileMap<&'a str>,
-    out: &'b mut StandardStream,
+    stderr: &'b Arc<Mutex<StandardStream>>,
     diagnostics: Vec<Diagnostic>,
 
     severity: Severity,
@@ -127,24 +117,25 @@ pub struct DiagnosticBuilder<'a: 'b, 'b> {
 
 impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     pub fn emit(self) {
-        let Self { file_map, out, mut diagnostics, severity, message, code, labels } = self;
+        let Self { file_map, stderr, mut diagnostics, severity, message, code, labels } = self;
         diagnostics.push(Diagnostic { severity, message, code, labels });
+        let mut stderr = stderr.lock().unwrap();
 
         // ignore output errors, because where would we log them anyway?!
         for diagnostic in diagnostics {
-            codespan_reporting::emit_single(&mut *out, file_map, &diagnostic)
+            codespan_reporting::emit_single(&mut *stderr, file_map, &diagnostic)
                 .expect("stdout is gone???");
         }
-        writeln!(out).expect("stdout is gone???");
+        writeln!(stderr).expect("stdout is gone???");
     }
 
     fn diagnostic(self, new_severity: Severity, new_message: String) -> Self {
-        let Self { file_map, out, mut diagnostics, severity, message, code, labels } = self;
+        let Self { file_map, stderr, mut diagnostics, severity, message, code, labels } = self;
         diagnostics.push(Diagnostic { severity, message, code, labels });
 
         Self {
             file_map,
-            out,
+            stderr,
             diagnostics,
             severity: new_severity,
             message: new_message,

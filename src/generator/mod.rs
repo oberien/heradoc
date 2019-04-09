@@ -1,8 +1,10 @@
 use std::fmt;
 use std::fs;
 use std::io::Write;
+use std::sync::{Arc, Mutex};
 
 use typed_arena::Arena;
+use codespan_reporting::termcolor::StandardStream;
 
 use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
@@ -31,11 +33,12 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     stack: Vec<StackElement<'a, B>>,
     resolver: Resolver,
     template: Option<String>,
+    stderr: Arc<Mutex<StandardStream>>,
 }
 
 pub struct Events<'a> {
     events: Iter<'a>,
-    diagnostics: Diagnostics<'a>,
+    diagnostics: Arc<Diagnostics<'a>>,
     context: Context,
 }
 
@@ -50,7 +53,10 @@ impl<'a> fmt::Debug for Events<'a> {
 }
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
-    pub fn new(cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>) -> Self {
+    pub fn new(
+        cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>,
+        stderr: Arc<Mutex<StandardStream>>,
+    ) -> Self {
         let template = cfg
             .template
             .as_ref()
@@ -63,13 +69,14 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             stack: Vec::new(),
             resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
             template,
+            stderr,
         }
     }
 
     pub fn get_events(&mut self, markdown: String, context: Context, input: Input) -> Events<'a> {
         let markdown = self.arena.alloc(markdown);
-        let diagnostics = Diagnostics::new(markdown, input);
-        let frontend = Frontend::new(self.cfg, markdown, diagnostics.clone());
+        let diagnostics = Arc::new(Diagnostics::new(markdown, input, Arc::clone(&self.stderr)));
+        let frontend = Frontend::new(self.cfg, markdown, Arc::clone(&diagnostics));
         let events = Iter::new(frontend);
         Events { events, diagnostics, context }
     }
@@ -89,10 +96,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
+            self.doc.gen_preamble(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
             self.generate_body(events)?;
             assert!(self.stack.pop().is_none());
-            self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
+            self.doc.gen_epilogue(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
         }
         Ok(())
     }
@@ -190,7 +197,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .unwrap_or(&mut self.default_out)
     }
 
-    fn top_context(&mut self) -> (&mut Context, &mut Diagnostics<'a>, &mut Resolver) {
+    fn top_context(&mut self) -> (&mut Context, &Diagnostics<'a>, &mut Resolver) {
         let (context, diagnostics) = self.stack
             .iter_mut()
             .rev()
@@ -204,7 +211,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         (context, diagnostics, &mut self.resolver)
     }
 
-    pub fn diagnostics(&mut self) -> &mut Diagnostics<'a> {
+    pub fn diagnostics(&mut self) -> &Diagnostics<'a> {
         self.top_context().1
     }
 

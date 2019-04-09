@@ -1,4 +1,5 @@
 use std::io::Write;
+use std::sync::Arc;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
@@ -39,7 +40,7 @@ pub enum StackElement<'a, D: Backend<'a>> {
     Graphviz(D::Graphviz),
 
     // resolve context
-    Context(Context, Diagnostics<'a>),
+    Context(Context, Arc<Diagnostics<'a>>),
 }
 
 use self::StackElement::*;
