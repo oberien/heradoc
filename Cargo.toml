@@ -27,6 +27,10 @@ regex = "1.1.0"
 lazy_static = "1.2.0"
 single = "1.0.0"
 quoted-string = "0.6.0"
+codespan = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc58721415ce3120d05cf117ca81" }
+codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc58721415ce3120d05cf117ca81" }
+backtrace = "0.3.14"
+enum-kinds = "0.4.1"
 
 [profile.release]
 debug = true

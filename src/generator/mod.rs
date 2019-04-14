@@ -1,21 +1,29 @@
+use std::fmt;
 use std::fs;
-use std::io::{Result, Write};
+use std::io::Write;
+use std::sync::{Arc, Mutex};
 
 use typed_arena::Arena;
+use codespan_reporting::termcolor::StandardStream;
 
 use crate::backend::{Backend, MediumCodeGenUnit};
-use crate::config::Config;
-use crate::frontend::{Event as FeEvent, Frontend, Include as FeInclude};
+use crate::config::{Config, FileOrStdio};
+use crate::diagnostics::{Diagnostics, Input};
+use crate::frontend::Frontend;
+use crate::frontend::range::{SourceRange, WithRange};
 use crate::resolve::{Context, Include, Resolver};
 
 mod code_gen_units;
 pub mod event;
+mod iter;
 mod stack;
 
 pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
-use self::event::{Event, Image, Pdf};
+use self::event::Event;
+use crate::error::{Error, FatalResult, Result};
+use crate::generator::iter::Iter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
@@ -25,10 +33,30 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     stack: Vec<StackElement<'a, B>>,
     resolver: Resolver,
     template: Option<String>,
+    stderr: Arc<Mutex<StandardStream>>,
+}
+
+pub struct Events<'a> {
+    events: Iter<'a>,
+    diagnostics: Arc<Diagnostics<'a>>,
+    context: Context,
+}
+
+impl<'a> fmt::Debug for Events<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Events")
+            .field("events", &"Iter")
+            .field("diagnostics", &self.diagnostics)
+            .field("context", &self.context)
+            .finish()
+    }
 }
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
-    pub fn new(cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>) -> Self {
+    pub fn new(
+        cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>,
+        stderr: Arc<Mutex<StandardStream>>,
+    ) -> Self {
         let template = cfg
             .template
             .as_ref()
@@ -38,20 +66,28 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             doc,
             cfg,
             default_out,
-            stack: vec![StackElement::Context(Context::LocalRelative(cfg.input_dir.clone()))],
+            stack: Vec::new(),
             resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
             template,
+            stderr,
         }
     }
 
-    pub fn get_events(&mut self, markdown: String) -> impl Iterator<Item = FeEvent<'a>> {
+    pub fn get_events(&mut self, markdown: String, context: Context, input: Input) -> Events<'a> {
         let markdown = self.arena.alloc(markdown);
-        let parser: Frontend<'_, B> = Frontend::new(self.cfg, markdown);
-        parser.peekable()
+        let diagnostics = Arc::new(Diagnostics::new(markdown, input, Arc::clone(&self.stderr)));
+        let frontend = Frontend::new(self.cfg, markdown, Arc::clone(&diagnostics));
+        let events = Iter::new(frontend);
+        Events { events, diagnostics, context }
     }
 
-    pub fn generate(&mut self, markdown: String) -> Result<()> {
-        let events = self.get_events(markdown);
+    pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
+        let context = Context::LocalRelative(self.cfg.input_dir.clone());
+        let input = match &self.cfg.input {
+            FileOrStdio::File(path) => Input::File(path.clone()),
+            FileOrStdio::StdIo => Input::Stdin,
+        };
+        let events = self.get_events(markdown, context, input);
         if let Some(template) = self.template.take() {
             let body_index =
                 template.find("\nHERADOCBODY\n").expect("HERADOCBODY not found in template on");
@@ -60,60 +96,28 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.generate_with_events(events)?;
+            self.doc.gen_preamble(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            self.generate_body(events)?;
+            assert!(self.stack.pop().is_none());
+            self.doc.gen_epilogue(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
         }
         Ok(())
     }
 
-    pub fn generate_with_events(
-        &mut self, events: impl Iterator<Item = FeEvent<'a>>,
-    ) -> Result<()> {
-        self.doc.gen_preamble(self.cfg, &mut self.default_out)?;
-        self.generate_body(events)?;
-        assert!(self.stack.pop().is_none());
-        self.doc.gen_epilogue(self.cfg, &mut self.default_out)?;
-        Ok(())
-    }
+    pub fn generate_body(&mut self, events: Events<'a>) -> FatalResult<()> {
+        self.stack.push(StackElement::Context(events.context, events.diagnostics));
+        let mut events = events.events;
 
-    fn convert_event(&mut self, event: FeEvent<'a>) -> Result<Option<Event<'a>>> {
-        match event {
-            FeEvent::Include(image) => {
-                let include = self.resolve(&image.dst)?;
-                Ok(self.handle_include(include, Some(image))?)
-            },
-            FeEvent::ResolveInclude(include) => {
-                let include = self.resolve(&include)?;
-                Ok(self.handle_include(include, None)?)
-            },
-            e => Ok(Some(e.into())),
-        }
-    }
-
-    pub fn generate_body(&mut self, events: impl Iterator<Item = FeEvent<'a>>) -> Result<()> {
-        let mut events = events.fuse();
-        let mut peek = loop {
-            match events.next() {
-                None => break None,
-                Some(e) => match self.convert_event(e)? {
-                    None => continue,
-                    Some(e) => break Some(e),
-                },
+        while let Some(WithRange(event, range)) = events.next(self)? {
+            let peek = events.peek(self)?;
+            match self.visit_event(WithRange(event, range), peek) {
+                Ok(()) => {},
+                Err(Error::Diagnostic) => events.skip(self)?,
+                Err(Error::Fatal(fatal)) => return Err(fatal),
             }
-        };
-        while let Some(event) = peek {
-            peek = loop {
-                match events.next() {
-                    None => break None,
-                    Some(e) => match self.convert_event(e)? {
-                        None => continue,
-                        Some(e) => break Some(e),
-                    },
-                }
-            };
-            self.visit_event(event, peek.as_ref())?;
         }
         match self.stack.pop() {
-            Some(StackElement::Context(_)) => (),
+            Some(StackElement::Context(..)) => (),
             element => panic!(
                 "Expected context as stack element after body generation is finished, got {:?}",
                 element
@@ -122,7 +126,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
-    pub fn visit_event(&mut self, event: Event<'a>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn visit_event(
+        &mut self, event: WithRange<Event<'a>>, peek: Option<WithRange<&Event<'a>>>,
+    ) -> Result<()> {
+        let WithRange(event, range) = event;
         if let Event::End(tag) = event {
             let state = self.stack.pop().unwrap();
             state.finish(tag, self, peek)?;
@@ -142,29 +149,36 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             None => (),
             Some(Event::End(_)) => unreachable!(),
             Some(Event::Start(tag)) => {
-                let state = StackElement::new(self.cfg, tag, self)?;
+                let state = StackElement::new(self.cfg, WithRange(tag, range), self)?;
                 self.stack.push(state);
             },
-            Some(Event::Text(text)) => B::Text::gen(text, &mut stack)?,
-            Some(Event::Html(html)) => B::Text::gen(html, &mut stack)?,
-            Some(Event::InlineHtml(html)) => B::Text::gen(html, &mut stack)?,
-            Some(Event::Latex(latex)) => B::Latex::gen(latex, &mut stack)?,
-            Some(Event::FootnoteReference(fnote)) => B::FootnoteReference::gen(fnote, &mut stack)?,
-            Some(Event::BiberReferences(biber)) => B::BiberReferences::gen(biber, &mut stack)?,
-            Some(Event::Url(url)) => B::Url::gen(url, &mut stack)?,
-            Some(Event::InterLink(interlink)) => B::InterLink::gen(interlink, &mut stack)?,
-            Some(Event::Image(img)) => B::Image::gen(img, &mut stack)?,
-            Some(Event::Label(label)) => B::Label::gen(label, &mut stack)?,
-            Some(Event::Pdf(pdf)) => B::Pdf::gen(pdf, &mut stack)?,
-            Some(Event::SoftBreak) => B::SoftBreak::gen((), &mut stack)?,
-            Some(Event::HardBreak) => B::HardBreak::gen((), &mut stack)?,
-            Some(Event::TaskListMarker(marker)) => B::TaskListMarker::gen(marker, &mut stack)?,
-            Some(Event::TableOfContents) => B::TableOfContents::gen((), &mut stack)?,
-            Some(Event::Bibliography) => B::Bibliography::gen((), &mut stack)?,
-            Some(Event::ListOfTables) => B::ListOfTables::gen((), &mut stack)?,
-            Some(Event::ListOfFigures) => B::ListOfFigures::gen((), &mut stack)?,
-            Some(Event::ListOfListings) => B::ListOfListings::gen((), &mut stack)?,
-            Some(Event::Appendix) => B::Appendix::gen((), &mut stack)?,
+            Some(Event::Text(text)) => B::Text::gen(WithRange(text, range), &mut stack)?,
+            Some(Event::Html(html)) => B::Text::gen(WithRange(html, range), &mut stack)?,
+            Some(Event::InlineHtml(html)) => B::Text::gen(WithRange(html, range), &mut stack)?,
+            Some(Event::Latex(latex)) => B::Latex::gen(WithRange(latex, range), &mut stack)?,
+            Some(Event::IncludeMarkdown(events)) => self.generate_body(*events)?,
+            Some(Event::FootnoteReference(fnote)) => {
+                B::FootnoteReference::gen(WithRange(fnote, range), &mut stack)?
+            },
+            Some(Event::BiberReferences(biber)) => {
+                B::BiberReferences::gen(WithRange(biber, range), &mut stack)?
+            },
+            Some(Event::Url(url)) => B::Url::gen(WithRange(url, range), &mut stack)?,
+            Some(Event::InterLink(interlink)) => B::InterLink::gen(WithRange(interlink, range), &mut stack)?,
+            Some(Event::Image(img)) => B::Image::gen(WithRange(img, range), &mut stack)?,
+            Some(Event::Label(label)) => B::Label::gen(WithRange(label, range), &mut stack)?,
+            Some(Event::Pdf(pdf)) => B::Pdf::gen(WithRange(pdf, range), &mut stack)?,
+            Some(Event::SoftBreak) => B::SoftBreak::gen(WithRange((), range), &mut stack)?,
+            Some(Event::HardBreak) => B::HardBreak::gen(WithRange((), range), &mut stack)?,
+            Some(Event::TaskListMarker(marker)) => {
+                B::TaskListMarker::gen(WithRange(marker, range), &mut stack)?
+            },
+            Some(Event::TableOfContents) => B::TableOfContents::gen(WithRange((), range), &mut stack)?,
+            Some(Event::Bibliography) => B::Bibliography::gen(WithRange((), range), &mut stack)?,
+            Some(Event::ListOfTables) => B::ListOfTables::gen(WithRange((), range), &mut stack)?,
+            Some(Event::ListOfFigures) => B::ListOfFigures::gen(WithRange((), range), &mut stack)?,
+            Some(Event::ListOfListings) => B::ListOfListings::gen(WithRange((), range), &mut stack)?,
+            Some(Event::Appendix) => B::Appendix::gen(WithRange((), range), &mut stack)?,
         }
 
         Ok(())
@@ -183,58 +197,26 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .unwrap_or(&mut self.default_out)
     }
 
-    fn resolve(&mut self, url: &str) -> Result<Include> {
-        let context = self
-            .iter_stack()
+    fn top_context(&mut self) -> (&mut Context, &Diagnostics<'a>, &mut Resolver) {
+        let (context, diagnostics) = self.stack
+            .iter_mut()
+            .rev()
             .find_map(|se| match se {
-                StackElement::Context(context) => Some(context),
+                StackElement::Context(context, diagnostics) => Some((context, diagnostics)),
                 _ => None,
             })
             .expect("no Context???");
-        self.resolver.resolve(context, url)
+        // partial self borrows aren't a thing, so we need to return the resolver as well as it's
+        // needed in Self::resolve
+        (context, diagnostics, &mut self.resolver)
     }
 
-    fn handle_include(
-        &mut self, include: Include, image: Option<FeInclude<'a>>,
-    ) -> Result<Option<Event<'a>>> {
-        match include {
-            Include::Command(command) => Ok(Some(command.into())),
-            Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(path)?;
-                let events = self.get_events(markdown);
-                self.stack.push(StackElement::Context(context));
-                self.generate_body(events)?;
-                Ok(None)
-            },
-            Include::Image(path) => {
-                let (label, caption, title, alt_text, scale, width, height) =
-                    if let Some(FeInclude {
-                        label,
-                        caption,
-                        title,
-                        alt_text,
-                        dst: _dst,
-                        scale,
-                        width,
-                        height,
-                    }) = image
-                    {
-                        (label, caption, title, alt_text, scale, width, height)
-                    } else {
-                        Default::default()
-                    };
-                Ok(Some(Event::Image(Image {
-                    label,
-                    caption,
-                    title,
-                    alt_text,
-                    path,
-                    scale,
-                    width,
-                    height,
-                })))
-            },
-            Include::Pdf(path) => Ok(Some(Event::Pdf(Pdf { path }))),
-        }
+    pub fn diagnostics(&mut self) -> &Diagnostics<'a> {
+        self.top_context().1
+    }
+
+    fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {
+        let (context, diagnostics, resolver) = self.top_context();
+        resolver.resolve(context, url, range, diagnostics)
     }
 }

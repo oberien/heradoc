@@ -2,7 +2,7 @@
 
 ## Rust
 
-```rust
+```rust, caption = "\"foo\""
 fn main() {
     let foo = bar();
 }

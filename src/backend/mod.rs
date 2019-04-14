@@ -1,9 +1,14 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::io::{Result, Write};
+use std::io::Write;
+use std::sync::{Arc, Mutex};
 
 use typed_arena::Arena;
+use codespan_reporting::termcolor::StandardStream;
 
+use crate::config::Config;
+use crate::error::{FatalResult, Result};
+use crate::frontend::range::WithRange;
 use crate::generator::event::{
     BiberReference,
     CodeBlock,
@@ -26,13 +31,11 @@ use crate::generator::{Generator, Stack};
 
 pub mod latex;
 
-use crate::config::Config;
-
 pub fn generate<'a>(
     cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
-    out: impl Write,
-) -> Result<()> {
-    let mut gen = Generator::new(cfg, doc, out, arena);
+    out: impl Write, stderr: Arc<Mutex<StandardStream>>,
+) -> FatalResult<()> {
+    let mut gen = Generator::new(cfg, doc, out, arena, stderr);
     gen.generate(markdown)?;
     Ok(())
 }
@@ -89,13 +92,14 @@ pub trait Backend<'a>: Debug {
     type Graphviz: CodeGenUnit<'a, Graphviz<'a>>;
 
     fn new() -> Self;
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()>;
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
 }
 
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: T, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        cfg: &'a Config, tag: WithRange<T>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
@@ -106,20 +110,25 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
         Ok(Some(e))
     }
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()>;
 }
 
 pub trait SimpleCodeGenUnit<T> {
-    fn gen(data: T, out: &mut impl Write) -> Result<()>;
+    fn gen(data: WithRange<T>, out: &mut impl Write) -> Result<()>;
 }
 
 pub trait MediumCodeGenUnit<T> {
-    fn gen<'a, 'b>(data: T, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()>;
+    fn gen<'a, 'b>(
+        data: WithRange<T>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+    ) -> Result<()>;
 }
 
 impl<T: SimpleCodeGenUnit<D>, D> MediumCodeGenUnit<D> for T {
-    fn gen<'a, 'b>(data: D, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>) -> Result<()> {
+    fn gen<'a, 'b>(
+        data: WithRange<D>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+    ) -> Result<()> {
         T::gen(data, &mut stack.get_out())
     }
 }

@@ -1,10 +1,12 @@
-use std::env;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 
 use url::Url;
 
+use crate::diagnostics::Diagnostics;
+use crate::error::{Error, Fatal, Result};
+use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
 
@@ -36,23 +38,110 @@ pub enum SourceGroup {
     Remote,
 }
 
+#[derive(Debug)]
+enum PathError {
+    /// The url does not contain a path.
+    NoPath,
+
+    /// `file:` url included a hostname that was not a local prefix on Windows, or empty on Linux.
+    ///
+    /// See `Url::to_file_path` for details.
+    InvalidBase,
+
+    /// A path component mapped to more than one path component or was otherwise invalid.
+    InvalidComponent,
+
+    /// Some path component did not map to any path component.
+    ///
+    /// I don't expect this to ever occur, this error is Fatal.
+    MissingComponent,
+
+    /// Could not determine canonical path.
+    ///
+    /// Canonicalization is important to ensure that the file does not refer to internal files,
+    /// potentially circumventing access restrictions.
+    NoCanonical(PathBuf, io::Error),
+}
+
+fn error_include_local_from_remote(
+    diagnostics: &Diagnostics<'_>, range: SourceRange,
+) -> Error {
+    diagnostics
+        .error("tried to include local file from remote origin")
+        .with_error_section(range, "specified here")
+        .note("local files can only be included from within local files")
+        .emit();
+    Error::Diagnostic
+}
+
+fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathError) -> Error {
+    let (diagnostics, error) = match &err {
+        PathError::NoPath | PathError::MissingComponent => {
+            (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InteralCompilerError))
+        },
+        PathError::InvalidBase | PathError::InvalidComponent | PathError::NoCanonical(..) => {
+            (diagnostics.error("error converting url to path"), Error::Diagnostic)
+        }
+    };
+
+    let message = match err {
+        PathError::NoPath => "since this file url does not contain a path".into(),
+        PathError::InvalidBase => "since the file url contains an unexpected base".into(),
+        PathError::InvalidComponent => "since the url segment is not a valid path component".into(),
+        PathError::MissingComponent => "since an url segment did not correspond to any path component".into(),
+        PathError::NoCanonical(path, io) => format!("couldn't determine canonical filepath of {:?}: {}", path, io),
+    };
+
+    diagnostics
+        .with_info_section(range, "defined here")
+        .error(message)
+        .emit();
+
+    error
+}
+
 impl Source {
-    pub fn new(url: Url, context: &Context) -> io::Result<Self> {
+    pub fn new(
+        url: Url, context: &Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+    ) -> Result<Self> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => {
-                    let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
-                    // url is "heradoc://document/path"
-                    SourceGroup::LocalRelative(to_path(&url.as_str()[19..], workdir)?)
+                    let workdir = context
+                        .path()
+                        .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
+                    let path = to_path(&url, workdir)
+                        .map_err(|err| error_to_path(diagnostics, range, err))?;
+                    SourceGroup::LocalRelative(path)
                 },
                 _ => SourceGroup::Implementation,
             },
             "file" => {
-                let workdir = context.path().ok_or(io::ErrorKind::PermissionDenied)?;
-                let path = to_path(url.path(), workdir)?;
-                let is_relative = match context {
-                    Context::LocalRelative(workdir) => path.starts_with(workdir),
-                    _ => false,
+                let path;
+                let is_relative;
+                if url.cannot_be_a_base() { // Relative file path.
+                    let workdir = context
+                        .path()
+                        .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
+                    path = to_path(&url, workdir)
+                        .map_err(|err| error_to_path(diagnostics, range, err))?;
+                    is_relative = true;
+                } else { // Absolute file path.
+                    path = url
+                        .to_file_path()
+                        .map_err(|()| PathError::InvalidBase)
+                        .and_then(|path| {
+                            let canonical = path.canonicalize();
+                            canonical.map_err(|io| PathError::NoCanonical(path, io))
+                        })
+                        .map_err(|err| error_to_path(diagnostics, range, err))?;
+                    // Absolute path is considered effectively relative if it points to the working
+                    // directory and occurs in a local context. All other contexts consider all
+                    // paths with a non-relative base absolute.
+                    is_relative = match context {
+                        Context::LocalRelative(workdir) => path.starts_with(workdir),
+                        _ => false,
+                    };
                 };
                 if is_relative {
                     SourceGroup::LocalRelative(path)
@@ -66,7 +155,9 @@ impl Source {
         Ok(Source { url, group })
     }
 
-    pub fn into_include(self, remote: &Remote) -> io::Result<Include> {
+    pub fn into_include(
+        self, remote: &Remote, range: SourceRange, diagnostics: &Diagnostics<'_>,
+    ) -> Result<Include> {
         let Source { url, group } = self;
         match group {
             SourceGroup::Implementation => {
@@ -74,44 +165,61 @@ impl Source {
                     if let Ok(command) = Command::from_str(domain) {
                         Ok(Include::Command(command))
                     } else {
-                        Err(io::Error::new(
-                            io::ErrorKind::NotFound,
-                            format!("No heradoc implementation found for domain {:?}", domain),
-                        ))
+                        diagnostics
+                            .error(format!(
+                                "no heradoc implementation found for domain {:?}",
+                                domain
+                            ))
+                            .with_error_section(range, "defined here")
+                            .emit();
+                        Err(Error::Diagnostic)
                     }
                 } else {
-                    Err(io::Error::new(
-                        io::ErrorKind::NotFound,
-                        "No heradoc implementation domain found",
-                    ))
+                    diagnostics
+                        .error("no heradoc implementation domain found")
+                        .with_error_section(range, "defined here")
+                        .emit();
+                    Err(Error::Diagnostic)
                 }
             },
             SourceGroup::LocalRelative(path) => {
                 let parent = path.parent().unwrap().to_owned();
-                to_include(path, Context::LocalRelative(parent))
+                to_include(path, Context::LocalRelative(parent), range, diagnostics)
             },
             SourceGroup::LocalAbsolute(path) => {
                 let parent = path.parent().unwrap().to_owned();
-                to_include(path, Context::LocalAbsolute(parent))
+                to_include(path, Context::LocalAbsolute(parent), range, diagnostics)
             },
             SourceGroup::Remote => {
                 let downloaded = match remote.http(&url) {
                     Ok(downloaded) => downloaded,
-                    Err(RemoteError::Io(io)) => return Err(io),
-                    // TODO: proper error handling with failure
-                    Err(RemoteError::Request(_req)) => {
-                        return Err(io::ErrorKind::ConnectionAborted.into());
+                    Err(RemoteError::Io(err, path)) => {
+                        diagnostics
+                            .error("error writing downloaded content to cache")
+                            .with_error_section(range, "trying to download this")
+                            .error(format!("cause: {}", err))
+                            .note(format!("file: {}", path.display()))
+                            .emit();
+                        return Err(Error::Diagnostic);
+                    },
+                    Err(RemoteError::Request(err)) => {
+                        diagnostics
+                            .error("error downloading content")
+                            .with_error_section(range, "trying to download this")
+                            .error(format!("cause: {}", err))
+                            .emit();
+                        return Err(Error::Diagnostic);
                     },
                 };
 
                 let path = downloaded.path().to_owned();
-                let context = Context::Remote;
+                let context = Context::Remote(url);
 
                 match downloaded.content_type() {
                     Some(ContentType::Image) => Ok(Include::Image(path)),
                     Some(ContentType::Markdown) => Ok(Include::Markdown(path, context)),
                     Some(ContentType::Pdf) => Ok(Include::Pdf(path)),
-                    None => to_include(path, context),
+                    None => to_include(path, context, range, diagnostics),
                 }
             },
         }
@@ -123,24 +231,55 @@ impl Source {
 /// Used to detect the type of include for relative and absolute file paths or for webrequest
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
-fn to_include(path: PathBuf, context: Context) -> io::Result<Include> {
+fn to_include(
+    path: PathBuf, context: Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+) -> Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
         Some("pdf") => Ok(Include::Pdf(path)),
         Some(ext) => {
-            Err(io::Error::new(io::ErrorKind::NotFound, format!("Unknown file format `{:?}`", ext)))
+            diagnostics
+                .error(format!("unknown file format {:?}", ext))
+                .with_error_section(range, "trying to include this")
+                .emit();
+            Err(Error::Diagnostic)
         },
-        None => Err(io::Error::new(io::ErrorKind::NotFound, "no file extension")),
+        None => {
+            diagnostics
+                .error("no file extension")
+                .with_error_section(range, "trying to include this")
+                .note("need file extension to differentiate file type")
+                .emit();
+            Err(Error::Diagnostic)
+        },
     }
 }
 
-fn to_path<P: AsRef<Path>>(path: &str, workdir: P) -> io::Result<PathBuf> {
-    let path = Path::new(&path);
-    let old_workdir = env::current_dir()?;
-    env::set_current_dir(workdir)?;
-    let path = path.canonicalize()?;
-    env::set_current_dir(old_workdir)?;
-    Ok(path)
+fn to_path<P: AsRef<Path>>(url: &Url, workdir: P) -> std::result::Result<PathBuf, PathError> {
+    let mut full_path = workdir.as_ref().to_path_buf();
+
+    url
+        .path_segments()
+        .ok_or(PathError::NoPath)?
+        .try_for_each(|segment| {
+            let mut components = Path::new(segment)
+                .components();
+            let file = match components.next() {
+                Some(Component::Normal(file)) => file,
+                Some(_) => return Err(PathError::InvalidComponent),
+                _ => return Err(PathError::MissingComponent),
+            };
+            if components.next().is_some() {
+                return Err(PathError::InvalidComponent)
+            }
+            full_path.push(file);
+            Ok(())
+        })?;
+
+    let path = full_path
+        .canonicalize();
+
+    path.map_err(|io| PathError::NoCanonical(full_path, io))
 }

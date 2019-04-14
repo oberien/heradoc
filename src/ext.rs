@@ -1,5 +1,7 @@
 use std::borrow::Cow;
 
+use crate::frontend::range::WithRange;
+
 pub trait StrExt {
     fn starts_with_ignore_ascii_case(&self, other: &Self) -> bool;
 }
@@ -16,19 +18,21 @@ impl StrExt for str {
 
 // https://github.com/rust-lang/rust/issues/40062
 pub trait VecExt<T> {
-    fn remove_element<U>(&mut self, element: &U) -> Option<T>
+    type Output;
+    fn remove_element<U>(&mut self, element: &U) -> Option<Self::Output>
     where
         T: PartialEq<U>,
         U: ?Sized;
 }
 
-impl<T> VecExt<T> for Vec<T> {
-    fn remove_element<U>(&mut self, element: &U) -> Option<T>
-    where
-        T: PartialEq<U>,
-        U: ?Sized,
+impl<T> VecExt<T> for Vec<WithRange<T>> {
+    type Output = WithRange<T>;
+    fn remove_element<U>(&mut self, element: &U) -> Option<Self::Output>
+        where
+            T: PartialEq<U>,
+            U: ?Sized
     {
-        let pos = self.iter().position(|s| *s == *element)?;
+        let pos = self.iter().position(|a| *a.as_ref().element() == *element)?;
         Some(self.remove(pos))
     }
 }

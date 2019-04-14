@@ -13,8 +13,8 @@
 #![warn(trivial_numeric_casts)]
 #![warn(unused_import_braces)]
 #![warn(unused_qualifications)]
-#![warn(variant_size_differences)]
 // for now
+#![allow(variant_size_differences)]
 #![allow(missing_docs)]
 // seems to have quite some unchangeable false positives
 // might need further inspection
@@ -33,14 +33,18 @@ use std::fs::{self, File};
 use std::io::{self, Result, Write};
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 
 use structopt::StructOpt;
 use tempdir::TempDir;
 use typed_arena::Arena;
+use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 
 mod backend;
 mod config;
 mod cskvp;
+mod diagnostics;
+mod error;
 mod ext;
 mod frontend;
 mod generator;
@@ -48,6 +52,7 @@ mod resolve;
 
 use crate::backend::latex::{Article, Report, Thesis};
 use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
+use crate::error::Fatal;
 
 fn main() {
     let args = CliArgs::from_args();
@@ -107,16 +112,17 @@ fn main() {
 }
 
 fn gen(cfg: &Config, markdown: String, out: impl Write) {
-    match cfg.document_type {
-        DocumentType::Article => {
-            backend::generate(cfg, Article, &Arena::new(), markdown, out).unwrap()
-        },
-        DocumentType::Report => {
-            backend::generate(cfg, Report, &Arena::new(), markdown, out).unwrap()
-        },
-        DocumentType::Thesis => {
-            backend::generate(cfg, Thesis, &Arena::new(), markdown, out).unwrap()
-        },
+    // TODO: make this configurable
+    let stderr = Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto)));
+    let res = match cfg.document_type {
+        DocumentType::Article => backend::generate(cfg, Article, &Arena::new(), markdown, out, stderr),
+        DocumentType::Report => backend::generate(cfg, Report, &Arena::new(), markdown, out, stderr),
+        DocumentType::Thesis => backend::generate(cfg, Thesis, &Arena::new(), markdown, out, stderr),
+    };
+    match res {
+        Ok(()) => (),
+        Err(Fatal::Output(io)) => eprintln!("\n\nerror writing to output: {}", io),
+        Err(Fatal::InteralCompilerError) => eprintln!("\n\nCan not continue due to internal error"),
     }
 }
 

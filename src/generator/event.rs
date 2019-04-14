@@ -19,6 +19,8 @@ pub use crate::frontend::{
 pub use pulldown_cmark::Alignment;
 
 use crate::frontend::{Event as FeEvent, Tag as FeTag};
+use crate::frontend::range::WithRange;
+use crate::generator::Events;
 use crate::resolve::Command;
 
 // transformation of frontend::Event
@@ -30,6 +32,7 @@ pub enum Event<'a> {
     Html(Cow<'a, str>),
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
+    IncludeMarkdown(Box<Events<'a>>),
     FootnoteReference(FootnoteReference<'a>),
     BiberReferences(Vec<BiberReference<'a>>),
     /// Url without content
@@ -89,15 +92,15 @@ pub enum Tag<'a> {
 /// Image to display as figure.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Image<'a> {
-    pub label: Option<Cow<'a, str>>,
-    pub caption: Option<Cow<'a, str>>,
+    pub label: Option<WithRange<Cow<'a, str>>>,
+    pub caption: Option<WithRange<Cow<'a, str>>>,
     pub title: Option<Cow<'a, str>>,
     pub alt_text: Option<String>,
     /// Path to read image from.
     pub path: PathBuf,
-    pub scale: Option<Cow<'a, str>>,
-    pub width: Option<Cow<'a, str>>,
-    pub height: Option<Cow<'a, str>>,
+    pub scale: Option<WithRange<Cow<'a, str>>>,
+    pub width: Option<WithRange<Cow<'a, str>>>,
+    pub height: Option<WithRange<Cow<'a, str>>>,
 }
 
 /// Pdf to include at that point inline.

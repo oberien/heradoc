@@ -1,13 +1,18 @@
 use std::fs;
-use std::io::{Result, Write};
-use std::path::Path;
+use std::io::Write;
+use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 use typed_arena::Arena;
+use codespan_reporting::termcolor::StandardStream;
 
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
+use crate::diagnostics::Input;
+use crate::error::FatalResult;
 use crate::generator::Generator;
+use crate::resolve::Context;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -67,7 +72,7 @@ impl<'a> Backend<'a> for Thesis {
         Thesis
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write) -> Result<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
         // TODO: itemizespacing
         // documentclass
         write!(out, "\\documentclass[")?;
@@ -106,10 +111,10 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\cleardoublepage{{}}")?;
 
         if let Some(abstract1) = &cfg.abstract1 {
-            gen(abstract1, cfg, out)?;
+            gen(abstract1.clone(), cfg, out, Arc::clone(&stderr))?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            gen(abstract2, cfg, out)?;
+            gen(abstract2.clone(), cfg, out, Arc::clone(&stderr))?;
         }
 
         writeln!(out)?;
@@ -122,17 +127,19 @@ impl<'a> Backend<'a> for Thesis {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write) -> Result<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }
 }
 
-fn gen<P: AsRef<Path>>(path: P, cfg: &Config, out: &mut impl Write) -> Result<()> {
+fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
     let arena = Arena::new();
-    let mut gen = Generator::new(cfg, Thesis, out, &arena);
-    let markdown = fs::read_to_string(path)?;
-    let events = gen.get_events(markdown);
+    let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
+    let markdown = fs::read_to_string(&path)?;
+    let context = Context::LocalRelative(path.clone());
+    let input = Input::File(path);
+    let events = gen.get_events(markdown, context, input);
     gen.generate_body(events)?;
     Ok(())
 }

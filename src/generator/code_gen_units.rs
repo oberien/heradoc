@@ -1,7 +1,11 @@
-use std::io::{Result, Write};
+use std::io::Write;
+use std::sync::Arc;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
+use crate::diagnostics::Diagnostics;
+use crate::error::Result;
+use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Tag};
 use crate::generator::{Generator, Stack};
 use crate::resolve::Context;
@@ -36,136 +40,139 @@ pub enum StackElement<'a, D: Backend<'a>> {
     Graphviz(D::Graphviz),
 
     // resolve context
-    Context(Context),
+    Context(Context, Arc<Diagnostics<'a>>),
 }
+
+use self::StackElement::*;
 
 #[rustfmt::skip]
 impl<'a, D: Backend<'a>> StackElement<'a, D> {
-    pub fn new(cfg: &'a Config, tag: Tag<'a>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+    pub fn new(cfg: &'a Config, tag: WithRange<Tag<'a>>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+        let WithRange(tag, range) = tag;
         match tag {
-            Tag::Paragraph => Ok(StackElement::Paragraph(D::Paragraph::new(cfg, (), gen)?)),
-            Tag::Rule => Ok(StackElement::Rule(D::Rule::new(cfg, (), gen)?)),
-            Tag::Header(header) => Ok(StackElement::Header(D::Header::new(cfg, header, gen)?)),
-            Tag::BlockQuote => Ok(StackElement::BlockQuote(D::BlockQuote::new(cfg, (), gen)?)),
-            Tag::CodeBlock(cb) => Ok(StackElement::CodeBlock(D::CodeBlock::new(cfg, cb, gen)?)),
-            Tag::List => Ok(StackElement::List(D::List::new(cfg, (), gen)?)),
-            Tag::Enumerate(enumerate) => Ok(StackElement::Enumerate(D::Enumerate::new(cfg, enumerate, gen)?)),
-            Tag::Item => Ok(StackElement::Item(D::Item::new(cfg, (), gen)?)),
-            Tag::FootnoteDefinition(fnote) => Ok(StackElement::FootnoteDefinition(D::FootnoteDefinition::new(cfg, fnote, gen)?)),
-            Tag::Url(url) => Ok(StackElement::Url(D::UrlWithContent::new(cfg, url, gen)?)),
-            Tag::InterLink(interlink) => Ok(StackElement::InterLink(D::InterLinkWithContent::new(cfg, interlink, gen)?)),
-            Tag::HtmlBlock => Ok(StackElement::HtmlBlock(D::HtmlBlock::new(cfg, (), gen)?)),
-            Tag::Figure(figure) => Ok(StackElement::Figure(D::Figure::new(cfg, figure, gen)?)),
-            Tag::TableFigure(figure) => Ok(StackElement::TableFigure(D::TableFigure::new(cfg, figure, gen)?)),
-            Tag::Table(table) => Ok(StackElement::Table(D::Table::new(cfg, table, gen)?)),
-            Tag::TableHead => Ok(StackElement::TableHead(D::TableHead::new(cfg, (), gen)?)),
-            Tag::TableRow => Ok(StackElement::TableRow(D::TableRow::new(cfg, (), gen)?)),
-            Tag::TableCell => Ok(StackElement::TableCell(D::TableCell::new(cfg, (), gen)?)),
-            Tag::InlineEmphasis => Ok(StackElement::InlineEmphasis(D::InlineEmphasis::new(cfg, (), gen)?)),
-            Tag::InlineStrong => Ok(StackElement::InlineStrong(D::InlineStrong::new(cfg, (), gen)?)),
-            Tag::InlineStrikethrough => Ok(StackElement::InlineStrikethrough(D::InlineStrikethrough::new(cfg, (), gen)?)),
-            Tag::InlineCode => Ok(StackElement::InlineCode(D::InlineCode::new(cfg, (), gen)?)),
-            Tag::InlineMath => Ok(StackElement::InlineMath(D::InlineMath::new(cfg, (), gen)?)),
-            Tag::Equation(equation) => Ok(StackElement::Equation(D::Equation::new(cfg, equation, gen)?)),
-            Tag::NumberedEquation(equation) => Ok(StackElement::NumberedEquation(D::NumberedEquation::new(cfg, equation, gen)?)),
-            Tag::Graphviz(graphviz) => Ok(StackElement::Graphviz(D::Graphviz::new(cfg, graphviz, gen)?)),
+            Tag::Paragraph => Ok(Paragraph(D::Paragraph::new(cfg, WithRange((), range), gen)?)),
+            Tag::Rule => Ok(Rule(D::Rule::new(cfg, WithRange((), range), gen)?)),
+            Tag::Header(header) => Ok(Header(D::Header::new(cfg, WithRange(header, range), gen)?)),
+            Tag::BlockQuote => Ok(BlockQuote(D::BlockQuote::new(cfg, WithRange((), range), gen)?)),
+            Tag::CodeBlock(cb) => Ok(CodeBlock(D::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
+            Tag::List => Ok(List(D::List::new(cfg, WithRange((), range), gen)?)),
+            Tag::Enumerate(enumerate) => Ok(Enumerate(D::Enumerate::new(cfg, WithRange(enumerate, range), gen)?)),
+            Tag::Item => Ok(Item(D::Item::new(cfg, WithRange((), range), gen)?)),
+            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(D::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
+            Tag::Url(url) => Ok(Url(D::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
+            Tag::InterLink(interlink) => Ok(InterLink(D::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
+            Tag::HtmlBlock => Ok(HtmlBlock(D::HtmlBlock::new(cfg, WithRange((), range), gen)?)),
+            Tag::Figure(figure) => Ok(Figure(D::Figure::new(cfg, WithRange(figure, range), gen)?)),
+            Tag::TableFigure(figure) => Ok(TableFigure(D::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
+            Tag::Table(table) => Ok(Table(D::Table::new(cfg, WithRange(table, range), gen)?)),
+            Tag::TableHead => Ok(TableHead(D::TableHead::new(cfg, WithRange((), range), gen)?)),
+            Tag::TableRow => Ok(TableRow(D::TableRow::new(cfg, WithRange((), range), gen)?)),
+            Tag::TableCell => Ok(TableCell(D::TableCell::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineEmphasis => Ok(InlineEmphasis(D::InlineEmphasis::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineStrong => Ok(InlineStrong(D::InlineStrong::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineStrikethrough => Ok(InlineStrikethrough(D::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineCode => Ok(InlineCode(D::InlineCode::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineMath => Ok(InlineMath(D::InlineMath::new(cfg, WithRange((), range), gen)?)),
+            Tag::Equation(equation) => Ok(Equation(D::Equation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::NumberedEquation(equation) => Ok(NumberedEquation(D::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::Graphviz(graphviz) => Ok(Graphviz(D::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
         }
     }
 
     pub fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         match self {
-            StackElement::Paragraph(s) => s.output_redirect(),
-            StackElement::Rule(s) => s.output_redirect(),
-            StackElement::Header(s) => s.output_redirect(),
-            StackElement::BlockQuote(s) => s.output_redirect(),
-            StackElement::CodeBlock(s) => s.output_redirect(),
-            StackElement::List(s) => s.output_redirect(),
-            StackElement::Enumerate(s) => s.output_redirect(),
-            StackElement::Item(s) => s.output_redirect(),
-            StackElement::FootnoteDefinition(s) => s.output_redirect(),
-            StackElement::Url(s) => s.output_redirect(),
-            StackElement::InterLink(s) => s.output_redirect(),
-            StackElement::HtmlBlock(s) => s.output_redirect(),
-            StackElement::Figure(s) => s.output_redirect(),
-            StackElement::TableFigure(s) => s.output_redirect(),
-            StackElement::Table(s) => s.output_redirect(),
-            StackElement::TableHead(s) => s.output_redirect(),
-            StackElement::TableRow(s) => s.output_redirect(),
-            StackElement::TableCell(s) => s.output_redirect(),
-            StackElement::InlineEmphasis(s) => s.output_redirect(),
-            StackElement::InlineStrong(s) => s.output_redirect(),
-            StackElement::InlineStrikethrough(s) => s.output_redirect(),
-            StackElement::InlineCode(s) => s.output_redirect(),
-            StackElement::InlineMath(s) => s.output_redirect(),
-            StackElement::Equation(s) => s.output_redirect(),
-            StackElement::NumberedEquation(s) => s.output_redirect(),
-            StackElement::Graphviz(s) => s.output_redirect(),
+            Paragraph(s) => s.output_redirect(),
+            Rule(s) => s.output_redirect(),
+            Header(s) => s.output_redirect(),
+            BlockQuote(s) => s.output_redirect(),
+            CodeBlock(s) => s.output_redirect(),
+            List(s) => s.output_redirect(),
+            Enumerate(s) => s.output_redirect(),
+            Item(s) => s.output_redirect(),
+            FootnoteDefinition(s) => s.output_redirect(),
+            Url(s) => s.output_redirect(),
+            InterLink(s) => s.output_redirect(),
+            HtmlBlock(s) => s.output_redirect(),
+            Figure(s) => s.output_redirect(),
+            TableFigure(s) => s.output_redirect(),
+            Table(s) => s.output_redirect(),
+            TableHead(s) => s.output_redirect(),
+            TableRow(s) => s.output_redirect(),
+            TableCell(s) => s.output_redirect(),
+            InlineEmphasis(s) => s.output_redirect(),
+            InlineStrong(s) => s.output_redirect(),
+            InlineStrikethrough(s) => s.output_redirect(),
+            InlineCode(s) => s.output_redirect(),
+            InlineMath(s) => s.output_redirect(),
+            Equation(s) => s.output_redirect(),
+            NumberedEquation(s) => s.output_redirect(),
+            Graphviz(s) => s.output_redirect(),
 
-            StackElement::Context(_) => None,
+            Context(..) => None,
         }
     }
 
     pub fn intercept_event<'b>(&mut self, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
         match self {
-            StackElement::Paragraph(s) => s.intercept_event(stack, e),
-            StackElement::Rule(s) => s.intercept_event(stack, e),
-            StackElement::Header(s) => s.intercept_event(stack, e),
-            StackElement::BlockQuote(s) => s.intercept_event(stack, e),
-            StackElement::CodeBlock(s) => s.intercept_event(stack, e),
-            StackElement::List(s) => s.intercept_event(stack, e),
-            StackElement::Enumerate(s) => s.intercept_event(stack, e),
-            StackElement::Item(s) => s.intercept_event(stack, e),
-            StackElement::FootnoteDefinition(s) => s.intercept_event(stack, e),
-            StackElement::Url(s) => s.intercept_event(stack, e),
-            StackElement::InterLink(s) => s.intercept_event(stack, e),
-            StackElement::HtmlBlock(s) => s.intercept_event(stack, e),
-            StackElement::Figure(s) => s.intercept_event(stack, e),
-            StackElement::TableFigure(s) => s.intercept_event(stack, e),
-            StackElement::Table(s) => s.intercept_event(stack, e),
-            StackElement::TableHead(s) => s.intercept_event(stack, e),
-            StackElement::TableRow(s) => s.intercept_event(stack, e),
-            StackElement::TableCell(s) => s.intercept_event(stack, e),
-            StackElement::InlineEmphasis(s) => s.intercept_event(stack, e),
-            StackElement::InlineStrong(s) => s.intercept_event(stack, e),
-            StackElement::InlineStrikethrough(s) => s.intercept_event(stack, e),
-            StackElement::InlineCode(s) => s.intercept_event(stack, e),
-            StackElement::InlineMath(s) => s.intercept_event(stack, e),
-            StackElement::Equation(s) => s.intercept_event(stack, e),
-            StackElement::NumberedEquation(s) => s.intercept_event(stack, e),
-            StackElement::Graphviz(s) => s.intercept_event(stack, e),
+            Paragraph(s) => s.intercept_event(stack, e),
+            Rule(s) => s.intercept_event(stack, e),
+            Header(s) => s.intercept_event(stack, e),
+            BlockQuote(s) => s.intercept_event(stack, e),
+            CodeBlock(s) => s.intercept_event(stack, e),
+            List(s) => s.intercept_event(stack, e),
+            Enumerate(s) => s.intercept_event(stack, e),
+            Item(s) => s.intercept_event(stack, e),
+            FootnoteDefinition(s) => s.intercept_event(stack, e),
+            Url(s) => s.intercept_event(stack, e),
+            InterLink(s) => s.intercept_event(stack, e),
+            HtmlBlock(s) => s.intercept_event(stack, e),
+            Figure(s) => s.intercept_event(stack, e),
+            TableFigure(s) => s.intercept_event(stack, e),
+            Table(s) => s.intercept_event(stack, e),
+            TableHead(s) => s.intercept_event(stack, e),
+            TableRow(s) => s.intercept_event(stack, e),
+            TableCell(s) => s.intercept_event(stack, e),
+            InlineEmphasis(s) => s.intercept_event(stack, e),
+            InlineStrong(s) => s.intercept_event(stack, e),
+            InlineStrikethrough(s) => s.intercept_event(stack, e),
+            InlineCode(s) => s.intercept_event(stack, e),
+            InlineMath(s) => s.intercept_event(stack, e),
+            Equation(s) => s.intercept_event(stack, e),
+            NumberedEquation(s) => s.intercept_event(stack, e),
+            Graphviz(s) => s.intercept_event(stack, e),
 
-            StackElement::Context(_) => Ok(Some(e)),
+            Context(..) => Ok(Some(e)),
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<&Event<'a>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
         match (self, tag) {
-            (StackElement::Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
-            (StackElement::Rule(s), Tag::Rule) => s.finish(gen, peek),
-            (StackElement::Header(s), Tag::Header(_)) => s.finish(gen, peek),
-            (StackElement::BlockQuote(s), Tag::BlockQuote) => s.finish(gen, peek),
-            (StackElement::CodeBlock(s), Tag::CodeBlock(_)) => s.finish(gen, peek),
-            (StackElement::List(s), Tag::List) => s.finish(gen, peek),
-            (StackElement::Enumerate(s), Tag::Enumerate(_)) => s.finish(gen, peek),
-            (StackElement::Item(s), Tag::Item) => s.finish(gen, peek),
-            (StackElement::FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(gen, peek),
-            (StackElement::Url(s), Tag::Url(_)) => s.finish(gen, peek),
-            (StackElement::InterLink(s), Tag::InterLink(_)) => s.finish(gen, peek),
-            (StackElement::HtmlBlock(s), Tag::HtmlBlock) => s.finish(gen, peek),
-            (StackElement::Figure(s), Tag::Figure(_)) => s.finish(gen, peek),
-            (StackElement::TableFigure(s), Tag::TableFigure(_)) => s.finish(gen, peek),
-            (StackElement::Table(s), Tag::Table(_)) => s.finish(gen, peek),
-            (StackElement::TableHead(s), Tag::TableHead) => s.finish(gen, peek),
-            (StackElement::TableRow(s), Tag::TableRow) => s.finish(gen, peek),
-            (StackElement::TableCell(s), Tag::TableCell) => s.finish(gen, peek),
-            (StackElement::InlineEmphasis(s), Tag::InlineEmphasis) => s.finish(gen, peek),
-            (StackElement::InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
-            (StackElement::InlineStrikethrough(s), Tag::InlineStrikethrough) => s.finish(gen, peek),
-            (StackElement::InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
-            (StackElement::InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
-            (StackElement::Equation(s), Tag::Equation(_)) => s.finish(gen, peek),
-            (StackElement::NumberedEquation(s), Tag::NumberedEquation(_)) => s.finish(gen, peek),
-            (StackElement::Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
+            (Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
+            (Rule(s), Tag::Rule) => s.finish(gen, peek),
+            (Header(s), Tag::Header(_)) => s.finish(gen, peek),
+            (BlockQuote(s), Tag::BlockQuote) => s.finish(gen, peek),
+            (CodeBlock(s), Tag::CodeBlock(_)) => s.finish(gen, peek),
+            (List(s), Tag::List) => s.finish(gen, peek),
+            (Enumerate(s), Tag::Enumerate(_)) => s.finish(gen, peek),
+            (Item(s), Tag::Item) => s.finish(gen, peek),
+            (FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(gen, peek),
+            (Url(s), Tag::Url(_)) => s.finish(gen, peek),
+            (InterLink(s), Tag::InterLink(_)) => s.finish(gen, peek),
+            (HtmlBlock(s), Tag::HtmlBlock) => s.finish(gen, peek),
+            (Figure(s), Tag::Figure(_)) => s.finish(gen, peek),
+            (TableFigure(s), Tag::TableFigure(_)) => s.finish(gen, peek),
+            (Table(s), Tag::Table(_)) => s.finish(gen, peek),
+            (TableHead(s), Tag::TableHead) => s.finish(gen, peek),
+            (TableRow(s), Tag::TableRow) => s.finish(gen, peek),
+            (TableCell(s), Tag::TableCell) => s.finish(gen, peek),
+            (InlineEmphasis(s), Tag::InlineEmphasis) => s.finish(gen, peek),
+            (InlineStrong(s), Tag::InlineStrong) => s.finish(gen, peek),
+            (InlineStrikethrough(s), Tag::InlineStrikethrough) => s.finish(gen, peek),
+            (InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
+            (InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
+            (Equation(s), Tag::Equation(_)) => s.finish(gen, peek),
+            (NumberedEquation(s), Tag::NumberedEquation(_)) => s.finish(gen, peek),
+            (Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
             (state, tag) => unreachable!("invalid end tag {:?}, expected {:?}", tag, state),
         }
     }
@@ -174,7 +181,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_graphviz(&self) -> bool {
         match self {
-            StackElement::Graphviz(_) => true,
+            Graphviz(_) => true,
             _ => false
         }
     }
@@ -182,7 +189,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_code_block(&self) -> bool {
         self.is_graphviz() || match self {
-            StackElement::CodeBlock(_) => true,
+            CodeBlock(_) => true,
             _ => false
         }
     }
@@ -190,28 +197,28 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_list(&self) -> bool {
         match self {
-            StackElement::List(_) => true,
+            List(_) => true,
             _ => false,
         }
     }
 
     pub fn is_enumerate(&self) -> bool {
         match self {
-            StackElement::Enumerate(_) => true,
+            Enumerate(_) => true,
             _ => false
         }
     }
 
     pub fn is_equation(&self) -> bool {
         match self {
-            StackElement::Equation(_) => true,
+            Equation(_) => true,
             _ => false,
         }
     }
 
     pub fn is_numbered_equation(&self) -> bool {
         match self {
-            StackElement::NumberedEquation(_) => true,
+            NumberedEquation(_) => true,
             _ => false,
         }
     }
@@ -234,7 +241,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_inline_emphasis(&self) -> bool {
         match self {
-            StackElement::InlineEmphasis(_) => true,
+            InlineEmphasis(_) => true,
             _ => false
         }
     }
@@ -242,7 +249,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_inline_strong(&self) -> bool {
         match self {
-            StackElement::InlineStrong(_) => true,
+            InlineStrong(_) => true,
             _ => false
         }
     }
@@ -250,7 +257,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_inline_code(&self) -> bool {
         match self {
-            StackElement::InlineCode(_) => true,
+            InlineCode(_) => true,
             _ => false
         }
     }
@@ -258,14 +265,14 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
     #[allow(dead_code)]
     pub fn is_inline_math(&self) -> bool {
         match self {
-            StackElement::InlineMath(_) => true,
+            InlineMath(_) => true,
             _ => false,
         }
     }
 
     pub fn is_table(&self) -> bool {
         match self {
-            StackElement::Table(_) => true,
+            Table(_) => true,
             _ => false
         }
     }

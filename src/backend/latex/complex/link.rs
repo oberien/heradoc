@@ -1,8 +1,10 @@
 use std::borrow::Cow;
-use std::io::{Result, Write};
+use std::io::Write;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
+use crate::error::Result;
+use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, InterLink, Url};
 use crate::generator::Generator;
 
@@ -13,9 +15,10 @@ pub struct UrlWithContentGen<'a> {
 
 impl<'a> CodeGenUnit<'a, Url<'a>> for UrlWithContentGen<'a> {
     fn new(
-        _cfg: &'a Config, url: Url<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _cfg: &'a Config, url: WithRange<Url<'a>>,
+        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let Url { destination, title } = url;
+        let WithRange(Url { destination, title }, _range) = url;
         let out = gen.get_out();
 
         if title.is_some() {
@@ -27,7 +30,8 @@ impl<'a> CodeGenUnit<'a, Url<'a>> for UrlWithContentGen<'a> {
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         let out = gen.get_out();
 
@@ -44,16 +48,17 @@ pub struct InterLinkWithContentGen;
 
 impl<'a> CodeGenUnit<'a, InterLink<'a>> for InterLinkWithContentGen {
     fn new(
-        _cfg: &'a Config, interlink: InterLink<'a>,
+        _cfg: &'a Config, interlink: WithRange<InterLink<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let InterLink { label, uppercase: _ } = interlink;
+        let WithRange(InterLink { label, uppercase: _ }, _range) = interlink;
         write!(gen.get_out(), "\\hyperref[{}]{{", label)?;
         Ok(InterLinkWithContentGen)
     }
 
     fn finish(
-        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<&Event<'a>>,
+        self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
+        _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         write!(gen.get_out(), "}}")?;
         Ok(())
