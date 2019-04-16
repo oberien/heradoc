@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::mem;
 
 use crate::frontend::range::WithRange;
 
@@ -37,58 +38,68 @@ impl<T> VecExt<T> for Vec<WithRange<T>> {
     }
 }
 
-pub trait CowExt<'a> {
+pub trait CowExt: Sized {
+    /// Trims any leading and trailing whitespace
     fn trim_inplace(&mut self);
+    /// Trims any leading whitespace
     fn trim_start_inplace(&mut self);
+    /// Trims any trailing whitespace
     fn trim_end_inplace(&mut self);
+    /// Removes the first `num` bytes
     fn truncate_start(&mut self, num: usize);
+    /// Removes the last `num` bytes
     fn truncate_end(&mut self, num: usize);
-    fn truncate(&mut self, len: usize);
+    /// Convert to ascii lowercase
     fn make_ascii_lowercase_inplace(&mut self);
-    fn split_at(self, pos: usize) -> (Cow<'a, str>, Cow<'a, str>);
-    fn split_off(&mut self, pos: usize) -> Cow<'a, str>;
-    fn map_inplace(
-        &mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String),
-    );
-    fn map_inplace_return<R>(
-        &mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R),
-        owned: impl FnOnce(&mut String) -> R,
-    ) -> R;
-    fn map<R: 'a>(self, borrowed: impl FnOnce(&'a str) -> R, owned: impl FnOnce(String) -> R) -> R;
+    /// Returns `([0, at), [at, len))`
+    fn split_at(self, at: usize) -> (Self, Self);
+    /// Self contains `[0, at)`, returns `[at, len)`
+    fn split_off(&mut self, at: usize) -> Self;
+    /// Self contains `[at, len)`, returns `[0, at)`
+    fn split_to(&mut self, at: usize) -> Self;
 }
 
-impl<'a> CowExt<'a> for Cow<'a, str> {
+impl<'a> CowExt for Cow<'a, str> {
     fn trim_inplace(&mut self) {
-        self.map_inplace(
-            |s| s.trim(),
-            |s| {
+        match self {
+            Cow::Borrowed(s) => *s = s.trim(),
+            Cow::Owned(s) => {
                 let trimmed = s.trim();
                 let start = trimmed.as_ptr() as usize - s.as_ptr() as usize;
                 let end = start + trimmed.len();
                 s.truncate(end);
                 s.drain(..start);
-            },
-        );
+            }
+        }
     }
 
     fn trim_start_inplace(&mut self) {
-        self.map_inplace(|s| s.trim_start(), |s| drop(s.drain(..s.len() - s.trim_start().len())));
+        match self {
+            Cow::Borrowed(s) => *s = s.trim_start(),
+            Cow::Owned(s) => drop(s.drain(..s.len() - s.trim_start().len())),
+        }
     }
 
     fn trim_end_inplace(&mut self) {
-        self.map_inplace(|s| s.trim_end(), |s| s.truncate(s.trim_end().len()));
+        match self {
+            Cow::Borrowed(s) => *s = s.trim_end(),
+            Cow::Owned(s) => s.truncate(s.trim_end().len()),
+        }
     }
 
     fn truncate_start(&mut self, num: usize) {
-        self.map_inplace(|s| &s[num..], |s| drop(s.drain(..num)));
+        match self {
+            Cow::Borrowed(s) => *s = &s[num..],
+            Cow::Owned(s) => drop(s.drain(..num)),
+        }
     }
 
     fn truncate_end(&mut self, num: usize) {
-        self.truncate(self.len() - num);
-    }
-
-    fn truncate(&mut self, len: usize) {
-        self.map_inplace(|s| &s[..len], |s| s.truncate(len))
+        let end = self.len() - num;
+        match self {
+            Cow::Borrowed(s) => *s = &s[..end],
+            Cow::Owned(s) => s.truncate(end),
+        }
     }
 
     fn make_ascii_lowercase_inplace(&mut self) {
@@ -102,55 +113,41 @@ impl<'a> CowExt<'a> for Cow<'a, str> {
         }
     }
 
-    fn split_at(self, pos: usize) -> (Cow<'a, str>, Cow<'a, str>) {
+    fn split_at(self, at: usize) -> (Self, Self) {
         match self {
-            Cow::Borrowed(s) => (Cow::Borrowed(&s[..pos]), Cow::Borrowed(&s[pos..])),
+            Cow::Borrowed(s) => (Cow::Borrowed(&s[..at]), Cow::Borrowed(&s[at..])),
             Cow::Owned(mut s) => {
-                let s2 = s.split_off(pos);
+                let s2 = s.split_off(at);
                 (Cow::Owned(s), Cow::Owned(s2))
             },
         }
     }
 
-    fn split_off(&mut self, pos: usize) -> Cow<'a, str> {
+    fn split_off(&mut self, at: usize) -> Self {
         match self {
             Cow::Borrowed(s) => {
-                let start = &s[..pos];
-                let end = &s[pos..];
+                let start = &s[..at];
+                let end = &s[at..];
                 *s = start;
                 Cow::Borrowed(end)
             },
-            Cow::Owned(s) => Cow::Owned(s.split_off(pos)),
+            Cow::Owned(s) => Cow::Owned(s.split_off(at)),
         }
     }
 
-    fn map_inplace(
-        &mut self, borrowed: impl FnOnce(&'a str) -> &'a str, owned: impl FnOnce(&mut String),
-    ) {
-        match self {
-            Cow::Borrowed(s) => *self = borrowed(s).into(),
-            Cow::Owned(ref mut s) => owned(s),
-        }
-    }
-
-    fn map_inplace_return<R>(
-        &mut self, borrowed: impl FnOnce(&'a str) -> (&'a str, R),
-        owned: impl FnOnce(&mut String) -> R,
-    ) -> R {
+    fn split_to(&mut self, at: usize) -> Self {
         match self {
             Cow::Borrowed(s) => {
-                let (val, ret) = borrowed(s);
-                *self = val.into();
-                ret
+                let start = &s[..at];
+                let end = &s[at..];
+                *s = end;
+                Cow::Borrowed(start)
             },
-            Cow::Owned(ref mut s) => owned(s),
-        }
-    }
-
-    fn map<R>(self, borrowed: impl FnOnce(&'a str) -> R, owned: impl FnOnce(String) -> R) -> R {
-        match self {
-            Cow::Borrowed(s) => borrowed(s),
-            Cow::Owned(s) => owned(s),
+            Cow::Owned(s) => {
+                let mut other = s.split_off(at);
+                mem::swap(&mut other, s);
+                Cow::Owned(other)
+            },
         }
     }
 }
