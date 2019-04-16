@@ -39,6 +39,11 @@ impl<T> VecExt<T> for Vec<WithRange<T>> {
 }
 
 pub trait CowExt: Sized {
+    /// Returns number of `(leading_spaces, trailing_spaces)`.
+    ///
+    /// If the whole string is just whitespaces, `leading_spaces` will be its length
+    /// and `trailing_space` will be `0`.
+    fn trim_lengths(&self) -> (usize, usize);
     /// Trims any leading and trailing whitespace
     fn trim_inplace(&mut self);
     /// Trims any leading whitespace
@@ -60,6 +65,15 @@ pub trait CowExt: Sized {
 }
 
 impl<'a> CowExt for Cow<'a, str> {
+    fn trim_lengths(&self) -> (usize, usize) {
+        let leading_spaces = self.len() - self.trim_start().len();
+        if leading_spaces == self.len() {
+            return (leading_spaces, 0);
+        }
+        let trailing_spaces = self.len() - self.trim_end().len();
+        (leading_spaces, trailing_spaces)
+    }
+
     fn trim_inplace(&mut self) {
         match self {
             Cow::Borrowed(s) => *s = s.trim(),
