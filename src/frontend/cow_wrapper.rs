@@ -55,7 +55,7 @@ impl<'a> CowWrapper<'a> {
 
         let len: usize = self.ranges.iter().cloned()
             .skip_while(|r| r.end < escaped.start)
-            .take_while(|r| r.end <= escaped.end)
+            .take_while(|r| r.start <= escaped.end)
             .map(|r| r.end.min(escaped.end) - r.start.max(escaped.start))
             .sum();
         UnescapedRange {
@@ -100,6 +100,17 @@ impl<'a> CowWrapper<'a> {
         }
         EscapedRange { start: escaped_start.unwrap(), end: escaped_end.unwrap() }
     }
+
+    /// Returns the modified list of text-ranges that describe the source-code location of `subrange`.
+    fn subranges(&self, subrange: EscapedRange) -> Vec<EscapedRange> {
+        self.ranges.iter().cloned()
+            .skip_while(|r| r.end < subrange.start)
+            .take_while(|r| r.start <= subrange.end)
+            .map(|r| EscapedRange {
+                start: r.start.max(subrange.start),
+                end: r.end.min(subrange.end),
+            }).collect()
+    }
 }
 
 #[cfg(test)]
@@ -133,12 +144,17 @@ mod tests {
                 EscapedRange { start: 0, end: 0 },
                 EscapedRange { start: 1, end: 5 },
                 EscapedRange { start: 6, end: 10 },
-            ]
+            ],
         };
         assert_eq!(
             cow.transform_escaped_range(EscapedRange { start: 0, end: 10 }),
             UnescapedRange { start: 0, end: 8 },
             "full string",
+        );
+        assert_eq!(
+            cow.transform_escaped_range(EscapedRange { start: 0, end: 2 }),
+            UnescapedRange { start: 0, end: 1 },
+            "first escaped character",
         );
         assert_eq!(
             cow.transform_escaped_range(EscapedRange { start: 1, end: 10 }),
@@ -165,7 +181,7 @@ mod tests {
                 EscapedRange { start: 0, end: 0 },
                 EscapedRange { start: 1, end: 5 },
                 EscapedRange { start: 6, end: 10 },
-            ]
+            ],
         };
         assert_eq!(
             cow.transform_unescaped_range(UnescapedRange { start: 0, end: 8 }),
@@ -181,6 +197,50 @@ mod tests {
             cow.transform_unescaped_range(UnescapedRange { start: 2, end: 8 }),
             EscapedRange { start: 3, end: 10 },
             "from the middle"
+        );
+    }
+
+    #[test]
+    fn test_subranges() {
+        let cow = CowWrapper {
+            cow: Cow::Borrowed("*Foo*Bar"),
+            ranges: vec![
+                EscapedRange { start: 0, end: 0 },
+                EscapedRange { start: 1, end: 5 },
+                EscapedRange { start: 6, end: 10 },
+            ],
+        };
+        assert_eq!(
+            cow.subranges(EscapedRange { start: 0, end: 10 }),
+            vec![
+                EscapedRange { start: 0, end: 0 },
+                EscapedRange { start: 1, end: 5 },
+                EscapedRange { start: 6, end: 10 },
+            ],
+            "full string",
+        );
+        assert_eq!(
+            cow.subranges(EscapedRange { start: 0, end: 2 }),
+            vec![
+                EscapedRange { start: 0, end: 0 },
+                EscapedRange { start: 1, end: 2 },
+            ],
+            "first escaped character",
+        );
+        assert_eq!(
+            cow.subranges(EscapedRange { start: 2, end: 4 }),
+            vec![
+                EscapedRange { start: 2, end: 4 },
+            ],
+            "middle in same text-range",
+        );
+        assert_eq!(
+            cow.subranges(EscapedRange { start: 4, end: 8 }),
+            vec![
+                EscapedRange { start: 4, end: 5 },
+                EscapedRange { start: 6, end: 8 },
+            ],
+            "multiple text-ranges",
         );
     }
 }
