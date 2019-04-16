@@ -7,6 +7,8 @@ use enum_kinds::EnumKind;
 use crate::frontend::range::WithRange;
 use crate::resolve::Command;
 
+pub use super::cow_wrapper::CowWrapper;
+
 // extension of pulldown_cmark::Event with custom types
 #[derive(Debug, EnumKind)]
 #[enum_kind(EventKind)]
