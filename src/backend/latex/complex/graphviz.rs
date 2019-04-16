@@ -7,7 +7,7 @@ use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::{Error, Result};
-use crate::frontend::range::{SourceRange, WithRange};
+use crate::frontend::range::{EscapedRange, WithRange};
 use crate::generator::event::{Event, Graphviz};
 use crate::generator::Generator;
 
@@ -16,7 +16,7 @@ pub struct GraphvizGen<'a> {
     path: PathBuf,
     file: File,
     graphviz: Graphviz<'a>,
-    range: SourceRange,
+    range: EscapedRange,
 }
 
 impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {

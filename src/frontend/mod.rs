@@ -19,7 +19,7 @@ pub use self::refs::LinkType;
 
 use self::concat::Concat;
 use self::convert_cow::{ConvertCow, Event as CmarkEvent, Tag as CmarkTag};
-use self::range::{WithRange, SourceRange};
+use self::range::{WithRange, EscapedRange};
 use self::refs::ReferenceParseResult;
 use crate::config::Config;
 use crate::cskvp::Cskvp;
@@ -202,9 +202,9 @@ impl<'a> Frontend<'a> {
     #[inline]
     fn convert_until_end_inclusive(
         &mut self, f: impl Fn(&CmarkTag<'_>) -> bool,
-    ) -> (String, Option<SourceRange>) {
+    ) -> (String, Option<EscapedRange>) {
         let mut text = String::new();
-        let mut range: Option<SourceRange> = None;
+        let mut range: Option<EscapedRange> = None;
         loop {
             let WithRange(evt, evt_range) = self.parser.next().unwrap();
             if let Some(range) = &mut range {
@@ -310,7 +310,7 @@ impl<'a> Frontend<'a> {
         &mut self, WithRange(lang, range): WithRange<Cow<'a, str>>, mut cskvp: Option<Cskvp<'a>>,
     ) {
         let code_block_cskvp_range = self.diagnostics.first_line(range);
-        let code_block_cskvp_range = SourceRange {
+        let code_block_cskvp_range = EscapedRange {
             start: code_block_cskvp_range.end - lang.len(),
             end: code_block_cskvp_range.end,
         };
@@ -323,11 +323,11 @@ impl<'a> Frontend<'a> {
             // get rid of comma
             rest.truncate_start(1);
             language = l;
-            language_range = SourceRange {
+            language_range = EscapedRange {
                 start: code_block_cskvp_range.start,
                 end: code_block_cskvp_range.start + language.len(),
             };
-            let code_block_cskvp_content_range = SourceRange {
+            let code_block_cskvp_content_range = EscapedRange {
                 start: code_block_cskvp_range.start + pos + 1,
                 end: code_block_cskvp_range.end,
             };
@@ -487,7 +487,7 @@ impl<'a> Frontend<'a> {
         // parse label
         text.truncate_end(1);
         text.truncate_start(1);
-        let cskvp_content_range = SourceRange { start: text_range.start + 1, end: text_range.end - 1 };
+        let cskvp_content_range = EscapedRange { start: text_range.start + 1, end: text_range.end - 1 };
         let mut cskvp =
             Cskvp::new(text, text_range, cskvp_content_range, self.diagnostics.clone());
         // if next element could have a label, convert that element with the label
@@ -527,7 +527,7 @@ impl<'a> Frontend<'a> {
     }
 
     fn handle_cskvp(
-        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: SourceRange,
+        &mut self, mut cskvp: Cskvp<'a>, next_element: CmarkEvent<'a>, next_range: EscapedRange,
     ) {
         // check if we want a figure
         let figure = match cskvp.take_figure().map(|f| f.element()).unwrap_or(self.cfg.figures) {
@@ -596,7 +596,7 @@ impl<'a> Frontend<'a> {
         let captures = RE.captures(&text);
         let inline = captures.as_ref().map(|c| c.get(1).unwrap().as_str());
         let group0 = captures.as_ref().map(|c| c.get(0).unwrap());
-        let inline_range = group0.map(|group| SourceRange {
+        let inline_range = group0.map(|group| EscapedRange {
             start: text_range.unwrap().start + group.start(),
             end: text_range.unwrap().start + group.end(),
         });
@@ -649,7 +649,7 @@ impl<'a> Frontend<'a> {
     }
 
     fn convert_link(
-        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
+        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: EscapedRange,
     ) {
         let evt = match refs::parse_references(
             self.cfg,
@@ -692,7 +692,7 @@ impl<'a> Frontend<'a> {
     }
 
     fn convert_image(
-        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
+        &mut self, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: EscapedRange,
         cskvp: Option<Cskvp<'a>>,
     ) {
         // TODO: maybe not concat all text-like events but actually forward events

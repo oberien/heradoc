@@ -7,7 +7,7 @@ use super::event::{BiberReference, InterLink, Url};
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, StrExt};
-use crate::frontend::range::SourceRange;
+use crate::frontend::range::EscapedRange;
 use crate::resolve::Command;
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ pub enum ReferenceParseResult<'a> {
 }
 
 pub fn parse_references<'a>(
-    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
+    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: EscapedRange,
     diagnostics: &Diagnostics<'a>,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in

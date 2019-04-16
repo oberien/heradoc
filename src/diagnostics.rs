@@ -10,7 +10,7 @@ use codespan_reporting::termcolor::StandardStream;
 use codespan_reporting::{Diagnostic, Label, LabelStyle, Severity};
 use url::Url;
 
-use crate::frontend::range::SourceRange;
+use crate::frontend::range::EscapedRange;
 
 pub struct Diagnostics<'a> {
     file_map: FileMap<&'a str>,
@@ -44,14 +44,14 @@ impl<'a> Diagnostics<'a> {
         Diagnostics { file_map, stderr }
     }
 
-    pub fn first_line(&self, range: SourceRange) -> SourceRange {
+    pub fn first_line(&self, range: EscapedRange) -> EscapedRange {
         let start =
             Span::from_offset(self.file_map.span().start(), ByteOffset(range.start as i64)).end();
         let line = self.file_map.location(start).unwrap().0;
         let line_span = self.file_map.line_span(line).unwrap();
         // get rid of newline
         let len = self.file_map.src_slice(line_span).unwrap().trim_end().len();
-        SourceRange { start: range.start, end: range.start + len }
+        EscapedRange { start: range.start, end: range.start + len }
     }
 
     fn diagnostic(&self, severity: Severity, message: String) -> DiagnosticBuilder<'a, '_> {
@@ -170,7 +170,7 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     }
 
     fn with_section<S: Into<String>>(
-        mut self, style: LabelStyle, range: SourceRange, message: S,
+        mut self, style: LabelStyle, range: EscapedRange, message: S,
     ) -> Self {
         let span = self
             .file_map
@@ -183,12 +183,12 @@ impl<'a: 'b, 'b> DiagnosticBuilder<'a, 'b> {
     }
 
     /// message can be empty
-    pub fn with_error_section<S: Into<String>>(self, range: SourceRange, message: S) -> Self {
+    pub fn with_error_section<S: Into<String>>(self, range: EscapedRange, message: S) -> Self {
         self.with_section(LabelStyle::Primary, range, message)
     }
 
     /// message can be empty
-    pub fn with_info_section<S: Into<String>>(self, range: SourceRange, message: S) -> Self {
+    pub fn with_info_section<S: Into<String>>(self, range: EscapedRange, message: S) -> Self {
         self.with_section(LabelStyle::Secondary, range, message)
     }
 }

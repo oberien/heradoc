@@ -6,7 +6,7 @@ use url::Url;
 
 use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Fatal, Result};
-use crate::frontend::range::SourceRange;
+use crate::frontend::range::EscapedRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include};
 
@@ -64,7 +64,7 @@ enum PathError {
 }
 
 fn error_include_local_from_remote(
-    diagnostics: &Diagnostics<'_>, range: SourceRange,
+    diagnostics: &Diagnostics<'_>, range: EscapedRange,
 ) -> Error {
     diagnostics
         .error("tried to include local file from remote origin")
@@ -74,7 +74,7 @@ fn error_include_local_from_remote(
     Error::Diagnostic
 }
 
-fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathError) -> Error {
+fn error_to_path(diagnostics: &Diagnostics<'_>, range: EscapedRange, err: PathError) -> Error {
     let (diagnostics, error) = match &err {
         PathError::NoPath | PathError::MissingComponent => {
             (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InteralCompilerError))
@@ -102,7 +102,7 @@ fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathErr
 
 impl Source {
     pub fn new(
-        url: Url, context: &Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+        url: Url, context: &Context, range: EscapedRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Self> {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
@@ -156,7 +156,7 @@ impl Source {
     }
 
     pub fn into_include(
-        self, remote: &Remote, range: SourceRange, diagnostics: &Diagnostics<'_>,
+        self, remote: &Remote, range: EscapedRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
         let Source { url, group } = self;
         match group {
@@ -232,7 +232,7 @@ impl Source {
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
 fn to_include(
-    path: PathBuf, context: Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+    path: PathBuf, context: Context, range: EscapedRange, diagnostics: &Diagnostics<'_>,
 ) -> Result<Include> {
     // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {

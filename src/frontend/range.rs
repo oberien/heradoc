@@ -1,26 +1,26 @@
 use std::ops::Range;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct SourceRange {
+pub struct EscapedRange {
     pub start: usize,
     pub end: usize,
 }
 
-impl From<Range<usize>> for SourceRange {
+impl From<Range<usize>> for EscapedRange {
     fn from(Range { start, end }: Range<usize>) -> Self {
-        SourceRange { start, end }
+        EscapedRange { start, end }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WithRange<T>(pub T, pub SourceRange);
+pub struct WithRange<T>(pub T, pub EscapedRange);
 
 impl<T> WithRange<T> {
     pub fn element(self) -> T {
         self.0
     }
 
-    pub fn range(&self) -> SourceRange {
+    pub fn range(&self) -> EscapedRange {
         self.1
     }
 

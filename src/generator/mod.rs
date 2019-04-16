@@ -10,7 +10,7 @@ use crate::backend::{Backend, MediumCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
 use crate::diagnostics::{Diagnostics, Input};
 use crate::frontend::Frontend;
-use crate::frontend::range::{SourceRange, WithRange};
+use crate::frontend::range::{EscapedRange, WithRange};
 use crate::resolve::{Context, Include, Resolver};
 
 mod code_gen_units;
@@ -215,7 +215,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.top_context().1
     }
 
-    fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {
+    fn resolve(&mut self, url: &str, range: EscapedRange) -> Result<Include> {
         let (context, diagnostics, resolver) = self.top_context();
         resolver.resolve(context, url, range, diagnostics)
     }

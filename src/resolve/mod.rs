@@ -21,7 +21,7 @@ use self::remote::Remote;
 use self::source::{Source, SourceGroup};
 use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Result};
-use crate::frontend::range::SourceRange;
+use crate::frontend::range::EscapedRange;
 
 pub struct Resolver {
     base: Url,
@@ -45,7 +45,7 @@ impl Resolver {
 
     /// Make a request to an uri in the context of a document with the specified source.
     pub fn resolve(
-        &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
+        &self, context: &Context, url: &str, range: EscapedRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
         let url = match self.base.join(url) {
             Ok(url) => url,
@@ -73,7 +73,7 @@ impl Resolver {
     /// invoking user.  Even more restrictive, the target handler could terminate the request at a
     /// later time. For example when requesting a remote document make a CORS check.
     fn check_access(
-        &self, context: &Context, target: &Source, range: SourceRange,
+        &self, context: &Context, target: &Source, range: EscapedRange,
         diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
         match (context, &target.group) {
@@ -163,13 +163,13 @@ mod tests {
     });
 }
 
-    fn prepare() -> (TempDir, SourceRange, Diagnostics<'static>) {
+    fn prepare() -> (TempDir, EscapedRange, Diagnostics<'static>) {
         let dir = TempDir::new("heradoc-test").expect("Can't create tempdir");
         let _ = File::create(dir.path().join("main.md")).expect("Can't create main.md");
         let _ = File::create(dir.path().join("test.md")).expect("Can't create main.md");
         let _ = File::create(dir.path().join("image.png")).expect("Can't create image.png");
         let _ = File::create(dir.path().join("pdf.pdf")).expect("Can't create pdf.pdf");
-        let range = SourceRange { start: 0, end: 0 };
+        let range = EscapedRange { start: 0, end: 0 };
         let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
         (dir, range, diagnostics)
     }

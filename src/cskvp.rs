@@ -8,7 +8,7 @@ use single::{self, Single};
 
 use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, VecExt};
-use crate::frontend::range::{SourceRange, WithRange};
+use crate::frontend::range::{EscapedRange, WithRange};
 
 #[derive(Debug, PartialEq, Eq)]
 struct Diagnostic;
@@ -16,7 +16,7 @@ struct Diagnostic;
 #[derive(Debug)]
 pub struct Cskvp<'a> {
     diagnostics: Option<Arc<Diagnostics<'a>>>,
-    range: SourceRange,
+    range: EscapedRange,
     label: Option<WithRange<Cow<'a, str>>>,
     caption: Option<WithRange<Cow<'a, str>>>,
     figure: Option<WithRange<bool>>,
@@ -28,7 +28,7 @@ impl<'a> Default for Cskvp<'a> {
     fn default() -> Self {
         Cskvp {
             diagnostics: None,
-            range: SourceRange { start: 0, end: 0 },
+            range: EscapedRange { start: 0, end: 0 },
             label: None,
             caption: None,
             figure: None,
@@ -40,13 +40,13 @@ impl<'a> Default for Cskvp<'a> {
 
 impl<'a> Cskvp<'a> {
     pub fn new(
-        s: Cow<'a, str>, range: SourceRange, content_range: SourceRange,
+        s: Cow<'a, str>, range: EscapedRange, content_range: EscapedRange,
         diagnostics: Arc<Diagnostics<'a>>,
     ) -> Cskvp<'a> {
         // The content_range may involve unescaped escaped sequences like `\\`, which will only have
         // a length of 1 here. Thus we need to trim the range for the parser.
         // TODO: fix for diagnostics when unescaping is involved. See #
-        let parser_range = SourceRange {
+        let parser_range = EscapedRange {
             start: content_range.start, end: content_range.start + s.len() };
         let mut parser = Parser::new(s, parser_range);
 
@@ -124,7 +124,7 @@ impl<'a> Cskvp<'a> {
         }
     }
 
-    pub fn range(&self) -> SourceRange {
+    pub fn range(&self) -> EscapedRange {
         self.range
     }
 
@@ -216,7 +216,7 @@ impl<'a> Drop for Cskvp<'a> {
 #[derive(Debug)]
 struct Parser<'a> {
     rest: Cow<'a, str>,
-    range: SourceRange,
+    range: EscapedRange,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -226,7 +226,7 @@ enum Value<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(s: Cow<'a, str>, range: SourceRange) -> Parser<'a> {
+    fn new(s: Cow<'a, str>, range: EscapedRange) -> Parser<'a> {
         Parser { rest: s, range }
     }
 
@@ -243,7 +243,7 @@ impl<'a> Parser<'a> {
 
         if let Some('=') = delim {
             let WithRange(val, val_range) = self.next_single(&[','], diagnostics)?;
-            let range = SourceRange { start: key_range.start, end: val_range.end };
+            let range = EscapedRange { start: key_range.start, end: val_range.end };
             let res = Some(WithRange(Value::Double(key, val), range));
 
             let (delim, delim_range) = self.skip_delimiter();
@@ -308,7 +308,7 @@ impl<'a> Parser<'a> {
                 },
             },
         };
-        let range = SourceRange { start: self.range.start, end: self.range.start + quoted_string_len };
+        let range = EscapedRange { start: self.range.start, end: self.range.start + quoted_string_len };
         self.range.start += quoted_string_len;
         assert_eq!(self.range.end - self.range.start, self.rest.len());
         Ok(WithRange(content, range))
@@ -331,7 +331,7 @@ impl<'a> Parser<'a> {
         let trimmed_start = len - val.len();
         val.trim_end_inplace();
         let trimmed_end = len - trimmed_start - val.len();
-        let range = SourceRange {
+        let range = EscapedRange {
             start: self_range.start + trimmed_start,
             end: self_range.start + idx - trimmed_end,
         };
@@ -351,12 +351,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn skip_delimiter(&mut self) -> (Option<char>, SourceRange) {
+    fn skip_delimiter(&mut self) -> (Option<char>, EscapedRange) {
         let len = self.rest.len();
         self.rest.trim_start_inplace();
         self.range.start += len - self.rest.len();
         let delim = self.rest.chars().next();
-        let mut range = SourceRange { start: self.range.start, end: self.range.start };
+        let mut range = EscapedRange { start: self.range.start, end: self.range.start };
         if delim.is_some() {
             let delim_len = delim.unwrap().len_utf8();
             self.rest.truncate_start(delim_len);
@@ -377,7 +377,7 @@ mod test {
     #[test]
     fn test_parser() {
         let s = r#"foo, bar = " baz, \"qux\"", quux, corge="grault"#;
-        let s_range = SourceRange { start: 0, end: s.len() };
+        let s_range = EscapedRange { start: 0, end: s.len() };
         let diagnostics = Diagnostics::new(s, Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
         let mut parser = Parser::new(Cow::Borrowed(s), s_range);
         assert_eq!(
