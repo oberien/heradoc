@@ -151,26 +151,13 @@ fn iter_multiple_biber(
             }
 
             // skip leading whitespace at first reference (`[ @foo...`)
-            let leading_whitespace = self.s.chars().take_while(|c| c.is_whitespace()).count();
-            let single_start = leading_whitespace;
-            assert_eq!(&self.s[single_start..single_start + 1], "@");
+            self.s.trim_start_inplace();
+            assert!(self.s.starts_with("@"));
 
-            let next_at =
-                self.s[single_start + 1..].find('@').map_or(self.s.len(), |i| i + single_start + 1);
-            let single_end = self.s[single_start..next_at].rfind(',').unwrap_or(self.s.len());
-            let single = self.s.map_inplace_return(
-                |s| {
-                    let single = Cow::Borrowed(&s[single_start..single_end]);
-                    (&s[next_at..], single)
-                },
-                |s| {
-                    let mut single = s.split_off(single_end);
-                    ::std::mem::swap(&mut single, s);
-                    single.drain(..single_start);
-                    s.drain(..next_at - single_end);
-                    Cow::Owned(single)
-                },
-            );
+            let next_at = self.s[1..].find('@').map_or(self.s.len(), |i| i + 1);
+            let single_end = self.s[..next_at].rfind(',').unwrap_or(self.s.len());
+            let single = self.s.split_to(single_end);
+            self.s.truncate_start(next_at - single_end);
             Some(parse_single_biber(single))
         }
     }
@@ -179,25 +166,21 @@ fn iter_multiple_biber(
 }
 
 /// Returns (reference, Option<options>)
+///
+/// Expects input in the form of `"@foo Chapters 10-15,25"`.
+/// Returns `("foo", Some("Chapters 10-15, 25"))`.
 fn parse_single_biber(mut s: Cow<'_, str>) -> (Cow<'_, str>, Option<Cow<'_, str>>) {
     s.trim_inplace();
-    assert_eq!(&s[..1], "@", "Expected a biber reference starting with `@`, found {:?}", s);
+    assert!(s.starts_with('@'), "Expected a biber reference starting with `@`, found {:?}", s);
+
+    // get rid of `@`
+    s.truncate_start(1);
 
     let spacepos = s.find(' ');
-    s.map(
-        |s| {
-            let reference = &s[1..spacepos.unwrap_or(s.len())];
-            let rest = spacepos.map(|pos| Cow::Borrowed(&s[(pos + 1)..]));
-            (Cow::Borrowed(reference), rest)
-        },
-        |mut s| {
-            let rest = spacepos.map(|pos| Cow::Owned(s.split_off(pos + 1)));
-            let mut reference = s;
-            if let Some(pos) = spacepos {
-                reference.truncate(pos);
-            }
-            reference.drain(..1);
-            (Cow::Owned(reference), rest)
-        },
-    )
+    let slen = s.len();
+    let (reference, mut opts) = s.split_at(spacepos.unwrap_or(slen));
+    // get rid of leading / trailing spaces
+    opts.trim_inplace();
+    let opts = if opts.len() == 0 { None } else { Some(opts) };
+    (reference, opts)
 }
