@@ -43,7 +43,12 @@ impl<'a> Cskvp<'a> {
         s: Cow<'a, str>, range: SourceRange, content_range: SourceRange,
         diagnostics: Arc<Diagnostics<'a>>,
     ) -> Cskvp<'a> {
-        let mut parser = Parser::new(s, content_range);
+        // The content_range may involve unescaped escaped sequences like `\\`, which will only have
+        // a length of 1 here. Thus we need to trim the range for the parser.
+        // TODO: fix for diagnostics when unescaping is involved. See #
+        let parser_range = SourceRange {
+            start: content_range.start, end: content_range.start + s.len() };
+        let mut parser = Parser::new(s, parser_range);
 
         let mut single = Vec::new();
         let mut double = HashMap::new();
@@ -208,6 +213,7 @@ impl<'a> Drop for Cskvp<'a> {
     }
 }
 
+#[derive(Debug)]
 struct Parser<'a> {
     rest: Cow<'a, str>,
     range: SourceRange,
