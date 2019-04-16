@@ -314,13 +314,14 @@ impl<'a> Frontend<'a> {
             start: code_block_cskvp_range.end - lang.len(),
             end: code_block_cskvp_range.end,
         };
-        dbg!((&lang, code_block_cskvp_range));
 
         // check if language has label/config
         let language;
         let language_range;
         if let Some(pos) = lang.find(',') {
-            let (l, rest) = lang.split_at(pos);
+            let (l, mut rest) = lang.split_at(pos);
+            // get rid of comma
+            rest.truncate_start(1);
             language = l;
             language_range = SourceRange {
                 start: code_block_cskvp_range.start,

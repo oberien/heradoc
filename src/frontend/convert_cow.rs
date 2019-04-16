@@ -17,7 +17,7 @@ impl<'a> Iterator for ConvertCow<'a> {
     type Item = WithRange<Event<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        dbg!(self.0.next()).map(|(e, r)| WithRange(e.into(), r.into()))
+        self.0.next().map(|(e, r)| WithRange(e.into(), r.into()))
     }
 }
 

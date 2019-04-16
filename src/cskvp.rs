@@ -239,18 +239,34 @@ impl<'a> Parser<'a> {
 
         let WithRange(key, key_range) = self.next_single(&['=', ','], diagnostics)?;
 
-        let delim = self.skip_delimiter();
+        let (delim, delim_range) = self.skip_delimiter();
 
         if let Some('=') = delim {
             let WithRange(val, val_range) = self.next_single(&[','], diagnostics)?;
             let range = SourceRange { start: key_range.start, end: val_range.end };
             let res = Some(WithRange(Value::Double(key, val), range));
 
-            let delim = self.skip_delimiter();
-            assert!(delim == Some(',') || delim == None, "invalid comma seperated key value pair");
+            let (delim, delim_range) = self.skip_delimiter();
+            if !(delim == None || delim == Some(',')) {
+                diagnostics.error("invalid comma seperated key-value-pair")
+                    .with_info_section(range, "in this key-value-pair")
+                    .with_error_section(delim_range, "incorrect delimiter after value")
+                    .help("use `,` to separate key-value-pairs")
+                    .emit();
+                self.rest = Cow::Borrowed("");
+                return Ok(None);
+            }
             Ok(res)
         } else {
-            assert!(delim == Some(',') || delim == None, "invalid comma seperated value");
+            if !(delim == None || delim == Some(',')) {
+                diagnostics.error("invalid comma seperated value")
+                    .with_info_section(key_range, "in this value")
+                    .with_error_section(delim_range, "incorrect delimiter after value")
+                    .help("use `,` to separate values")
+                    .emit();
+                self.rest = Cow::Borrowed("");
+                return Ok(None);
+            }
             Ok(Some(WithRange(Value::Single(key), key_range)))
         }
     }
@@ -335,16 +351,19 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn skip_delimiter(&mut self) -> Option<char> {
+    fn skip_delimiter(&mut self) -> (Option<char>, SourceRange) {
         let len = self.rest.len();
         self.rest.trim_start_inplace();
         self.range.start += len - self.rest.len();
         let delim = self.rest.chars().next();
+        let mut range = SourceRange { start: self.range.start, end: self.range.start };
         if delim.is_some() {
-            self.rest.truncate_start(1);
-            self.range.start += 1;
+            let delim_len = delim.unwrap().len_utf8();
+            self.rest.truncate_start(delim_len);
+            self.range.start += delim_len;
+            range.end += delim_len;
         }
-        delim
+        (delim, range)
     }
 }
 
