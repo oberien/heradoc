@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::ops::Deref;
 
 use crate::frontend::range::{EscapedRange, UnescapedRange};
+use crate::ext::CowExt;
 
 /// Wraps possibly concatenated Text events with their respective `EscapedRange`s
 /// for range transformations.
@@ -110,6 +111,101 @@ impl<'a> CowWrapper<'a> {
                 start: r.start.max(subrange.start),
                 end: r.end.min(subrange.end),
             }).collect()
+    }
+}
+
+impl<'a> CowExt for CowWrapper<'a> {
+    fn trim_lengths(&self) -> (usize, usize) {
+        self.cow.trim_lengths()
+    }
+
+    fn trim_inplace(&mut self) {
+        let mut unescaped = self.unescaped_range();
+        let (left, right) = self.cow.trim_lengths();
+        self.cow.trim_inplace();
+        unescaped.start += left;
+        unescaped.end -= right;
+        assert_eq!(unescaped.len(), self.cow.len());
+        let escaped = self.transform_unescaped_range(unescaped);
+        self.ranges = self.subranges(escaped);
+    }
+
+    fn trim_start_inplace(&mut self) {
+        let mut unescaped = self.unescaped_range();
+        let (left, _) = self.cow.trim_lengths();
+        self.cow.trim_start_inplace();
+        unescaped.start += left;
+        let escaped = self.transform_unescaped_range(unescaped);
+        self.ranges = self.subranges(escaped);
+    }
+
+    fn trim_end_inplace(&mut self) {
+        let mut unescaped = self.unescaped_range();
+        let (_, right) = self.cow.trim_lengths();
+        self.cow.trim_end_inplace();
+        unescaped.end += right;
+        let escaped = self.transform_unescaped_range(unescaped);
+        self.ranges = self.subranges(escaped);
+    }
+
+    fn truncate_start(&mut self, num: usize) {
+        let mut unescaped = self.unescaped_range();
+        self.cow.truncate_start(num);
+        unescaped.start += num;
+        let escaped = self.transform_unescaped_range(unescaped);
+        self.ranges = self.subranges(escaped);
+    }
+
+    fn truncate_end(&mut self, num: usize) {
+        let mut unescaped = self.unescaped_range();
+        self.cow.truncate_end(num);
+        unescaped.end += num;
+        let escaped = self.transform_unescaped_range(unescaped);
+        self.ranges = self.subranges(escaped);
+    }
+
+    fn make_ascii_lowercase_inplace(&mut self) {
+        self.cow.make_ascii_lowercase_inplace();
+    }
+
+    fn split_at(self, at: usize) -> (Self, Self) {
+        let unescaped = self.unescaped_range();
+        let unescaped_left = UnescapedRange { start: unescaped.start, end: unescaped.start + at };
+        let unescaped_right = UnescapedRange { start: unescaped.start + at, end: unescaped.end };
+        let escaped_left = self.transform_unescaped_range(unescaped_left);
+        let escaped_right = self.transform_unescaped_range(unescaped_right);
+        let subranges_left = self.subranges(escaped_left);
+        let subranges_right = self.subranges(escaped_right);
+        let (left, right) = self.cow.split_at(at);
+        let left = CowWrapper { cow: left, ranges: subranges_left };
+        let right = CowWrapper { cow: right, ranges: subranges_right };
+        (left, right)
+    }
+
+    fn split_off(&mut self, at: usize) -> Self {
+        let unescaped = self.unescaped_range();
+        let unescaped_left = UnescapedRange { start: unescaped.start, end: unescaped.start + at };
+        let unescaped_right = UnescapedRange { start: unescaped.start + at, end: unescaped.end };
+        let escaped_left = self.transform_unescaped_range(unescaped_left);
+        let escaped_right = self.transform_unescaped_range(unescaped_right);
+        let subranges_left = self.subranges(escaped_left);
+        let subranges_right = self.subranges(escaped_right);
+        let right = self.cow.split_off(at);
+        self.ranges = subranges_left;
+        CowWrapper { cow: right, ranges: subranges_right }
+    }
+
+    fn split_to(&mut self, at: usize) -> Self {
+        let unescaped = self.unescaped_range();
+        let unescaped_left = UnescapedRange { start: unescaped.start, end: unescaped.start + at };
+        let unescaped_right = UnescapedRange { start: unescaped.start + at, end: unescaped.end };
+        let escaped_left = self.transform_unescaped_range(unescaped_left);
+        let escaped_right = self.transform_unescaped_range(unescaped_right);
+        let subranges_left = self.subranges(escaped_left);
+        let subranges_right = self.subranges(escaped_right);
+        let left = self.cow.split_to(at);
+        self.ranges = subranges_right;
+        CowWrapper { cow: left, ranges: subranges_left }
     }
 }
 
