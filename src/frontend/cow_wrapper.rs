@@ -294,6 +294,19 @@ mod tests {
             EscapedRange { start: 3, end: 10 },
             "from the middle"
         );
+
+        let cow = CowWrapper {
+            cow: Cow::Borrowed("FooBar"),
+            ranges: vec![
+                EscapedRange { start: 0, end: 3 },
+                EscapedRange { start: 7, end: 10 },
+            ],
+        };
+        assert_eq!(
+            cow.transform_unescaped_range(UnescapedRange { start: 2, end: 5 }),
+            EscapedRange { start: 2, end: 9 },
+            "large gap",
+        );
     }
 
     #[test]
