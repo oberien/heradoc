@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::path::PathBuf;
 
 pub use crate::frontend::{
+    Tag,
     BiberReference,
     CodeBlock,
     Enumerate,
@@ -18,7 +19,7 @@ pub use crate::frontend::{
 };
 pub use pulldown_cmark::Alignment;
 
-use crate::frontend::{Event as FeEvent, Tag as FeTag};
+use crate::frontend::Event as FeEvent;
 use crate::frontend::range::WithRange;
 use crate::generator::Events;
 use crate::resolve::Command;
@@ -53,42 +54,6 @@ pub enum Event<'a> {
     Appendix,
 }
 
-// transformation of frontend::Tag
-#[derive(Debug)]
-pub enum Tag<'a> {
-    Paragraph,
-    Rule,
-    Header(Header<'a>),
-    BlockQuote,
-    CodeBlock(CodeBlock<'a>),
-    List,
-    Enumerate(Enumerate),
-    Item,
-    FootnoteDefinition(FootnoteDefinition<'a>),
-    HtmlBlock,
-    /// Url with content
-    Url(Url<'a>),
-    /// InterLink with content
-    InterLink(InterLink<'a>),
-    Figure(Figure<'a>),
-    TableFigure(Figure<'a>),
-
-    Table(Table<'a>),
-    TableHead,
-    TableRow,
-    TableCell,
-
-    InlineEmphasis,
-    InlineStrong,
-    InlineStrikethrough,
-    InlineCode,
-    InlineMath,
-
-    Equation(Equation<'a>),
-    NumberedEquation(Equation<'a>),
-    Graphviz(Graphviz<'a>),
-}
-
 /// Image to display as figure.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Image<'a> {
@@ -113,8 +78,8 @@ pub struct Pdf {
 impl<'a> From<FeEvent<'a>> for Event<'a> {
     fn from(e: FeEvent<'a>) -> Self {
         match e {
-            FeEvent::Start(tag) => Event::Start(tag.into()),
-            FeEvent::End(tag) => Event::End(tag.into()),
+            FeEvent::Start(tag) => Event::Start(tag),
+            FeEvent::End(tag) => Event::End(tag),
             FeEvent::Text(text) => Event::Text(text),
             FeEvent::Html(html) => Event::Html(html),
             FeEvent::InlineHtml(html) => Event::InlineHtml(html),
@@ -146,39 +111,6 @@ impl<'a> From<Command> for Event<'a> {
             Command::ListOfFigures => Event::ListOfFigures,
             Command::ListOfListings => Event::ListOfListings,
             Command::Appendix => Event::Appendix,
-        }
-    }
-}
-
-impl<'a> From<FeTag<'a>> for Tag<'a> {
-    fn from(tag: FeTag<'a>) -> Self {
-        match tag {
-            FeTag::Paragraph => Tag::Paragraph,
-            FeTag::Rule => Tag::Rule,
-            FeTag::Header(header) => Tag::Header(header),
-            FeTag::BlockQuote => Tag::BlockQuote,
-            FeTag::CodeBlock(code) => Tag::CodeBlock(code),
-            FeTag::List => Tag::List,
-            FeTag::Enumerate(e) => Tag::Enumerate(e),
-            FeTag::Item => Tag::Item,
-            FeTag::FootnoteDefinition(fnote) => Tag::FootnoteDefinition(fnote),
-            FeTag::Url(url) => Tag::Url(url),
-            FeTag::InterLink(interlink) => Tag::InterLink(interlink),
-            FeTag::HtmlBlock => Tag::HtmlBlock,
-            FeTag::Figure(figure) => Tag::Figure(figure),
-            FeTag::TableFigure(figure) => Tag::TableFigure(figure),
-            FeTag::Table(table) => Tag::Table(table),
-            FeTag::TableHead => Tag::TableHead,
-            FeTag::TableRow => Tag::TableRow,
-            FeTag::TableCell => Tag::TableCell,
-            FeTag::InlineEmphasis => Tag::InlineEmphasis,
-            FeTag::InlineStrong => Tag::InlineStrong,
-            FeTag::InlineStrikethrough => Tag::InlineStrikethrough,
-            FeTag::InlineCode => Tag::InlineCode,
-            FeTag::InlineMath => Tag::InlineMath,
-            FeTag::Equation(equation) => Tag::Equation(equation),
-            FeTag::NumberedEquation(equation) => Tag::NumberedEquation(equation),
-            FeTag::Graphviz(graphviz) => Tag::Graphviz(graphviz),
         }
     }
 }
