@@ -309,11 +309,6 @@ impl<'a> Frontend<'a> {
     fn convert_code_block(
         &mut self, WithRange(lang, range): WithRange<Cow<'a, str>>, mut cskvp: Option<Cskvp<'a>>,
     ) {
-        let lang = match lang {
-            Cow::Borrowed(s) => s,
-            Cow::Owned(_) => unreachable!("CodeBlock language should be borrowed"),
-        };
-
         let code_block_cskvp_range = self.diagnostics.first_line(range);
         let code_block_cskvp_range = SourceRange {
             start: code_block_cskvp_range.end - lang.len(),
@@ -324,7 +319,10 @@ impl<'a> Frontend<'a> {
         let language;
         let language_range;
         if let Some(pos) = lang.find(',') {
-            language = &lang[..pos];
+            let (l, mut rest) = lang.split_at(pos);
+            // get rid of comma
+            rest.truncate_start(1);
+            language = l;
             language_range = SourceRange {
                 start: code_block_cskvp_range.start,
                 end: code_block_cskvp_range.start + language.len(),
@@ -334,7 +332,7 @@ impl<'a> Frontend<'a> {
                 end: code_block_cskvp_range.end,
             };
             let inline_cskvp = Cskvp::new(
-                Cow::Borrowed(&lang[pos + 1..]),
+                rest,
                 code_block_cskvp_range,
                 code_block_cskvp_content_range,
                 Arc::clone(&self.diagnostics),
@@ -352,7 +350,7 @@ impl<'a> Frontend<'a> {
                 // check for figure and handle it
                 self.handle_cskvp(
                     inline_cskvp,
-                    CmarkEvent::Start(CmarkTag::CodeBlock(Cow::Borrowed(language))),
+                    CmarkEvent::Start(CmarkTag::CodeBlock(language)),
                     range,
                 );
                 return;
@@ -363,7 +361,7 @@ impl<'a> Frontend<'a> {
         }
 
         let mut cskvp = cskvp.unwrap_or_default();
-        let tag = match language {
+        let tag = match &*language {
             "equation" | "$$" => {
                 Tag::Equation(Equation { label: cskvp.take_label(), caption: cskvp.take_caption() })
             },
@@ -409,7 +407,7 @@ impl<'a> Frontend<'a> {
                         .emit();
                     None
                 } else {
-                    Some(WithRange(Cow::Borrowed(language), language_range))
+                    Some(WithRange(language, language_range))
                 },
             }),
         };
