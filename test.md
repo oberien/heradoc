@@ -15,6 +15,10 @@ geometry.margin = "2cm"
 
 [include examples/functionality/tableofcontents.md]
 
+# *Test* **Heading** with `Custom` Label {#test-heading}
+
+Reference to [#test-heading].
+
 [include examples/functionality/paragraphs.md]
 
 [include examples/functionality/inline-formatting.md]
