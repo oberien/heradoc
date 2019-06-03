@@ -43,6 +43,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage{{environ}}")?;
     writeln!(out, "\\usepackage{{amssymb}}")?;
     writeln!(out, "\\usepackage{{amsmath}}")?;
+    writeln!(out, "\\usepackage[gen]{{eurosym}}")?;
     writeln!(out, "\\usepackage[normalem]{{ulem}}")?;
     // TODO: graphicspath (probably not needed due to our own file resolution system (resolve))
     writeln!(out, "\\usepackage{{graphicx}}")?;
