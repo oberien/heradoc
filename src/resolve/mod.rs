@@ -140,7 +140,7 @@ impl Context {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
+    use std::fs::{DirBuilder, File};
     use std::sync::{Arc, Mutex};
     use tempdir::TempDir;
     use codespan_reporting::termcolor::{ColorChoice, StandardStream};
@@ -166,9 +166,14 @@ mod tests {
     fn prepare() -> (TempDir, SourceRange, Diagnostics<'static>) {
         let dir = TempDir::new("heradoc-test").expect("Can't create tempdir");
         let _ = File::create(dir.path().join("main.md")).expect("Can't create main.md");
-        let _ = File::create(dir.path().join("test.md")).expect("Can't create main.md");
+        let _ = File::create(dir.path().join("test.md")).expect("Can't create test.md");
         let _ = File::create(dir.path().join("image.png")).expect("Can't create image.png");
         let _ = File::create(dir.path().join("pdf.pdf")).expect("Can't create pdf.pdf");
+        DirBuilder::new().create(dir.path().join("chapter")).expect("Can't create chapter subdir");
+        DirBuilder::new().create(dir.path().join("images")).expect("Can't create images subdir");
+        let _ = File::create(dir.path().join("chapter/main.md")).expect("Can't create chapter main.md");
+        let _ = File::create(dir.path().join("chapter/other.md")).expect("Can't create chapter other.md");
+        let _ = File::create(dir.path().join("images/image.png")).expect("Can't create subdir image.png");
         let range = SourceRange { start: 0, end: 0 };
         let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
         (dir, range, diagnostics)
@@ -261,5 +266,36 @@ mod tests {
             .expect_err("Failed to resolve absolute file url");
 
         assert_match!(error, Error::Diagnostic);
+    }
+
+    #[test]
+    fn relative_in_subdirectory() {
+        let (dir, range, diagnostics) = prepare();
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let main = Context::LocalRelative(dir.path().join("chapter/main.md").canonicalize().unwrap());
+
+        let sibling = resolver
+            .resolve(&main, "other.md", range, &diagnostics)
+            .expect("Failed to resolve sibling file");
+
+        let alternative = resolver
+            .resolve(&main, "./other.md", range, &diagnostics)
+            .expect("Failed to resolve sibling file");
+        assert_eq!(sibling, alternative);
+
+        assert_match!(sibling, Include::Markdown(path, Context::LocalRelative(_)) if path == &dir.path().join("chapter/other.md"));
+    }
+
+    #[test]
+    fn local_relative_to_higher_directory() {
+        let (dir, range, diagnostics) = prepare();
+        let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
+        let main = Context::LocalRelative(dir.path().join("chapter/main.md").canonicalize().unwrap());
+
+        let up_and_over = resolver
+            .resolve(&main, "../images/image.png", range, &diagnostics)
+            .expect("Failed to resolve sibling file");
+
+        assert_match!(up_and_over, Include::Image(path) if path == &dir.path().join("images/image.png"));
     }
 }
