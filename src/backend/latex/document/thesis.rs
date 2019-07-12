@@ -12,7 +12,7 @@ use crate::config::Config;
 use crate::diagnostics::Input;
 use crate::error::FatalResult;
 use crate::generator::Generator;
-use crate::resolve::{Context, LocalRelative};
+use crate::resolve::Context;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -137,8 +137,7 @@ fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<Stan
     let arena = Arena::new();
     let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
     let markdown = fs::read_to_string(&path)?;
-    let context = Context::LocalRelative(
-        LocalRelative::new(cfg.input_dir.clone(), path.clone()));
+    let context = Context::LocalAbsolute(path.clone());
     let input = Input::File(path);
     let events = gen.get_events(markdown, context, input);
     gen.generate_body(events)?;
