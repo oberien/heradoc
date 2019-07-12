@@ -8,7 +8,7 @@ use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Fatal, Result};
 use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
-use crate::resolve::{Command, Context, Include};
+use crate::resolve::{Command, Context, Include, LocalRelative as RelativeContext};
 
 /// Differentiate between sources based on their access right characteristics.
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -27,16 +27,30 @@ pub enum SourceGroup {
     /// Local file relative to (without backrefs) or inside of context directory.
     ///
     /// Ex: `![](/foo.md)`, `![](foo.md)`, `![](file:///absolute/path/to/workdir/foo.md)`
-    LocalRelative(PathBuf),
+    LocalRelative(LocalRelative),
     /// Absolute file, not within context directory.
     ///
     /// Ex: `![](file:///foo.md)`
-    LocalAbsolute(PathBuf),
+    LocalAbsolute(Canonical),
     /// Remote source / file.
     ///
     /// Ex: `![](https://foo.bar/baz.md)`
     Remote,
 }
+
+/// A local relative include resolution.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct LocalRelative {
+    work_dir: PathBuf,
+    path: Canonical,
+}
+
+/// A canonicalized path.
+///
+/// This helps ensure that local relative paths really are relative to the working directory. It's
+/// a simple wrapper to avoid accidentally missing the canonicalization step.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Canonical(PathBuf);
 
 #[derive(Debug)]
 enum PathError {
@@ -107,46 +121,43 @@ impl Source {
         let group = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => {
-                    let workdir = context
-                        .path()
+                    let work_dir = context
+                        .work_dir()
                         .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                    let path = to_path(&url, workdir)
-                        .map_err(|err| error_to_path(diagnostics, range, err))?;
-                    SourceGroup::LocalRelative(path)
+                    to_local_relative(&url, work_dir)
+                        .map_err(|err| error_to_path(diagnostics, range, err))?
                 },
                 _ => SourceGroup::Implementation,
             },
             "file" => {
-                let path;
-                let is_relative;
                 if url.cannot_be_a_base() { // Relative file path.
-                    let workdir = context
-                        .path()
+                    let work_dir = context
+                        .work_dir()
                         .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                    path = to_path(&url, workdir)
-                        .map_err(|err| error_to_path(diagnostics, range, err))?;
-                    is_relative = true;
+                    to_local_relative(&url, work_dir)
+                        .map_err(|err| error_to_path(diagnostics, range, err))?
                 } else { // Absolute file path.
-                    path = url
+                    let path = url
                         .to_file_path()
                         .map_err(|()| PathError::InvalidBase)
-                        .and_then(|path| {
-                            let canonical = path.canonicalize();
-                            canonical.map_err(|io| PathError::NoCanonical(path, io))
-                        })
+                        .and_then(Canonical::try_from_path)
                         .map_err(|err| error_to_path(diagnostics, range, err))?;
                     // Absolute path is considered effectively relative if it points to the working
                     // directory and occurs in a local context. All other contexts consider all
                     // paths with a non-relative base absolute.
-                    is_relative = match context {
-                        Context::LocalRelative(workdir) => path.starts_with(workdir),
-                        _ => false,
-                    };
-                };
-                if is_relative {
-                    SourceGroup::LocalRelative(path)
-                } else {
-                    SourceGroup::LocalAbsolute(path)
+                    if let Context::LocalRelative(local) = context {
+                        let work_dir = local.work_dir();
+                        if path.as_ref().strip_prefix(work_dir).is_ok() {
+                            SourceGroup::LocalRelative(LocalRelative {
+                                work_dir: work_dir.to_owned(),
+                                path,
+                            })
+                        } else {
+                            SourceGroup::LocalAbsolute(path)
+                        }
+                    } else {
+                        SourceGroup::LocalAbsolute(path)
+                    }
                 }
             },
             _ => SourceGroup::Remote,
@@ -182,13 +193,25 @@ impl Source {
                     Err(Error::Diagnostic)
                 }
             },
-            SourceGroup::LocalRelative(path) => {
-                let parent = path.parent().unwrap().to_owned();
-                to_include(path, Context::LocalRelative(parent), range, diagnostics)
+            SourceGroup::LocalRelative(LocalRelative { work_dir, path: canonical }) => {
+                let path = canonical.into_inner();
+                // Making doubly sure for future changes.
+                let relative = path.strip_prefix(&work_dir)
+                    .map_err(|err| {
+                        diagnostics
+                            .bug("Local relative path resolved to non-relative path")
+                            .error(format!("cause: {}", err))
+                            .emit();
+                        Error::Diagnostic
+                    })?
+                    .to_path_buf();
+                let context = Context::LocalRelative(RelativeContext::new(work_dir, relative));
+                to_include(path, context, range, diagnostics)
             },
-            SourceGroup::LocalAbsolute(path) => {
-                let parent = path.parent().unwrap().to_owned();
-                to_include(path, Context::LocalAbsolute(parent), range, diagnostics)
+            SourceGroup::LocalAbsolute(canonical) => {
+                let path = canonical.into_inner();
+                let context = Context::LocalAbsolute(path.clone());
+                to_include(path, context, range, diagnostics)
             },
             SourceGroup::Remote => {
                 let downloaded = match remote.http(&url) {
@@ -226,6 +249,19 @@ impl Source {
     }
 }
 
+impl Canonical {
+    fn try_from_path(path: impl AsRef<Path>) -> std::result::Result<Self, PathError> {
+        match path.as_ref().canonicalize() {
+            Ok(path) => Ok(Canonical(path)),
+            Err(io) => Err(PathError::NoCanonical(path.as_ref().to_path_buf(), io)),
+        }
+    }
+
+    pub fn into_inner(self) -> PathBuf {
+        self.into()
+    }
+}
+
 /// Guess the type of include based on the file extension.
 ///
 /// Used to detect the type of include for relative and absolute file paths or for webrequest
@@ -257,8 +293,8 @@ fn to_include(
     }
 }
 
-fn to_path<P: AsRef<Path>>(url: &Url, workdir: P) -> std::result::Result<PathBuf, PathError> {
-    let mut full_path = workdir.as_ref().to_path_buf();
+fn to_local_relative<P: AsRef<Path>>(url: &Url, work_dir: P) -> std::result::Result<SourceGroup, PathError> {
+    let mut full_path = work_dir.as_ref().to_path_buf();
 
     url
         .path_segments()
@@ -278,8 +314,20 @@ fn to_path<P: AsRef<Path>>(url: &Url, workdir: P) -> std::result::Result<PathBuf
             Ok(())
         })?;
 
-    let path = full_path
-        .canonicalize();
+    Ok(SourceGroup::LocalRelative(LocalRelative {
+        work_dir: work_dir.as_ref().to_path_buf(),
+        path: Canonical::try_from_path(full_path)?,
+    }))
+}
 
-    path.map_err(|io| PathError::NoCanonical(full_path, io))
+impl AsRef<Path> for Canonical {
+    fn as_ref(&self) -> &Path {
+        self.0.as_ref()
+    }
+}
+
+impl From<Canonical> for PathBuf {
+    fn from(canonical: Canonical) -> PathBuf {
+        canonical.0
+    }
 }

@@ -47,7 +47,7 @@ impl Resolver {
     pub fn resolve(
         &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
-        let url = match self.base.join(url) {
+        let url = match context.as_heradoc_url().join(url) {
             Ok(url) => url,
             Err(err) => {
                 diagnostics
@@ -95,7 +95,7 @@ impl Resolver {
             },
 
             (_, SourceGroup::LocalAbsolute(path)) => {
-                if self.permissions.allowed_absolute_folders.contains(path) {
+                if self.permissions.is_allowed_absolute(path) {
                     Ok(())
                 } else {
                     diagnostics
@@ -123,17 +123,68 @@ impl Resolver {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Context {
-    LocalRelative(PathBuf),
+    LocalRelative(LocalRelative),
     LocalAbsolute(PathBuf),
     Remote(Url),
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct LocalRelative {
+    work_dir: PathBuf,
+    relative: PathBuf,
+}
+
 impl Context {
-    fn path(&self) -> Option<&Path> {
+    pub fn relative_root(work_dir: PathBuf) -> Self {
+        Context::LocalRelative(LocalRelative::new(work_dir, Path::new(".").to_path_buf()))
+    }
+
+    /// The path to the working directory of the resource.
+    ///
+    /// Relative lookups are first resolved to absolute ones within the working directory and the
+    /// working dir is then used to resolve that locally absolute one.
+    fn work_dir(&self) -> Option<&Path> {
         match self {
-            Context::LocalRelative(path) | Context::LocalAbsolute(path) => Some(path),
-            Context::Remote(_) => None,
+            Context::LocalRelative(local) => Some(local.work_dir()),
+            Context::LocalAbsolute(_) | Context::Remote(_) => None,
         }
+    }
+
+    /// Get the heradoc url to which to join references.
+    fn as_heradoc_url(&self) -> Url {
+        match self {
+            Context::LocalRelative(local) =>{
+                let mut base = Url::parse("heradoc://document/").unwrap();
+                base.set_path(local.relative.to_str().unwrap());
+                base
+            },
+            Context::LocalAbsolute(document) => {
+                Url::from_file_path(document).unwrap()
+            },
+            Context::Remote(url) => url.clone(),
+        }
+    }
+}
+
+impl LocalRelative {
+    pub fn new(work_dir: PathBuf, relative: PathBuf) -> Self {
+        assert!(relative.is_relative());
+        LocalRelative {
+            work_dir,
+            relative,
+        }
+    }
+
+    fn work_dir(&self) -> &Path {
+        self.work_dir.as_path()
+    }
+}
+
+impl Permissions {
+    fn is_allowed_absolute(&self, path: impl AsRef<Path>) -> bool {
+        self.allowed_absolute_folders
+            .iter()
+            .any(|allowed| allowed == path.as_ref())
     }
 }
 
@@ -172,7 +223,7 @@ mod tests {
         DirBuilder::new().create(dir.path().join("chapter")).expect("Can't create chapter subdir");
         DirBuilder::new().create(dir.path().join("images")).expect("Can't create images subdir");
         let _ = File::create(dir.path().join("chapter/main.md")).expect("Can't create chapter main.md");
-        let _ = File::create(dir.path().join("chapter/other.md")).expect("Can't create chapter other.md");
+        let _ = File::create(dir.path().join("chapter/sibling.md")).expect("Can't create chapter sibling.md");
         let _ = File::create(dir.path().join("images/image.png")).expect("Can't create subdir image.png");
         let range = SourceRange { start: 0, end: 0 };
         let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
@@ -183,7 +234,7 @@ mod tests {
     fn standard_resolves() {
         let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let top = Context::relative_root(dir.path().to_path_buf());
 
         let main = resolver
             .resolve(&top, "main.md", range, &diagnostics)
@@ -200,7 +251,7 @@ mod tests {
     fn domain_resolves() {
         let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let top = Context::relative_root(dir.path().to_path_buf());
 
         let toc = resolver
             .resolve(&top, "//toc", range, &diagnostics)
@@ -213,7 +264,7 @@ mod tests {
     fn http_resolves_needs_internet() {
         let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let top = Context::relative_root(dir.path().to_path_buf());
 
         let external = resolver
             .resolve(
@@ -231,7 +282,7 @@ mod tests {
     fn local_resolves_not_exist_not_internal_bug() {
         let (dir, range, mut diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let top = Context::relative_root(dir.path().to_path_buf());
 
         let error = resolver
             .resolve(&top, "this_file_does_not_exist.md", range, &mut diagnostics)
@@ -244,21 +295,21 @@ mod tests {
     fn local_absolute_url_to_relative() {
         let (dir, range, mut diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let top = Context::relative_root(dir.path().to_path_buf());
 
         let url = Url::from_file_path(dir.path().join("main.md")).unwrap();
         let main = resolver
             .resolve(&top, url.as_str(), range, &mut diagnostics)
             .expect("Failed to resolve absolute file url");
 
-        assert_match!(main, Include::Markdown(_, Context::LocalRelative(_)));
+        assert_match!(main, Include::Markdown(_, Context::LocalRelative(local)) if local.work_dir() == dir.path());
     }
 
     #[test]
     fn local_url_does_not_exist() {
         let (dir, range, mut diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let top = Context::LocalRelative(Path::new(dir.path()).canonicalize().unwrap());
+        let top = Context::relative_root(dir.path().to_path_buf());
 
         let url = Url::from_file_path(dir.path().join("this_file_does_not_exist.md")).unwrap();
         let error = resolver
@@ -272,25 +323,27 @@ mod tests {
     fn relative_in_subdirectory() {
         let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let main = Context::LocalRelative(dir.path().join("chapter/main.md").canonicalize().unwrap());
+        let main = Context::LocalRelative(
+            LocalRelative::new(dir.path().to_path_buf(), Path::new("chapter/main.md").to_path_buf()));
 
         let sibling = resolver
-            .resolve(&main, "other.md", range, &diagnostics)
+            .resolve(&main, "sibling.md", range, &diagnostics)
             .expect("Failed to resolve sibling file");
 
         let alternative = resolver
-            .resolve(&main, "./other.md", range, &diagnostics)
-            .expect("Failed to resolve sibling file");
+            .resolve(&main, "./sibling.md", range, &diagnostics)
+            .expect("Failed to resolve sibling file via explicitely relative path");
         assert_eq!(sibling, alternative);
 
-        assert_match!(sibling, Include::Markdown(path, Context::LocalRelative(_)) if path == &dir.path().join("chapter/other.md"));
+        assert_match!(sibling, Include::Markdown(path, Context::LocalRelative(local))
+                        if path == &dir.path().join("chapter/sibling.md") && local.work_dir() == dir.path());
     }
 
     #[test]
     fn local_relative_to_higher_directory() {
         let (dir, range, diagnostics) = prepare();
         let resolver = Resolver::new(PathBuf::from("."), dir.path().join("download"));
-        let main = Context::LocalRelative(dir.path().join("chapter/main.md").canonicalize().unwrap());
+        let main = Context::relative_root(dir.path().to_path_buf());
 
         let up_and_over = resolver
             .resolve(&main, "../images/image.png", range, &diagnostics)
