@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
 use std::sync::Arc;
+use std::fmt;
 
 use quoted_string::test_utils::TestSpec;
 use single::{self, Single};
@@ -13,7 +14,6 @@ use crate::frontend::range::{SourceRange, WithRange};
 #[derive(Debug, PartialEq, Eq)]
 struct Diagnostic;
 
-#[derive(Debug)]
 pub struct Cskvp<'a> {
     diagnostics: Option<Arc<Diagnostics<'a>>>,
     range: SourceRange,
@@ -22,6 +22,18 @@ pub struct Cskvp<'a> {
     figure: Option<WithRange<bool>>,
     single: Vec<WithRange<Cow<'a, str>>>,
     double: HashMap<Cow<'a, str>, WithRange<Cow<'a, str>>>,
+}
+
+impl<'a> fmt::Debug for Cskvp<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Cskvp")
+            .field("label", &self.label)
+            .field("caption", &self.caption)
+            .field("figure", &self.figure)
+            .field("single", &self.single)
+            .field("double", &self.double)
+            .finish()
+    }
 }
 
 impl<'a> Default for Cskvp<'a> {
