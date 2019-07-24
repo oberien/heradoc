@@ -18,7 +18,7 @@ mod source;
 
 pub use self::include::*;
 use self::remote::Remote;
-use self::source::{Source, SourceGroup};
+use self::source::Target;
 use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Result};
 use crate::frontend::range::SourceRange;
@@ -60,64 +60,17 @@ impl Resolver {
             },
         };
 
-        let target = Source::new(url, context, range, diagnostics)?;
+        let target = Target::new(url, range, diagnostics)?;
         // check if context is allowed to access target
         self.check_access(context, &target, range, diagnostics)?;
 
         target.into_include(&self.remote, range, diagnostics)
     }
 
-    /// Test if the source is allowed to request the target document.
-    ///
-    /// Some origins are not allowed to read all documents or only after explicit clearance by the
-    /// invoking user.  Even more restrictive, the target handler could terminate the request at a
-    /// later time. For example when requesting a remote document make a CORS check.
     fn check_access(
         &self, context: &Context, target: &Source, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
-        match (context, &target.group) {
-            (Context::LocalRelative(_), SourceGroup::Implementation)
-            | (Context::LocalRelative(_), SourceGroup::LocalRelative(_))
-            | (Context::LocalRelative(_), SourceGroup::Remote) => Ok(()),
-
-            (Context::LocalAbsolute(_), SourceGroup::Implementation) => Ok(()),
-            (Context::LocalAbsolute(_), SourceGroup::LocalRelative(_))
-            | (Context::LocalAbsolute(_), SourceGroup::Remote) => {
-                diagnostics
-                    .error("permission denied")
-                    .with_error_section(range, "trying to include this")
-                    .note(
-                        "local absolute path not allowed to access remote or local relative files",
-                    )
-                    .emit();
-                Err(Error::Diagnostic)
-            },
-
-            (_, SourceGroup::LocalAbsolute(path)) => {
-                if self.permissions.is_allowed_absolute(path) {
-                    Ok(())
-                } else {
-                    diagnostics
-                        .error("permission denied")
-                        .with_error_section(range, "trying to include this")
-                        .note(format!("not allowed to access absolute path {:?}", path))
-                        .emit();
-                    Err(Error::Diagnostic)
-                }
-            },
-
-            // TODO: think about proper remote rules
-            (Context::Remote(_), SourceGroup::Remote) => Ok(()),
-            (Context::Remote(_), _) => {
-                diagnostics
-                    .error("permission denied")
-                    .with_error_section(range, "trying to include this")
-                    .note("remote file can only include other remote content")
-                    .emit();
-                Err(Error::Diagnostic)
-            },
-        }
     }
 }
 

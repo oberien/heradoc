@@ -111,10 +111,10 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\cleardoublepage{{}}")?;
 
         if let Some(abstract1) = &cfg.abstract1 {
-            gen(abstract1.clone(), cfg, out, Arc::clone(&stderr))?;
+            gen_abstract(abstract1.clone(), cfg, out, Arc::clone(&stderr))?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            gen(abstract2.clone(), cfg, out, Arc::clone(&stderr))?;
+            gen_abstract(abstract2.clone(), cfg, out, Arc::clone(&stderr))?;
         }
 
         writeln!(out)?;
@@ -133,7 +133,7 @@ impl<'a> Backend<'a> for Thesis {
     }
 }
 
-fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
+fn gen_abstract(path: PathBuf, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()> {
     let arena = Arena::new();
     let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
     let markdown = fs::read_to_string(&path)?;

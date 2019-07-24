@@ -1,6 +1,7 @@
 use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
+use std::env;
 
 use url::Url;
 
@@ -8,164 +9,153 @@ use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Fatal, Result};
 use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
-use crate::resolve::{Command, Context, Include, LocalRelative as RelativeContext};
+use crate::resolve::{Command, Context, Include, LocalRelative as RelativeContext, Permissions};
+use crate::resolve::source::TargetInner::LocalAbsolute;
 
-/// Differentiate between sources based on their access right characteristics.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Source {
-    pub url: Url,
-    pub group: SourceGroup,
+/// Target pointed to by URL before the permission check.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Target {
+    inner: TargetInner,
 }
 
-/// Types URLs are handled as / put into
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum SourceGroup {
+/// Target after canonicalization
+pub struct TargetCanonicalized {
+    inner: TargetInner,
+}
+
+/// Target after its permissions have been checked
+pub struct TargetChecked {
+    inner: TargetInner,
+}
+
+enum TargetInner {
     /// Implemented commands / codegen.
     ///
     /// Ex: `![](//TOC)`
-    Implementation,
-    /// Local file relative to (without backrefs) or inside of context directory.
+    Implementation(String),
+    /// Local file inside the workdir or the context directory.
     ///
-    /// Ex: `![](/foo.md)`, `![](foo.md)`, `![](file:///absolute/path/to/workdir/foo.md)`
-    LocalRelative(LocalRelative),
-    /// Absolute file, not within context directory.
+    /// The `PathBuf` must be relative.
+    ///
+    /// Ex: `![](/foo.md)`, `![](foo.md)`
+    LocalRelative(PathBuf),
+    /// Any file with an absolute path.
     ///
     /// Ex: `![](file:///foo.md)`
-    LocalAbsolute(Canonical),
+    LocalAbsolute(PathBuf),
     /// Remote source / file.
     ///
     /// Ex: `![](https://foo.bar/baz.md)`
-    Remote,
+    Remote(Url),
 }
 
-/// A local relative include resolution.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct LocalRelative {
-    work_dir: PathBuf,
-    path: Canonical,
-}
-
-/// A canonicalized path.
-///
-/// This helps ensure that local relative paths really are relative to the working directory. It's
-/// a simple wrapper to avoid accidentally missing the canonicalization step.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Canonical(PathBuf);
-
-#[derive(Debug)]
-enum PathError {
-    /// The url does not contain a path.
-    NoPath,
-
-    /// `file:` url included a hostname that was not a local prefix on Windows, or empty on Linux.
-    ///
-    /// See `Url::to_file_path` for details.
-    InvalidBase,
-
-    /// A path component mapped to more than one path component or was otherwise invalid.
-    InvalidComponent,
-
-    /// Some path component did not map to any path component.
-    ///
-    /// I don't expect this to ever occur, this error is Fatal.
-    MissingComponent,
-
-    /// Could not determine canonical path.
-    ///
-    /// Canonicalization is important to ensure that the file does not refer to internal files,
-    /// potentially circumventing access restrictions.
-    NoCanonical(PathBuf, io::Error),
-}
-
-fn error_include_local_from_remote(
-    diagnostics: &Diagnostics<'_>, range: SourceRange,
-) -> Error {
-    diagnostics
-        .error("tried to include local file from remote origin")
-        .with_error_section(range, "specified here")
-        .note("local files can only be included from within local files")
-        .emit();
-    Error::Diagnostic
-}
-
-fn error_to_path(diagnostics: &Diagnostics<'_>, range: SourceRange, err: PathError) -> Error {
-    let (diagnostics, error) = match &err {
-        PathError::NoPath | PathError::MissingComponent => {
-            (diagnostics.bug("internal error converting url to path"), Error::Fatal(Fatal::InteralCompilerError))
-        },
-        PathError::InvalidBase | PathError::InvalidComponent | PathError::NoCanonical(..) => {
-            (diagnostics.error("error converting url to path"), Error::Diagnostic)
-        }
-    };
-
-    let message = match err {
-        PathError::NoPath => "since this file url does not contain a path".into(),
-        PathError::InvalidBase => "since the file url contains an unexpected base".into(),
-        PathError::InvalidComponent => "since the url segment is not a valid path component".into(),
-        PathError::MissingComponent => "since an url segment did not correspond to any path component".into(),
-        PathError::NoCanonical(path, io) => format!("couldn't determine canonical filepath of {:?}: {}", path, io),
-    };
-
-    diagnostics
-        .with_info_section(range, "defined here")
-        .error(message)
-        .emit();
-
-    error
-}
-
-impl Source {
+impl Target {
     pub fn new(
-        url: Url, context: &Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+        url: Url, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Self> {
-        let group = match url.scheme() {
+        let inner = match url.scheme() {
             "heradoc" => match url.domain() {
-                Some("document") => {
-                    let work_dir = context
-                        .work_dir()
-                        .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                    to_local_relative(&url, work_dir)
-                        .map_err(|err| error_to_path(diagnostics, range, err))?
-                },
-                _ => SourceGroup::Implementation,
+                Some("document") => TargetInner::LocalRelative(url.path_segments().unwrap().collect()),
+                _ => TargetInner::Implementation(url.domain().to_string()),
             },
             "file" => {
-                if url.cannot_be_a_base() { // Relative file path.
-                    let work_dir = context
-                        .work_dir()
-                        .ok_or_else(|| error_include_local_from_remote(diagnostics, range))?;
-                    to_local_relative(&url, work_dir)
-                        .map_err(|err| error_to_path(diagnostics, range, err))?
-                } else { // Absolute file path.
-                    let path = url
-                        .to_file_path()
-                        .map_err(|()| PathError::InvalidBase)
-                        .and_then(Canonical::try_from_path)
-                        .map_err(|err| error_to_path(diagnostics, range, err))?;
-                    // Absolute path is considered effectively relative if it points to the working
-                    // directory and occurs in a local context. All other contexts consider all
-                    // paths with a non-relative base absolute.
-                    if let Context::LocalRelative(local) = context {
-                        let work_dir = local.work_dir();
-                        if path.as_ref().strip_prefix(work_dir).is_ok() {
-                            SourceGroup::LocalRelative(LocalRelative {
-                                work_dir: work_dir.to_owned(),
-                                path,
-                            })
-                        } else {
-                            SourceGroup::LocalAbsolute(path)
-                        }
-                    } else {
-                        SourceGroup::LocalAbsolute(path)
+                match url.to_file_path() {
+                    Ok(path) => TargetInner::LocalAbsolute(path),
+                    Err(()) => {
+                        diagnostics.error("error converting url to path")
+                            .with_info_section(range, "defined here")
+                            .error("the file url can't be converted to a path")
+                            .emit();
+                        return Err(Error::Diagnostic);
                     }
                 }
             },
-            _ => SourceGroup::Remote,
+            _ => TargetInner::Remote(url),
         };
-
-        Ok(Source { url, group })
+        Ok(Target { inner })
     }
 
+    pub fn canonicalize(
+        self, context: &Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+    ) -> Result<TargetCanonicalized> {
+        let inner = match self.inner {
+            inner @ TargetInner::Implementation(command) => inner,
+            inner @ TargetInner::Remote() => inner,
+            TargetInner::LocalAbsolute(abs) => {
+                match abs.canonicalize() {
+                    Ok(path) => TargetInner::LocalAbsolute(path),
+                    Err(e) => {
+                        diagnostics
+                            .error("error canonicalizing absolute path")
+                            .with_error_section(range, "trying to include this")
+                            .note(format!("canonicalizing the path: {:?}", abs))
+                            .error(e.to_string())
+                            .emit();
+                        return Err(Error::Diagnostic);
+                    }
+                }
+            },
+            TargetInner::LocalRelative(rel) => {
+                assert!(rel.is_relative);
+                let relative_to_context_dir = env::current_dir().unwrap().join()
+            }
+        };
+        Ok(TargetCanonicalized { inner })
+    }
+}
+
+impl TargetChecked {
+    /// Test if the source is allowed to request the target document.
+    ///
+    /// Some origins are not allowed to read all documents or only after explicit clearance by the
+    /// invoking user. Even more restrictive, the target handler could terminate the request at a
+    /// later time. For example when requesting a remote document make a CORS check.
+    pub fn check_access(
+        self, context: &Context, permissions: &Permissions, range: SourceRange, diagnostics: &Diagnostics<'_>
+    ) -> Result<TargetChecked> {
+        match (context, &self.inner) {
+            (Context::LocalRelative(_), TargetInner::Implementation(_))
+            | (Context::LocalRelative(_), TargetInner::LocalRelative(_))
+            | (Context::LocalRelative(_), TargetInner::Remote(_)) => (),
+
+            (Context::LocalAbsolute(_), TargetInner::Implementation(_)) => (),
+            (Context::LocalAbsolute(_), TargetInner::LocalRelative(_))
+            | (Context::LocalAbsolute(_), TargetInner::Remote(_)) => {
+                diagnostics
+                    .error("permission denied")
+                    .with_error_section(range, "trying to include this")
+                    .note(
+                        "local absolute path not allowed to access remote or local relative files",
+                    )
+                    .emit();
+                return Err(Error::Diagnostic)
+            },
+
+            // TODO: discuss proper remote rules
+            (Context::Remote(_), TargetInner::Remote(_)) => (),
+            (Context::Remote(_), _) => {
+                diagnostics
+                    .error("permission denied")
+                    .with_error_section(range, "trying to include this")
+                    .note("remote file can only include other remote content")
+                    .emit();
+                return Err(Error::Diagnostic)
+            },
+
+            (_, TargetInner::LocalAbsolute(path)) => {
+                if !permissions.is_allowed_absolute(path) {
+                    diagnostics
+                        .error("permission denied")
+                        .with_error_section(range, "trying to include this")
+                        .note(format!("not allowed to access absolute path {:?}", path))
+                        .emit();
+                    return Err(Error::Diagnostic)
+                }
+            },
+        }
+        Ok(TargetChecked { inner: self.inner })
+    }
+}
     pub fn into_include(
         self, remote: &Remote, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
@@ -247,7 +237,6 @@ impl Source {
             },
         }
     }
-}
 
 impl Canonical {
     fn try_from_path(path: impl AsRef<Path>) -> std::result::Result<Self, PathError> {
@@ -291,33 +280,6 @@ fn to_include(
             Err(Error::Diagnostic)
         },
     }
-}
-
-fn to_local_relative<P: AsRef<Path>>(url: &Url, work_dir: P) -> std::result::Result<SourceGroup, PathError> {
-    let mut full_path = work_dir.as_ref().to_path_buf();
-
-    url
-        .path_segments()
-        .ok_or(PathError::NoPath)?
-        .try_for_each(|segment| {
-            let mut components = Path::new(segment)
-                .components();
-            let file = match components.next() {
-                Some(Component::Normal(file)) => file,
-                Some(_) => return Err(PathError::InvalidComponent),
-                _ => return Err(PathError::MissingComponent),
-            };
-            if components.next().is_some() {
-                return Err(PathError::InvalidComponent)
-            }
-            full_path.push(file);
-            Ok(())
-        })?;
-
-    Ok(SourceGroup::LocalRelative(LocalRelative {
-        work_dir: work_dir.as_ref().to_path_buf(),
-        path: Canonical::try_from_path(full_path)?,
-    }))
 }
 
 impl AsRef<Path> for Canonical {
