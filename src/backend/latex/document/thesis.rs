@@ -137,7 +137,7 @@ fn gen(path: PathBuf, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<Stan
     let arena = Arena::new();
     let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
     let markdown = fs::read_to_string(&path)?;
-    let context = Context::LocalRelative(path.clone());
+    let context = Context::LocalAbsolute(path.clone());
     let input = Input::File(path);
     let events = gen.get_events(markdown, context, input);
     gen.generate_body(events)?;

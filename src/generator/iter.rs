@@ -144,7 +144,7 @@ impl<'a> Iter<'a> {
                 let input = match &context {
                     Context::Remote(url) => Input::Url(url.clone()),
                     Context::LocalRelative(_) | Context::LocalAbsolute(_) => {
-                        Input::File(path.clone())
+                        Input::File(path)
                     },
                 };
                 let events = gen.get_events(markdown, context, input);

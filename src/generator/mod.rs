@@ -82,7 +82,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
-        let context = Context::LocalRelative(self.cfg.input_dir.clone());
+        let context = Context::relative_root(self.cfg.input_dir.clone());
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
             FileOrStdio::StdIo => Input::Stdin,
