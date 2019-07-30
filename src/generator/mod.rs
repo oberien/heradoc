@@ -67,7 +67,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             cfg,
             default_out,
             stack: Vec::new(),
-            resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
+            resolver: Resolver::new(cfg.project_root.clone(), cfg.temp_dir.clone()),
             template,
             stderr,
         }
@@ -82,7 +82,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
-        let context = Context::relative_root(self.cfg.input_dir.clone());
+        let context = Context::relative_root(self.cfg.project_root.clone());
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
             FileOrStdio::StdIo => Input::Stdin,

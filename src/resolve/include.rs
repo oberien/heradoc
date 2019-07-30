@@ -1,9 +1,61 @@
 //! Result type of the resolution of a file include.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use crate::resolve::Context;
+use url::{Url, ParseError};
+
+use super::BASE_URL;
+
+/// Represents the current context we're including from
+#[derive(Debug, PartialEq, Eq)]
+pub struct Context {
+    /// Full URL to the file / content
+    ///
+    /// Can be `heradoc://document/foo/bar.md` (relative) or `file://foo/bar.md` (absolute)
+    /// or `https://foo.bar/baz/qux.md` (remote).
+    pub(super) url: Url,
+}
+
+/// Type of a Context (Relative / Absolute / Remote)
+#[derive(Debug, PartialEq, Eq)]
+enum ContextType {
+    /// A local file, relative to the project root
+    LocalRelative,
+    /// A local file with an absolute path
+    LocalAbsolute,
+    /// A remote resource
+    Remote,
+}
+
+impl Context {
+    /// Creates a context from a path relative to the input directory
+    pub fn from_relative_path<P: AsRef<Path>>(p: P) -> Result<Self, ParseError> {
+        let p = p.as_ref();
+        assert!(p.is_relative(), "path not relative");
+
+        let url = Url::parse(BASE_URL).unwrap();
+        url.join(&p.display().to_string())?;
+
+        Ok(Context {
+            url,
+        })
+    }
+
+    pub fn from_url(url: Url) -> Self {
+        Context {
+            url,
+        }
+    }
+
+    pub fn typ(&self) -> ContextType {
+        match self.url.scheme() {
+            "heradoc" => ContextType::LocalRelative,
+            "file" => ContextType::LocalAbsolute,
+            _ => ContextType::Remote,
+        }
+    }
+}
 
 /// Typed representation of the resolved resource.
 ///

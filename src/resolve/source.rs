@@ -14,18 +14,29 @@ use crate::resolve::source::TargetInner::LocalAbsolute;
 
 /// Target pointed to by URL before the permission check.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Target {
+pub struct Target<'a, 'b> {
     inner: TargetInner,
+    meta: Meta<'a, 'b>,
 }
 
 /// Target after canonicalization
-pub struct TargetCanonicalized {
+pub struct TargetCanonicalized<'a, 'b> {
     inner: TargetInner,
+    meta: Meta<'a, 'b>,
 }
 
 /// Target after its permissions have been checked
-pub struct TargetChecked {
+pub struct TargetChecked<'a, 'b> {
     inner: TargetInner,
+    meta: Meta<'a, 'b>,
+}
+
+struct Meta<'a, 'd> {
+    url: Url,
+    context: &'a Context,
+    project_root: &'a Path,
+    range: SourceRange,
+    diagnostics: &'a Diagnostics<'d>,
 }
 
 enum TargetInner {
@@ -50,9 +61,26 @@ enum TargetInner {
 }
 
 impl Target {
+    /// Create a new Target for the given URL, resolved in the given context.
+    ///
+    /// This target can be canonicalized and access-checked within the context before being converted
+    /// to the respective Include.
+    /// Local relative files are resolved relative to the project_root.
     pub fn new(
-        url: Url, range: SourceRange, diagnostics: &Diagnostics<'_>,
+        url: &str, context: &Context, project_root: &Path, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Self> {
+        let url = match context.url.join(url) {
+            Ok(url) => url,
+            Err(err) => {
+                diagnostics
+                    .error("couldn't resolve file")
+                    .with_error_section(range, "defined here")
+                    .note(format!("tried to resolve {}", url))
+                    .note(format!("malformed reference: {}", err))
+                    .emit();
+                return Err(Error::Diagnostic);
+            },
+        };
         let inner = match url.scheme() {
             "heradoc" => match url.domain() {
                 Some("document") => TargetInner::LocalRelative(url.path_segments().unwrap().collect()),
@@ -65,6 +93,7 @@ impl Target {
                         diagnostics.error("error converting url to path")
                             .with_info_section(range, "defined here")
                             .error("the file url can't be converted to a path")
+                            .help("this could be due to a malformed URL like a non-empty or non-localhost domain")
                             .emit();
                         return Err(Error::Diagnostic);
                     }
@@ -72,35 +101,51 @@ impl Target {
             },
             _ => TargetInner::Remote(url),
         };
-        Ok(Target { inner })
+        Ok(Target {
+            inner,
+            meta: Meta {
+                url,
+                context,
+                project_root,
+                range,
+                diagnostics,
+            }
+        })
     }
 
-    pub fn canonicalize(
-        self, context: &Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
-    ) -> Result<TargetCanonicalized> {
-        let inner = match self.inner {
-            inner @ TargetInner::Implementation(command) => inner,
-            inner @ TargetInner::Remote() => inner,
-            TargetInner::LocalAbsolute(abs) => {
-                match abs.canonicalize() {
-                    Ok(path) => TargetInner::LocalAbsolute(path),
-                    Err(e) => {
-                        diagnostics
-                            .error("error canonicalizing absolute path")
-                            .with_error_section(range, "trying to include this")
-                            .note(format!("canonicalizing the path: {:?}", abs))
-                            .error(e.to_string())
-                            .emit();
-                        return Err(Error::Diagnostic);
-                    }
+    pub fn canonicalize(self) -> Result<TargetCanonicalized> {
+        let Target { inner, meta } = self;
+
+        let canonicalize = |path| {
+            match path.canonicalize() {
+                Ok(path) => Ok(path),
+                Err(e) => {
+                    meta.diagnostics
+                        .error("error canonicalizing absolute path")
+                        .with_error_section(range, "trying to include this")
+                        .note(format!("canonicalizing the path: {:?}", abs))
+                        .error(e.to_string())
+                        .emit();
+                    Err(Error::Diagnostic)
                 }
-            },
-            TargetInner::LocalRelative(rel) => {
-                assert!(rel.is_relative);
-                let relative_to_context_dir = env::current_dir().unwrap().join()
             }
         };
-        Ok(TargetCanonicalized { inner })
+
+        let inner = match inner {
+            inner @ TargetInner::Implementation(command) => inner,
+            inner @ TargetInner::Remote() => inner,
+            TargetInner::LocalAbsolute(abs) => TargetInner::LocalAbsolute(canonicalize(abs)?),
+            TargetInner::LocalRelative(rel) => {
+                assert!(rel.is_relative(), "TargetInner::LocalRelative not relative before canonicalizing: {:?}", rel);
+                let relative_to_project_root = meta.project_root.join(rel);
+                let canonicalized = canonicalize(relative_to_project_root)?;
+                TargetInner::LocalRelative(canonicalized)
+            },
+        };
+        Ok(TargetCanonicalized {
+            inner,
+            meta,
+        })
     }
 }
 

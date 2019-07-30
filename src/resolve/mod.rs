@@ -23,9 +23,11 @@ use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Result};
 use crate::frontend::range::SourceRange;
 
+const BASE_URL: &'static str = "heradoc://document/";
+
 pub struct Resolver {
-    base: Url,
     permissions: Permissions,
+    project_root:
     remote: Remote,
 }
 
@@ -35,32 +37,19 @@ struct Permissions {
 }
 
 impl Resolver {
-    pub fn new(workdir: PathBuf, tempdir: PathBuf) -> Self {
+    pub fn new(project_root: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
-            base: Url::parse("heradoc://document/").unwrap(),
-            permissions: Permissions { allowed_absolute_folders: vec![workdir] },
+            base: Url::parse(BASE_URL).unwrap(),
+            permissions: Permissions { allowed_absolute_folders: vec![project_root] },
             remote: Remote::new(tempdir).unwrap(),
         }
     }
 
-    /// Make a request to an uri in the context of a document with the specified source.
+    /// Make a request to an url in the context of a document with the specified source.
     pub fn resolve(
         &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
-        let url = match context.as_heradoc_url().join(url) {
-            Ok(url) => url,
-            Err(err) => {
-                diagnostics
-                    .error("couldn't resolve file")
-                    .with_error_section(range, "defined here")
-                    .note(format!("tried to resolve {}", url))
-                    .note(format!("malformed reference: {}", err))
-                    .emit();
-                return Err(Error::Diagnostic);
-            },
-        };
-
-        let target = Target::new(url, range, diagnostics)?;
+        let target = Target::new(url, context, self.project_root, range, diagnostics)?;
         // check if context is allowed to access target
         self.check_access(context, &target, range, diagnostics)?;
 
@@ -71,65 +60,6 @@ impl Resolver {
         &self, context: &Context, target: &Source, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
-    }
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum Context {
-    LocalRelative(LocalRelative),
-    LocalAbsolute(PathBuf),
-    Remote(Url),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct LocalRelative {
-    work_dir: PathBuf,
-    relative: PathBuf,
-}
-
-impl Context {
-    pub fn relative_root(work_dir: PathBuf) -> Self {
-        Context::LocalRelative(LocalRelative::new(work_dir, Path::new(".").to_path_buf()))
-    }
-
-    /// The path to the working directory of the resource.
-    ///
-    /// Relative lookups are first resolved to absolute ones within the working directory and the
-    /// working dir is then used to resolve that locally absolute one.
-    fn work_dir(&self) -> Option<&Path> {
-        match self {
-            Context::LocalRelative(local) => Some(local.work_dir()),
-            Context::LocalAbsolute(_) | Context::Remote(_) => None,
-        }
-    }
-
-    /// Get the heradoc url to which to join references.
-    fn as_heradoc_url(&self) -> Url {
-        match self {
-            Context::LocalRelative(local) =>{
-                let mut base = Url::parse("heradoc://document/").unwrap();
-                base.set_path(local.relative.to_str().unwrap());
-                base
-            },
-            Context::LocalAbsolute(document) => {
-                Url::from_file_path(document).unwrap()
-            },
-            Context::Remote(url) => url.clone(),
-        }
-    }
-}
-
-impl LocalRelative {
-    pub fn new(work_dir: PathBuf, relative: PathBuf) -> Self {
-        assert!(relative.is_relative());
-        LocalRelative {
-            work_dir,
-            relative,
-        }
-    }
-
-    fn work_dir(&self) -> &Path {
-        self.work_dir.as_path()
     }
 }
 
