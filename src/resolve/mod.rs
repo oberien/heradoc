@@ -10,8 +10,6 @@
 //! a restrictive-by-default filter and error when violating security boundaries.
 use std::path::{Path, PathBuf};
 
-use url::Url;
-
 mod include;
 pub mod remote;
 mod target;
@@ -20,7 +18,7 @@ pub use self::include::*;
 use self::remote::Remote;
 use self::target::Target;
 use crate::diagnostics::Diagnostics;
-use crate::error::{Error, Result};
+use crate::error::Result;
 use crate::frontend::range::SourceRange;
 
 const BASE_URL: &'static str = "heradoc://document/";
@@ -50,16 +48,8 @@ impl Resolver {
         &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
         let target = Target::new(url, context, &self.project_root, &self.permissions, range, diagnostics)?;
-        // check if context is allowed to access target
-        self.check_access(context, &target, range, diagnostics)?;
-
-        target.into_include(&self.remote, range, diagnostics)
-    }
-
-    fn check_access(
-        &self, context: &Context, target: &Target, range: SourceRange,
-        diagnostics: &Diagnostics<'_>,
-    ) -> Result<()> {
+        let include = target.canonicalize()?.check_access()?.into_include(&self.remote)?;
+        Ok(include)
     }
 }
 

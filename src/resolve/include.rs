@@ -30,12 +30,14 @@ pub enum ContextType {
 
 impl Context {
     /// Creates a context from a path relative to the input directory
-    pub fn from_relative_path<P: AsRef<Path>>(p: P) -> Result<Self, ParseError> {
+    pub fn from_path<P: AsRef<Path>>(p: P) -> Result<Self, ParseError> {
         let p = p.as_ref();
-        assert!(p.is_relative(), "path not relative");
-
-        let url = Url::parse(BASE_URL).unwrap();
-        url.join(&p.display().to_string())?;
+        let url = if p.is_relative() {
+            Url::parse(BASE_URL).unwrap()
+        } else {
+            Url::parse("file:///").unwrap()
+        };
+        let url = url.join(&p.display().to_string())?;
 
         Ok(Context {
             url,

@@ -22,7 +22,7 @@ pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
 use self::event::Event;
-use crate::error::{Error, FatalResult, Result};
+use crate::error::{Error, FatalResult, Fatal, Result};
 use crate::generator::iter::Iter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
@@ -82,7 +82,17 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
-        let context = Context::relative_root(self.cfg.project_root.clone());
+        let context = match Context::from_path(self.cfg.project_root.clone()) {
+            Ok(context) => context,
+            Err(e) => {
+                self.diagnostics()
+                    .bug("Context can't be created from project_root")
+                    .note(format!("cause: {:?}", e))
+                    .emit();
+                return Err(Fatal::InteralCompilerError);
+            }
+        };
+
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
             FileOrStdio::StdIo => Input::Stdin,
@@ -96,10 +106,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.backend.gen_preamble(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            self.backend.gen_preamble(self.cfg, &mut self.default_out, &events.diagnostics)?;
             self.generate_body(events)?;
             assert!(self.stack.pop().is_none());
-            self.backend.gen_epilogue(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            self.backend.gen_epilogue(self.cfg, &mut self.default_out, &events.diagnostics)?;
         }
         Ok(())
     }

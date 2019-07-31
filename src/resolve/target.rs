@@ -1,16 +1,13 @@
-use std::io;
-use std::path::{Component, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::env;
 
 use url::Url;
 
 use crate::diagnostics::Diagnostics;
-use crate::error::{Error, Fatal, Result};
+use crate::error::{Error, Result};
 use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include, Permissions, ContextType};
-use crate::resolve::target::TargetInner::LocalAbsolute;
 
 /// Target pointed to by URL before the permission check.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -95,17 +92,15 @@ impl<'a, 'b> Target<'a, 'b> {
                     return Err(Error::Diagnostic);
                 }
             },
-            "file" => {
-                match url.to_file_path() {
-                    Ok(path) => TargetInner::LocalAbsolute(path),
-                    Err(()) => {
-                        diagnostics.error("error converting url to path")
-                            .with_info_section(range, "defined here")
-                            .error("the file url can't be converted to a path")
-                            .help("this could be due to a malformed URL like a non-empty or non-localhost domain")
-                            .emit();
-                        return Err(Error::Diagnostic);
-                    }
+            "file" => match url.to_file_path() {
+                Ok(path) => TargetInner::LocalAbsolute(path),
+                Err(()) => {
+                    diagnostics.error("error converting url to path")
+                        .with_info_section(range, "defined here")
+                        .error("the file url can't be converted to a path")
+                        .help("this could be due to a malformed URL like a non-empty or non-localhost domain")
+                        .emit();
+                    return Err(Error::Diagnostic);
                 }
             },
             _ => TargetInner::Remote(url),
