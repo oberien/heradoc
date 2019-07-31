@@ -14,11 +14,11 @@ use url::Url;
 
 mod include;
 pub mod remote;
-mod source;
+mod target;
 
 pub use self::include::*;
 use self::remote::Remote;
-use self::source::Target;
+use self::target::Target;
 use crate::diagnostics::Diagnostics;
 use crate::error::{Error, Result};
 use crate::frontend::range::SourceRange;
@@ -27,7 +27,7 @@ const BASE_URL: &'static str = "heradoc://document/";
 
 pub struct Resolver {
     permissions: Permissions,
-    project_root:
+    project_root: PathBuf,
     remote: Remote,
 }
 
@@ -39,8 +39,8 @@ struct Permissions {
 impl Resolver {
     pub fn new(project_root: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
-            base: Url::parse(BASE_URL).unwrap(),
             permissions: Permissions { allowed_absolute_folders: vec![project_root] },
+            project_root,
             remote: Remote::new(tempdir).unwrap(),
         }
     }
@@ -49,7 +49,7 @@ impl Resolver {
     pub fn resolve(
         &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
-        let target = Target::new(url, context, self.project_root, range, diagnostics)?;
+        let target = Target::new(url, context, &self.project_root, &self.permissions, range, diagnostics)?;
         // check if context is allowed to access target
         self.check_access(context, &target, range, diagnostics)?;
 
@@ -57,7 +57,7 @@ impl Resolver {
     }
 
     fn check_access(
-        &self, context: &Context, target: &Source, range: SourceRange,
+        &self, context: &Context, target: &Target, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
     }

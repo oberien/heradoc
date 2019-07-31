@@ -19,7 +19,7 @@ pub struct Context {
 
 /// Type of a Context (Relative / Absolute / Remote)
 #[derive(Debug, PartialEq, Eq)]
-enum ContextType {
+pub enum ContextType {
     /// A local file, relative to the project root
     LocalRelative,
     /// A local file with an absolute path
