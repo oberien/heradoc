@@ -9,7 +9,7 @@ use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
 use crate::diagnostics::Input;
-use crate::error::FatalResult;
+use crate::error::{FatalResult, Fatal};
 use crate::generator::Generator;
 use crate::resolve::Context;
 use crate::diagnostics::Diagnostics;
@@ -127,7 +127,7 @@ impl<'a> Backend<'a> for Thesis {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }
@@ -140,6 +140,13 @@ fn gen_abstract(path: PathBuf, cfg: &Config, out: &mut impl Write, diagnostics: 
     let markdown = fs::read_to_string(&path)?;
     let context = match Context::from_path(path.clone()) {
         Ok(context) => context,
+        Err(e) => {
+            diagnostics
+                .bug("can't generate context from abstract path")
+                .error(format!("cause: {:?}", e))
+                .emit();
+            return Err(Fatal::InternalCompilerError);
+        }
     };
     let input = Input::File(path);
     let events = gen.get_events(markdown, context, input);

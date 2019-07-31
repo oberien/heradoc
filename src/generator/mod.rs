@@ -82,14 +82,15 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
-        let context = match Context::from_path(self.cfg.project_root.clone()) {
+        // the project root is "." if interpreted as relative to the project root
+        let context = match Context::from_path(".") {
             Ok(context) => context,
             Err(e) => {
                 self.diagnostics()
                     .bug("Context can't be created from project_root")
                     .note(format!("cause: {:?}", e))
                     .emit();
-                return Err(Fatal::InteralCompilerError);
+                return Err(Fatal::InternalCompilerError);
             }
         };
 
@@ -106,10 +107,11 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.backend.gen_preamble(self.cfg, &mut self.default_out, &events.diagnostics)?;
+            let diagnostics = Arc::clone(&events.diagnostics);
+            self.backend.gen_preamble(self.cfg, &mut self.default_out, &diagnostics)?;
             self.generate_body(events)?;
             assert!(self.stack.pop().is_none());
-            self.backend.gen_epilogue(self.cfg, &mut self.default_out, &events.diagnostics)?;
+            self.backend.gen_epilogue(self.cfg, &mut self.default_out, &diagnostics)?;
         }
         Ok(())
     }

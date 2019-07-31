@@ -30,14 +30,15 @@ pub struct Resolver {
 }
 
 /// Manages permissions if includes as allowed explicitly from the Cli.
-struct Permissions {
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct Permissions {
     allowed_absolute_folders: Vec<PathBuf>,
 }
 
 impl Resolver {
     pub fn new(project_root: PathBuf, tempdir: PathBuf) -> Self {
         Resolver {
-            permissions: Permissions { allowed_absolute_folders: vec![project_root] },
+            permissions: Permissions { allowed_absolute_folders: vec![project_root.clone()] },
             project_root,
             remote: Remote::new(tempdir).unwrap(),
         }
@@ -66,9 +67,13 @@ mod tests {
     use super::*;
     use std::fs::{DirBuilder, File};
     use std::sync::{Arc, Mutex};
+
     use tempdir::TempDir;
     use codespan_reporting::termcolor::{ColorChoice, StandardStream};
+    use url::Url;
+
     use crate::diagnostics::Input;
+    use crate::error::Error;
 
     macro_rules! assert_match {
     ($left:expr, $right:pat if $cond:expr) => ({

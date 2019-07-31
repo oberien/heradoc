@@ -64,7 +64,7 @@ impl<'a> Backend<'a> for Report {
         Report
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
         // documentclass
         write!(out, "\\documentclass[")?;
@@ -126,7 +126,7 @@ impl<'a> Backend<'a> for Report {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

@@ -10,24 +10,30 @@ use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include, Permissions, ContextType};
 
 /// Target pointed to by URL before the permission check.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Target<'a, 'b> {
+#[must_use]
+#[derive(Debug)]
+pub struct Target<'a, 'd> {
     inner: TargetInner,
-    meta: Meta<'a, 'b>,
+    meta: Meta<'a, 'd>,
 }
 
 /// Target after canonicalization
-pub struct TargetCanonicalized<'a, 'b> {
+#[must_use]
+#[derive(Debug)]
+pub struct TargetCanonicalized<'a, 'd> {
     inner: TargetInner,
-    meta: Meta<'a, 'b>,
+    meta: Meta<'a, 'd>,
 }
 
 /// Target after its permissions have been checked
-pub struct TargetChecked<'a, 'b> {
+#[must_use]
+#[derive(Debug)]
+pub struct TargetChecked<'a, 'd> {
     inner: TargetInner,
-    meta: Meta<'a, 'b>,
+    meta: Meta<'a, 'd>,
 }
 
+#[derive(Debug)]
 struct Meta<'a, 'd> {
     url: Url,
     context: &'a Context,
@@ -37,12 +43,13 @@ struct Meta<'a, 'd> {
     diagnostics: &'a Diagnostics<'d>,
 }
 
+#[derive(Debug)]
 enum TargetInner {
     /// Implemented commands / codegen.
     ///
     /// Ex: `![](//TOC)`
     Implementation(String),
-    /// Local file inside the workdir or the context directory.
+    /// Local file inside the project root or the context directory.
     ///
     /// The `PathBuf` must be relative.
     ///
@@ -58,16 +65,16 @@ enum TargetInner {
     Remote(Url),
 }
 
-impl<'a, 'b> Target<'a, 'b> {
+impl<'a, 'd> Target<'a, 'd> {
     /// Create a new Target for the given URL, resolved in the given context.
     ///
     /// This target can be canonicalized and access-checked within the context before being converted
     /// to the respective Include.
     /// Local relative files are resolved relative to the project_root.
     pub fn new(
-        url: &str, context: &Context, project_root: &Path, permissions: &Permissions,
-        range: SourceRange, diagnostics: &Diagnostics<'_>,
-    ) -> Result<Self> {
+        url: &str, context: &'a Context, project_root: &'a Path, permissions: &'a Permissions,
+        range: SourceRange, diagnostics: &'a Diagnostics<'d>,
+    ) -> Result<Target<'a, 'd>> {
         let url = match context.url.join(url) {
             Ok(url) => url,
             Err(err) => {
@@ -103,7 +110,7 @@ impl<'a, 'b> Target<'a, 'b> {
                     return Err(Error::Diagnostic);
                 }
             },
-            _ => TargetInner::Remote(url),
+            _ => TargetInner::Remote(url.clone()),
         };
         Ok(Target {
             inner,
@@ -118,10 +125,10 @@ impl<'a, 'b> Target<'a, 'b> {
         })
     }
 
-    pub fn canonicalize(self) -> Result<TargetCanonicalized<'a, 'b>> {
+    pub fn canonicalize(self) -> Result<TargetCanonicalized<'a, 'd>> {
         let Target { inner, meta } = self;
 
-        let canonicalize = |path| {
+        let canonicalize = |path: PathBuf| {
             match path.canonicalize() {
                 Ok(path) => Ok(path),
                 Err(e) => {
@@ -137,8 +144,8 @@ impl<'a, 'b> Target<'a, 'b> {
         };
 
         let inner = match inner {
-            inner @ TargetInner::Implementation(command) => inner,
-            inner @ TargetInner::Remote() => inner,
+            inner @ TargetInner::Implementation(_) => inner,
+            inner @ TargetInner::Remote(_) => inner,
             TargetInner::LocalAbsolute(abs) => TargetInner::LocalAbsolute(canonicalize(abs)?),
             TargetInner::LocalRelative(rel) => {
                 assert!(rel.is_relative(), "TargetInner::LocalRelative not relative before canonicalizing: {:?}", rel);
@@ -154,13 +161,13 @@ impl<'a, 'b> Target<'a, 'b> {
     }
 }
 
-impl <'a, 'b> TargetCanonicalized<'a, 'b> {
+impl <'a, 'd> TargetCanonicalized<'a, 'd> {
     /// Test if the source is allowed to request the target document.
     ///
     /// Some origins are not allowed to read all documents or only after explicit clearance by the
     /// invoking user. Even more restrictive, the target handler could terminate the request at a
     /// later time. For example when requesting a remote document make a CORS check.
-    pub fn check_access(self) -> Result<TargetChecked<'a, 'b>> {
+    pub fn check_access(self) -> Result<TargetChecked<'a, 'd>> {
         let TargetCanonicalized { inner, meta } = self;
         match (meta.context.typ(), &inner) {
             (ContextType::LocalRelative, TargetInner::Implementation(_))
@@ -219,7 +226,7 @@ impl <'a, 'b> TargetCanonicalized<'a, 'b> {
     }
 }
 
-impl<'a, 'b> TargetChecked<'a, 'b> {
+impl<'a, 'd> TargetChecked<'a, 'd> {
     pub fn into_include(self, remote: &Remote) -> Result<Include> {
         let TargetChecked { inner, meta } = self;
         match inner {

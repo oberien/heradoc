@@ -267,7 +267,7 @@ impl Config {
             },
             FileOrStdio::File(file) => file
                 .canonicalize()
-                .expect("error canonicalising input file path")
+                .expect("error canonicalizing input file path")
                 .parent()
                 .unwrap()
                 .to_owned(),

@@ -29,7 +29,10 @@ pub enum ContextType {
 }
 
 impl Context {
-    /// Creates a context from a path relative to the input directory
+    /// Creates a context from the given path.
+    ///
+    /// A relative path will be interpreted as being relative to the project_root (`heradoc://document/…`).
+    /// An absolute path will return an absolute `file:///…` context.
     pub fn from_path<P: AsRef<Path>>(p: P) -> Result<Self, ParseError> {
         let p = p.as_ref();
         let url = if p.is_relative() {
@@ -56,6 +59,10 @@ impl Context {
             "file" => ContextType::LocalAbsolute,
             _ => ContextType::Remote,
         }
+    }
+
+    pub fn url(&self) -> &Url {
+        &self.url
     }
 }
 
