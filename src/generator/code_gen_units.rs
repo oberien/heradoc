@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::backend::{Backend, CodeGenUnit};
+use crate::backend::{Backend, StatefulCodeGenUnit};
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
 use crate::error::Result;
@@ -46,36 +46,36 @@ pub enum StackElement<'a, D: Backend<'a>> {
 use self::StackElement::*;
 
 #[rustfmt::skip]
-impl<'a, D: Backend<'a>> StackElement<'a, D> {
-    pub fn new(cfg: &'a Config, tag: WithRange<Tag<'a>>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+impl<'a, B: Backend<'a>> StackElement<'a, B> {
+    pub fn new(cfg: &'a Config, tag: WithRange<Tag<'a>>, gen: &mut Generator<'a, B, impl Write>) -> Result<Self> {
         let WithRange(tag, range) = tag;
         match tag {
-            Tag::Paragraph => Ok(Paragraph(D::Paragraph::new(cfg, WithRange((), range), gen)?)),
-            Tag::Rule => Ok(Rule(D::Rule::new(cfg, WithRange((), range), gen)?)),
-            Tag::Header(header) => Ok(Header(D::Header::new(cfg, WithRange(header, range), gen)?)),
-            Tag::BlockQuote => Ok(BlockQuote(D::BlockQuote::new(cfg, WithRange((), range), gen)?)),
-            Tag::CodeBlock(cb) => Ok(CodeBlock(D::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
-            Tag::List => Ok(List(D::List::new(cfg, WithRange((), range), gen)?)),
-            Tag::Enumerate(enumerate) => Ok(Enumerate(D::Enumerate::new(cfg, WithRange(enumerate, range), gen)?)),
-            Tag::Item => Ok(Item(D::Item::new(cfg, WithRange((), range), gen)?)),
-            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(D::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
-            Tag::Url(url) => Ok(Url(D::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
-            Tag::InterLink(interlink) => Ok(InterLink(D::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
-            Tag::HtmlBlock => Ok(HtmlBlock(D::HtmlBlock::new(cfg, WithRange((), range), gen)?)),
-            Tag::Figure(figure) => Ok(Figure(D::Figure::new(cfg, WithRange(figure, range), gen)?)),
-            Tag::TableFigure(figure) => Ok(TableFigure(D::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
-            Tag::Table(table) => Ok(Table(D::Table::new(cfg, WithRange(table, range), gen)?)),
-            Tag::TableHead => Ok(TableHead(D::TableHead::new(cfg, WithRange((), range), gen)?)),
-            Tag::TableRow => Ok(TableRow(D::TableRow::new(cfg, WithRange((), range), gen)?)),
-            Tag::TableCell => Ok(TableCell(D::TableCell::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineEmphasis => Ok(InlineEmphasis(D::InlineEmphasis::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineStrong => Ok(InlineStrong(D::InlineStrong::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineStrikethrough => Ok(InlineStrikethrough(D::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineCode => Ok(InlineCode(D::InlineCode::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineMath => Ok(InlineMath(D::InlineMath::new(cfg, WithRange((), range), gen)?)),
-            Tag::Equation(equation) => Ok(Equation(D::Equation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::NumberedEquation(equation) => Ok(NumberedEquation(D::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::Graphviz(graphviz) => Ok(Graphviz(D::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
+            Tag::Paragraph => Ok(Paragraph(B::Paragraph::new(cfg, WithRange((), range), gen)?)),
+            Tag::Rule => Ok(Rule(B::Rule::new(cfg, WithRange((), range), gen)?)),
+            Tag::Header(header) => Ok(Header(B::Header::new(cfg, WithRange(header, range), gen)?)),
+            Tag::BlockQuote => Ok(BlockQuote(B::BlockQuote::new(cfg, WithRange((), range), gen)?)),
+            Tag::CodeBlock(cb) => Ok(CodeBlock(B::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
+            Tag::List => Ok(List(B::List::new(cfg, WithRange((), range), gen)?)),
+            Tag::Enumerate(enumerate) => Ok(Enumerate(B::Enumerate::new(cfg, WithRange(enumerate, range), gen)?)),
+            Tag::Item => Ok(Item(B::Item::new(cfg, WithRange((), range), gen)?)),
+            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(B::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
+            Tag::Url(url) => Ok(Url(B::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
+            Tag::InterLink(interlink) => Ok(InterLink(B::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
+            Tag::HtmlBlock => Ok(HtmlBlock(B::HtmlBlock::new(cfg, WithRange((), range), gen)?)),
+            Tag::Figure(figure) => Ok(Figure(B::Figure::new(cfg, WithRange(figure, range), gen)?)),
+            Tag::TableFigure(figure) => Ok(TableFigure(B::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
+            Tag::Table(table) => Ok(Table(B::Table::new(cfg, WithRange(table, range), gen)?)),
+            Tag::TableHead => Ok(TableHead(B::TableHead::new(cfg, WithRange((), range), gen)?)),
+            Tag::TableRow => Ok(TableRow(B::TableRow::new(cfg, WithRange((), range), gen)?)),
+            Tag::TableCell => Ok(TableCell(B::TableCell::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineEmphasis => Ok(InlineEmphasis(B::InlineEmphasis::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineStrong => Ok(InlineStrong(B::InlineStrong::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineStrikethrough => Ok(InlineStrikethrough(B::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineCode => Ok(InlineCode(B::InlineCode::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineMath => Ok(InlineMath(B::InlineMath::new(cfg, WithRange((), range), gen)?)),
+            Tag::Equation(equation) => Ok(Equation(B::Equation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::NumberedEquation(equation) => Ok(NumberedEquation(B::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::Graphviz(graphviz) => Ok(Graphviz(B::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
         }
     }
 
@@ -112,7 +112,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, B, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
         match (self, tag) {
             (Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (Rule(s), Tag::Rule) => s.finish(gen, peek),

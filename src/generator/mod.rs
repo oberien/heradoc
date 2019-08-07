@@ -206,6 +206,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         self.top_context().1
     }
 
+    pub fn backend(&mut self) -> &mut B {
+        &mut self.doc
+    }
+
     fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {
         let (context, diagnostics, resolver) = self.top_context();
         resolver.resolve(context, url, range, diagnostics)
