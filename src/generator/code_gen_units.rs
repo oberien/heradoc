@@ -7,7 +7,7 @@ use crate::diagnostics::Diagnostics;
 use crate::error::Result;
 use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Tag};
-use crate::generator::{Generator, Stack};
+use crate::generator::Generator;
 use crate::resolve::Context;
 
 #[derive(Debug)]
@@ -109,39 +109,6 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
             Graphviz(s) => s.output_redirect(),
 
             Context(..) => None,
-        }
-    }
-
-    pub fn intercept_event<'b>(&mut self, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
-        match self {
-            Paragraph(s) => s.intercept_event(stack, e),
-            Rule(s) => s.intercept_event(stack, e),
-            Header(s) => s.intercept_event(stack, e),
-            BlockQuote(s) => s.intercept_event(stack, e),
-            CodeBlock(s) => s.intercept_event(stack, e),
-            List(s) => s.intercept_event(stack, e),
-            Enumerate(s) => s.intercept_event(stack, e),
-            Item(s) => s.intercept_event(stack, e),
-            FootnoteDefinition(s) => s.intercept_event(stack, e),
-            Url(s) => s.intercept_event(stack, e),
-            InterLink(s) => s.intercept_event(stack, e),
-            HtmlBlock(s) => s.intercept_event(stack, e),
-            Figure(s) => s.intercept_event(stack, e),
-            TableFigure(s) => s.intercept_event(stack, e),
-            Table(s) => s.intercept_event(stack, e),
-            TableHead(s) => s.intercept_event(stack, e),
-            TableRow(s) => s.intercept_event(stack, e),
-            TableCell(s) => s.intercept_event(stack, e),
-            InlineEmphasis(s) => s.intercept_event(stack, e),
-            InlineStrong(s) => s.intercept_event(stack, e),
-            InlineStrikethrough(s) => s.intercept_event(stack, e),
-            InlineCode(s) => s.intercept_event(stack, e),
-            InlineMath(s) => s.intercept_event(stack, e),
-            Equation(s) => s.intercept_event(stack, e),
-            NumberedEquation(s) => s.intercept_event(stack, e),
-            Graphviz(s) => s.intercept_event(stack, e),
-
-            Context(..) => Ok(Some(e)),
         }
     }
 

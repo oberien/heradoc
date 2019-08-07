@@ -104,11 +104,6 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         None
     }
-    fn intercept_event<'b>(
-        &mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>,
-    ) -> Result<Option<Event<'a>>> {
-        Ok(Some(e))
-    }
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
         peek: Option<WithRange<&Event<'a>>>,
