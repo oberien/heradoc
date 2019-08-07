@@ -27,7 +27,7 @@ use crate::generator::iter::Iter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
-    doc: B,
+    backend: B,
     cfg: &'a Config,
     default_out: W,
     stack: Vec<StackElement<'a, B>>,
@@ -54,7 +54,7 @@ impl<'a> fmt::Debug for Events<'a> {
 
 impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     pub fn new(
-        cfg: &'a Config, doc: B, default_out: W, arena: &'a Arena<String>,
+        cfg: &'a Config, backend: B, default_out: W, arena: &'a Arena<String>,
         stderr: Arc<Mutex<StandardStream>>,
     ) -> Self {
         let template = cfg
@@ -63,7 +63,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             .map(|path| fs::read_to_string(path).expect("can't read template"));
         Generator {
             arena,
-            doc,
+            backend,
             cfg,
             default_out,
             stack: Vec::new(),
@@ -96,10 +96,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.doc.gen_preamble(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            self.backend.gen_preamble(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
             self.generate_body(events)?;
             assert!(self.stack.pop().is_none());
-            self.doc.gen_epilogue(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            self.backend.gen_epilogue(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
         }
         Ok(())
     }
@@ -207,7 +207,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn backend(&mut self) -> &mut B {
-        &mut self.doc
+        &mut self.backend
     }
 
     fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {

@@ -32,10 +32,10 @@ use crate::generator::{Generator, Stack};
 pub mod latex;
 
 pub fn generate<'a>(
-    cfg: &'a Config, doc: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
+    cfg: &'a Config, backend: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
     out: impl Write, stderr: Arc<Mutex<StandardStream>>,
 ) -> FatalResult<()> {
-    let mut gen = Generator::new(cfg, doc, out, arena, stderr);
+    let mut gen = Generator::new(cfg, backend, out, arena, stderr);
     gen.generate(markdown)?;
     Ok(())
 }
