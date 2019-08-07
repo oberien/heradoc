@@ -42,6 +42,8 @@ pub fn generate<'a>(
 
 #[rustfmt::skip]
 pub trait Backend<'a>: Sized + Debug {
+    // MediumCodeGenUnits are used for leaf-events, which don't contain any further events.
+    // StatefulCodeGenUnits are used for tags, which have a start and an end and can contain further events.
     type Text: MediumCodeGenUnit<Cow<'a, str>>;
     type Latex: MediumCodeGenUnit<Cow<'a, str>>;
     type FootnoteReference: MediumCodeGenUnit<FootnoteReference<'a>>;
@@ -96,6 +98,8 @@ pub trait Backend<'a>: Sized + Debug {
     fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
 }
 
+/// A [`CodeGenUnit`] is used to generate the code for an event which can contain other events,
+/// namely for all tags.
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
         cfg: &'a Config, tag: WithRange<T>,
@@ -110,6 +114,10 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
     ) -> Result<()>;
 }
 
+/// Similar to [`CodeGenUnit`], but it is specialized for a single [`Backend`] implementation.
+/// As such, it can access the backend and store, retrieve and modify data in the backend.
+/// This is for example used for latex-beamer, where we need to keep track of the headings,
+/// because a new heading can close the frame of an old heading if there is one.
 pub trait StatefulCodeGenUnit<'a, B: Backend<'a>, T>: Sized + Debug {
     fn new(
         cfg: &'a Config, tag: WithRange<T>,
@@ -124,6 +132,7 @@ pub trait StatefulCodeGenUnit<'a, B: Backend<'a>, T>: Sized + Debug {
     ) -> Result<()>;
 }
 
+// default impl Stateful… for CodeGenUnit such that we can use Stateful… everywhere
 impl<'a, B: Backend<'a>, T, C: CodeGenUnit<'a, T>> StatefulCodeGenUnit<'a, B, T> for C {
     fn new(
         cfg: &'a Config, tag: WithRange<T>,
@@ -142,16 +151,21 @@ impl<'a, B: Backend<'a>, T, C: CodeGenUnit<'a, T>> StatefulCodeGenUnit<'a, B, T>
     }
 }
 
+/// A [`SimpleCodeGenUnit`] can be used to implement "leaf-events", events which don't contain any further
+/// events. It is context free and gets the struct and the out-writer.
 pub trait SimpleCodeGenUnit<T> {
     fn gen(data: WithRange<T>, out: &mut impl Write) -> Result<()>;
 }
 
+/// Similar to a [`SimpleCodeGenUnit`], but a [`MediumCodeGenUnit`] gets context information by
+/// being passed the stack. The out-writer can be gotten from `stack.get_out()`.
 pub trait MediumCodeGenUnit<T> {
     fn gen<'a, 'b>(
         data: WithRange<T>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()>;
 }
 
+// default implementation of Medium… for Simple… such that we can use Medium… everywhere
 impl<C: SimpleCodeGenUnit<T>, T> MediumCodeGenUnit<T> for C {
     fn gen<'a, 'b>(
         data: WithRange<T>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
