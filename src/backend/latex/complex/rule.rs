@@ -5,7 +5,7 @@ use crate::config::Config;
 use crate::error::Result;
 use crate::frontend::range::WithRange;
 use crate::generator::event::Event;
-use crate::generator::{Generator, Stack};
+use crate::generator::Generator;
 
 #[derive(Debug)]
 pub struct RuleGen;
@@ -16,13 +16,6 @@ impl<'a> CodeGenUnit<'a, ()> for RuleGen {
         _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         Ok(RuleGen)
-    }
-
-    fn intercept_event<'b>(
-        &mut self, _stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, _e: Event<'a>,
-    ) -> Result<Option<Event<'a>>> {
-        // TODO: check this
-        unreachable!("rule shouldn't have anything between start and end")
     }
 
     fn finish(

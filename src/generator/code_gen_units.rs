@@ -1,43 +1,43 @@
 use std::io::Write;
 use std::sync::Arc;
 
-use crate::backend::{Backend, CodeGenUnit};
+use crate::backend::{Backend, StatefulCodeGenUnit};
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
 use crate::error::Result;
 use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Tag};
-use crate::generator::{Generator, Stack};
+use crate::generator::Generator;
 use crate::resolve::Context;
 
 #[derive(Debug)]
-pub enum StackElement<'a, D: Backend<'a>> {
-    Paragraph(D::Paragraph),
-    Rule(D::Rule),
-    Header(D::Header),
-    BlockQuote(D::BlockQuote),
-    CodeBlock(D::CodeBlock),
-    List(D::List),
-    Enumerate(D::Enumerate),
-    Item(D::Item),
-    FootnoteDefinition(D::FootnoteDefinition),
-    Url(D::UrlWithContent),
-    InterLink(D::InterLinkWithContent),
-    HtmlBlock(D::HtmlBlock),
-    Figure(D::Figure),
-    TableFigure(D::TableFigure),
-    Table(D::Table),
-    TableHead(D::TableHead),
-    TableRow(D::TableRow),
-    TableCell(D::TableCell),
-    InlineEmphasis(D::InlineEmphasis),
-    InlineStrong(D::InlineStrong),
-    InlineStrikethrough(D::InlineStrikethrough),
-    InlineCode(D::InlineCode),
-    InlineMath(D::InlineMath),
-    Equation(D::Equation),
-    NumberedEquation(D::NumberedEquation),
-    Graphviz(D::Graphviz),
+pub enum StackElement<'a, B: Backend<'a>> {
+    Paragraph(B::Paragraph),
+    Rule(B::Rule),
+    Header(B::Header),
+    BlockQuote(B::BlockQuote),
+    CodeBlock(B::CodeBlock),
+    List(B::List),
+    Enumerate(B::Enumerate),
+    Item(B::Item),
+    FootnoteDefinition(B::FootnoteDefinition),
+    Url(B::UrlWithContent),
+    InterLink(B::InterLinkWithContent),
+    HtmlBlock(B::HtmlBlock),
+    Figure(B::Figure),
+    TableFigure(B::TableFigure),
+    Table(B::Table),
+    TableHead(B::TableHead),
+    TableRow(B::TableRow),
+    TableCell(B::TableCell),
+    InlineEmphasis(B::InlineEmphasis),
+    InlineStrong(B::InlineStrong),
+    InlineStrikethrough(B::InlineStrikethrough),
+    InlineCode(B::InlineCode),
+    InlineMath(B::InlineMath),
+    Equation(B::Equation),
+    NumberedEquation(B::NumberedEquation),
+    Graphviz(B::Graphviz),
 
     // resolve context
     Context(Context, Arc<Diagnostics<'a>>),
@@ -46,36 +46,36 @@ pub enum StackElement<'a, D: Backend<'a>> {
 use self::StackElement::*;
 
 #[rustfmt::skip]
-impl<'a, D: Backend<'a>> StackElement<'a, D> {
-    pub fn new(cfg: &'a Config, tag: WithRange<Tag<'a>>, gen: &mut Generator<'a, D, impl Write>) -> Result<Self> {
+impl<'a, B: Backend<'a>> StackElement<'a, B> {
+    pub fn new(cfg: &'a Config, tag: WithRange<Tag<'a>>, gen: &mut Generator<'a, B, impl Write>) -> Result<Self> {
         let WithRange(tag, range) = tag;
         match tag {
-            Tag::Paragraph => Ok(Paragraph(D::Paragraph::new(cfg, WithRange((), range), gen)?)),
-            Tag::Rule => Ok(Rule(D::Rule::new(cfg, WithRange((), range), gen)?)),
-            Tag::Header(header) => Ok(Header(D::Header::new(cfg, WithRange(header, range), gen)?)),
-            Tag::BlockQuote => Ok(BlockQuote(D::BlockQuote::new(cfg, WithRange((), range), gen)?)),
-            Tag::CodeBlock(cb) => Ok(CodeBlock(D::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
-            Tag::List => Ok(List(D::List::new(cfg, WithRange((), range), gen)?)),
-            Tag::Enumerate(enumerate) => Ok(Enumerate(D::Enumerate::new(cfg, WithRange(enumerate, range), gen)?)),
-            Tag::Item => Ok(Item(D::Item::new(cfg, WithRange((), range), gen)?)),
-            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(D::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
-            Tag::Url(url) => Ok(Url(D::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
-            Tag::InterLink(interlink) => Ok(InterLink(D::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
-            Tag::HtmlBlock => Ok(HtmlBlock(D::HtmlBlock::new(cfg, WithRange((), range), gen)?)),
-            Tag::Figure(figure) => Ok(Figure(D::Figure::new(cfg, WithRange(figure, range), gen)?)),
-            Tag::TableFigure(figure) => Ok(TableFigure(D::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
-            Tag::Table(table) => Ok(Table(D::Table::new(cfg, WithRange(table, range), gen)?)),
-            Tag::TableHead => Ok(TableHead(D::TableHead::new(cfg, WithRange((), range), gen)?)),
-            Tag::TableRow => Ok(TableRow(D::TableRow::new(cfg, WithRange((), range), gen)?)),
-            Tag::TableCell => Ok(TableCell(D::TableCell::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineEmphasis => Ok(InlineEmphasis(D::InlineEmphasis::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineStrong => Ok(InlineStrong(D::InlineStrong::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineStrikethrough => Ok(InlineStrikethrough(D::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineCode => Ok(InlineCode(D::InlineCode::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineMath => Ok(InlineMath(D::InlineMath::new(cfg, WithRange((), range), gen)?)),
-            Tag::Equation(equation) => Ok(Equation(D::Equation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::NumberedEquation(equation) => Ok(NumberedEquation(D::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::Graphviz(graphviz) => Ok(Graphviz(D::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
+            Tag::Paragraph => Ok(Paragraph(B::Paragraph::new(cfg, WithRange((), range), gen)?)),
+            Tag::Rule => Ok(Rule(B::Rule::new(cfg, WithRange((), range), gen)?)),
+            Tag::Header(header) => Ok(Header(B::Header::new(cfg, WithRange(header, range), gen)?)),
+            Tag::BlockQuote => Ok(BlockQuote(B::BlockQuote::new(cfg, WithRange((), range), gen)?)),
+            Tag::CodeBlock(cb) => Ok(CodeBlock(B::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
+            Tag::List => Ok(List(B::List::new(cfg, WithRange((), range), gen)?)),
+            Tag::Enumerate(enumerate) => Ok(Enumerate(B::Enumerate::new(cfg, WithRange(enumerate, range), gen)?)),
+            Tag::Item => Ok(Item(B::Item::new(cfg, WithRange((), range), gen)?)),
+            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(B::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
+            Tag::Url(url) => Ok(Url(B::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
+            Tag::InterLink(interlink) => Ok(InterLink(B::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
+            Tag::HtmlBlock => Ok(HtmlBlock(B::HtmlBlock::new(cfg, WithRange((), range), gen)?)),
+            Tag::Figure(figure) => Ok(Figure(B::Figure::new(cfg, WithRange(figure, range), gen)?)),
+            Tag::TableFigure(figure) => Ok(TableFigure(B::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
+            Tag::Table(table) => Ok(Table(B::Table::new(cfg, WithRange(table, range), gen)?)),
+            Tag::TableHead => Ok(TableHead(B::TableHead::new(cfg, WithRange((), range), gen)?)),
+            Tag::TableRow => Ok(TableRow(B::TableRow::new(cfg, WithRange((), range), gen)?)),
+            Tag::TableCell => Ok(TableCell(B::TableCell::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineEmphasis => Ok(InlineEmphasis(B::InlineEmphasis::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineStrong => Ok(InlineStrong(B::InlineStrong::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineStrikethrough => Ok(InlineStrikethrough(B::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineCode => Ok(InlineCode(B::InlineCode::new(cfg, WithRange((), range), gen)?)),
+            Tag::InlineMath => Ok(InlineMath(B::InlineMath::new(cfg, WithRange((), range), gen)?)),
+            Tag::Equation(equation) => Ok(Equation(B::Equation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::NumberedEquation(equation) => Ok(NumberedEquation(B::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::Graphviz(graphviz) => Ok(Graphviz(B::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
         }
     }
 
@@ -112,40 +112,7 @@ impl<'a, D: Backend<'a>> StackElement<'a, D> {
         }
     }
 
-    pub fn intercept_event<'b>(&mut self, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>, e: Event<'a>) -> Result<Option<Event<'a>>> {
-        match self {
-            Paragraph(s) => s.intercept_event(stack, e),
-            Rule(s) => s.intercept_event(stack, e),
-            Header(s) => s.intercept_event(stack, e),
-            BlockQuote(s) => s.intercept_event(stack, e),
-            CodeBlock(s) => s.intercept_event(stack, e),
-            List(s) => s.intercept_event(stack, e),
-            Enumerate(s) => s.intercept_event(stack, e),
-            Item(s) => s.intercept_event(stack, e),
-            FootnoteDefinition(s) => s.intercept_event(stack, e),
-            Url(s) => s.intercept_event(stack, e),
-            InterLink(s) => s.intercept_event(stack, e),
-            HtmlBlock(s) => s.intercept_event(stack, e),
-            Figure(s) => s.intercept_event(stack, e),
-            TableFigure(s) => s.intercept_event(stack, e),
-            Table(s) => s.intercept_event(stack, e),
-            TableHead(s) => s.intercept_event(stack, e),
-            TableRow(s) => s.intercept_event(stack, e),
-            TableCell(s) => s.intercept_event(stack, e),
-            InlineEmphasis(s) => s.intercept_event(stack, e),
-            InlineStrong(s) => s.intercept_event(stack, e),
-            InlineStrikethrough(s) => s.intercept_event(stack, e),
-            InlineCode(s) => s.intercept_event(stack, e),
-            InlineMath(s) => s.intercept_event(stack, e),
-            Equation(s) => s.intercept_event(stack, e),
-            NumberedEquation(s) => s.intercept_event(stack, e),
-            Graphviz(s) => s.intercept_event(stack, e),
-
-            Context(..) => Ok(Some(e)),
-        }
-    }
-
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, B, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
         match (self, tag) {
             (Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (Rule(s), Tag::Rule) => s.finish(gen, peek),

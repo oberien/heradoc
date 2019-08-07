@@ -4,17 +4,17 @@ use super::StackElement;
 use crate::backend::Backend;
 use crate::diagnostics::Diagnostics;
 
-pub struct Stack<'a: 'b, 'b, D: Backend<'a>, W: Write> {
+pub struct Stack<'a: 'b, 'b, B: Backend<'a>, W: Write> {
     default_out: &'b mut W,
-    stack: &'b mut [StackElement<'a, D>],
+    stack: &'b mut [StackElement<'a, B>],
 }
 
-impl<'a: 'b, 'b, D: Backend<'a> + 'b, W: Write> Stack<'a, 'b, D, W> {
-    pub(super) fn new(default_out: &'b mut W, stack: &'b mut [StackElement<'a, D>]) -> Self {
+impl<'a: 'b, 'b, B: Backend<'a> + 'b, W: Write> Stack<'a, 'b, B, W> {
+    pub(super) fn new(default_out: &'b mut W, stack: &'b mut [StackElement<'a, B>]) -> Self {
         Stack { default_out, stack }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &StackElement<'a, D>> {
+    pub fn iter(&self) -> impl Iterator<Item = &StackElement<'a, B>> {
         self.stack.iter().rev()
     }
 
