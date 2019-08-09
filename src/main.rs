@@ -122,7 +122,7 @@ fn gen(cfg: &Config, markdown: String, out: impl Write) {
     match res {
         Ok(()) => (),
         Err(Fatal::Output(io)) => eprintln!("\n\nerror writing to output: {}", io),
-        Err(Fatal::InteralCompilerError) => eprintln!("\n\nCan not continue due to internal error"),
+        Err(Fatal::InternalCompilerError) => eprintln!("\n\nCan not continue due to internal error"),
     }
 }
 

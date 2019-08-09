@@ -9,7 +9,7 @@ use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Incl
 use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Image, Pdf};
 use crate::generator::Generator;
-use crate::resolve::{Context, Include};
+use crate::resolve::{Include, ContextType};
 
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
@@ -141,9 +141,9 @@ impl<'a> Iter<'a> {
                         .emit();
                     Error::Diagnostic
                 })?;
-                let input = match &context {
-                    Context::Remote(url) => Input::Url(url.clone()),
-                    Context::LocalRelative(_) | Context::LocalAbsolute(_) => {
+                let input = match context.typ() {
+                    ContextType::Remote => Input::Url(context.url().clone()),
+                    ContextType::LocalRelative | ContextType::LocalAbsolute => {
                         Input::File(path)
                     },
                 };

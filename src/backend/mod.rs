@@ -9,6 +9,7 @@ use codespan_reporting::termcolor::StandardStream;
 use crate::config::Config;
 use crate::error::{FatalResult, Result};
 use crate::frontend::range::WithRange;
+use crate::diagnostics::Diagnostics;
 use crate::generator::event::{
     BiberReference,
     CodeBlock,
@@ -94,8 +95,8 @@ pub trait Backend<'a>: Sized + Debug {
     type Graphviz: StatefulCodeGenUnit<'a, Self, Graphviz<'a>>;
 
     fn new() -> Self;
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, stderr: Arc<Mutex<StandardStream>>) -> FatalResult<()>;
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()>;
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()>;
 }
 
 /// A [`CodeGenUnit`] is used to generate the code for an event which can contain other events,

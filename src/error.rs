@@ -21,7 +21,7 @@ pub enum Fatal {
     /// `expect` panicking.  For example this may occur due to an interface of a dependency being
     /// more general than its usage herein but we can not expect full control over its
     /// implementation.
-    InteralCompilerError,
+    InternalCompilerError,
 }
 
 impl From<io::Error> for Fatal {
@@ -34,7 +34,7 @@ impl std::error::Error for Fatal {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Fatal::Output(io) => Some(io),
-            Fatal::InteralCompilerError => None,
+            Fatal::InternalCompilerError => None,
         }
     }
 }
@@ -43,7 +43,7 @@ impl fmt::Display for Fatal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Fatal::Output(io) => write!(f, "output file write error: {}", io),
-            Fatal::InteralCompilerError => write!(f, "can not continue due to internal error"),
+            Fatal::InternalCompilerError => write!(f, "can not continue due to internal error"),
         }
     }
 }

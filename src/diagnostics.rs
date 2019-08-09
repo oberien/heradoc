@@ -44,6 +44,10 @@ impl<'a> Diagnostics<'a> {
         Diagnostics { file_map, stderr }
     }
 
+    pub fn stderr(&self) -> &Arc<Mutex<StandardStream>> {
+        &self.stderr
+    }
+
     pub fn first_line(&self, range: SourceRange) -> SourceRange {
         let start =
             Span::from_offset(self.file_map.span().start(), ByteOffset(range.start as i64)).end();

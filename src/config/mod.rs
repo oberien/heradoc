@@ -172,7 +172,7 @@ pub struct Config {
     /// result of choosing this path randomly.  TODO: Make this restriction explicit.
     pub temp_dir: PathBuf,
     pub input: FileOrStdio,
-    pub input_dir: PathBuf,
+    pub project_root: PathBuf,
     pub output_type: OutType,
 
     pub document_type: DocumentType,
@@ -261,13 +261,13 @@ impl Config {
             },
         };
 
-        let input_dir = match &args.input {
+        let project_root = match &args.input {
             FileOrStdio::StdIo => {
                 env::current_dir().expect("Can't use stdin without a current working directory")
             },
             FileOrStdio::File(file) => file
                 .canonicalize()
-                .expect("error canonicalising input file path")
+                .expect("error canonicalizing input file path")
                 .parent()
                 .unwrap()
                 .to_owned(),
@@ -286,10 +286,10 @@ impl Config {
                     None
                 }
             });
-        let bibliography = resolve_file(&input_dir, &tempdir_path, bibliography, "bibliography");
+        let bibliography = resolve_file(&project_root, &tempdir_path, bibliography, "bibliography");
         let template =
             args.fileconfig.template.or(infile.template).or(file.template).map(PathBuf::from);
-        let template = resolve_file(&input_dir, &tempdir_path, template, "template");
+        let template = resolve_file(&project_root, &tempdir_path, template, "template");
 
         let lang = args.fileconfig.lang.or(infile.lang).or(file.lang);
         let lang = match lang {
@@ -320,20 +320,20 @@ impl Config {
             .or(file.logo_university)
             .map(PathBuf::from);
         let logo_university =
-            resolve_file(&input_dir, &tempdir_path, logo_university, "logo_university");
+            resolve_file(&project_root, &tempdir_path, logo_university, "logo_university");
         let logo_faculty = args
             .fileconfig
             .logo_faculty
             .or(infile.logo_faculty)
             .or(file.logo_faculty)
             .map(PathBuf::from);
-        let logo_faculty = resolve_file(&input_dir, &tempdir_path, logo_faculty, "logo_faculty");
+        let logo_faculty = resolve_file(&project_root, &tempdir_path, logo_faculty, "logo_faculty");
         let abstract1 =
             args.fileconfig.abstract1.or(infile.abstract1).or(file.abstract1).map(PathBuf::from);
-        let abstract1 = resolve_file(&input_dir, &tempdir_path, abstract1, "abstract");
+        let abstract1 = resolve_file(&project_root, &tempdir_path, abstract1, "abstract");
         let abstract2 =
             args.fileconfig.abstract2.or(infile.abstract2).or(file.abstract2).map(PathBuf::from);
-        let abstract2 = resolve_file(&input_dir, &tempdir_path, abstract2, "abstract2");
+        let abstract2 = resolve_file(&project_root, &tempdir_path, abstract2, "abstract2");
 
         let document_type = args
             .fileconfig
@@ -347,7 +347,7 @@ impl Config {
             out_dir: args.out_dir.unwrap_or_else(|| tempdir.path().to_owned()),
             temp_dir: tempdir_path,
             input: args.input,
-            input_dir,
+            project_root,
             output_type,
             document_type,
             bibliography,
@@ -416,7 +416,7 @@ impl Config {
 /// Finally, if it's a URL, the content will be downloaded and a path to the downloaded file
 /// returned.
 fn resolve_file<P: AsRef<Path>>(
-    input_dir: &Path, temp_dir: &Path, path: Option<P>, cfgoption: &str,
+    project_root: &Path, temp_dir: &Path, path: Option<P>, cfgoption: &str,
 ) -> Option<PathBuf> {
     // TODO: error handling
     let path = match path {
@@ -424,7 +424,7 @@ fn resolve_file<P: AsRef<Path>>(
         None => return None,
     };
     // relative to input file
-    let file = input_dir.join(&path);
+    let file = project_root.join(&path);
     if file.exists() && file.is_file() {
         return Some(file);
     }

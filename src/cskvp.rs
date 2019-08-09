@@ -315,7 +315,9 @@ impl<'a> Parser<'a> {
                         .unwrap()
                         .into_owned();
                     let quoted_string_len = parsed.quoted_string.len();
-                    self.rest.truncate_start(self.rest.len() - parsed.tail.len());
+                    let rest_len = self.rest.len();
+                    let tail_len = parsed.tail.len();
+                    self.rest.truncate_start(rest_len - tail_len);
                     (Cow::Owned(content), quoted_string_len)
                 },
             },

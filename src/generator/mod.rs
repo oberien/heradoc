@@ -67,7 +67,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             cfg,
             default_out,
             stack: Vec::new(),
-            resolver: Resolver::new(cfg.input_dir.clone(), cfg.temp_dir.clone()),
+            resolver: Resolver::new(cfg.project_root.clone(), cfg.temp_dir.clone()),
             template,
             stderr,
         }
@@ -82,7 +82,8 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
-        let context = Context::relative_root(self.cfg.input_dir.clone());
+        let context = Context::from_project_root();
+
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
             FileOrStdio::StdIo => Input::Stdin,
@@ -96,10 +97,11 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             self.get_out()
                 .write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
         } else {
-            self.backend.gen_preamble(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            let diagnostics = Arc::clone(&events.diagnostics);
+            self.backend.gen_preamble(self.cfg, &mut self.default_out, &diagnostics)?;
             self.generate_body(events)?;
             assert!(self.stack.pop().is_none());
-            self.backend.gen_epilogue(self.cfg, &mut self.default_out, Arc::clone(&self.stderr))?;
+            self.backend.gen_epilogue(self.cfg, &mut self.default_out, &diagnostics)?;
         }
         Ok(())
     }
