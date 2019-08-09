@@ -9,7 +9,7 @@ use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
 use crate::diagnostics::Input;
-use crate::error::{FatalResult, Fatal};
+use crate::error::FatalResult;
 use crate::generator::Generator;
 use crate::resolve::Context;
 use crate::diagnostics::Diagnostics;
@@ -142,11 +142,12 @@ fn gen_abstract(path: PathBuf, abstract_name: &str, cfg: &Config, out: &mut impl
         Ok(context) => context,
         Err(e) => {
             diagnostics
-                .error(format!("invalid path to `{}`", abstract_name))
+                .error(format!("invalid path to `{}` in the config", abstract_name))
                 .note("can't create a URL from the path")
                 .error(format!("cause: {:?}", e))
+                .note("skipping over it")
                 .emit();
-            return Err(Fatal::InternalCompilerError);
+            return Ok(());
         }
     };
     let input = Input::File(path);
