@@ -61,7 +61,7 @@ fn prepare() -> (TempDir, SourceRange, Resolver, Diagnostics<'static>) {
 #[test]
 fn relative_to_project_root() {
     let (project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
     let ctx2 = Context::from_path("chapters").expect("can't create context");
     let ctx3 = Context::from_path("chapters/").expect("can't create context");
 
@@ -110,7 +110,7 @@ fn relative_to_project_root() {
 #[test]
 fn relative_to_current_file() {
     let (project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
     let ctx2 = Context::from_path("chapters/").expect("can't create context");
 
     let main = resolver
@@ -180,7 +180,7 @@ fn relative_to_current_file() {
 #[test]
 fn commands() {
     let (_project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
     let ctx2 = Context::from_path("chapters/").expect("can't create context");
 
     // if one works from a subdir, all work from a a subdir
@@ -231,7 +231,7 @@ fn commands() {
 #[test]
 fn http_resolves_needs_internet() {
     let (_project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
 
     let external = resolver
         .resolve(
@@ -246,7 +246,7 @@ fn http_resolves_needs_internet() {
 #[test]
 fn local_resolves_not_exist_not_internal_bug() {
     let (_project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
 
     let error = resolver
         .resolve(&ctx, "this_file_does_not_exist.md", range, &diagnostics)
@@ -257,7 +257,7 @@ fn local_resolves_not_exist_not_internal_bug() {
 #[test]
 fn local_absolute_url_stays_absolute() {
     let (project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
 
     let url = Url::from_file_path(project_root.path().join("main.md")).unwrap();
     let main = resolver
@@ -270,7 +270,7 @@ fn local_absolute_url_stays_absolute() {
 #[test]
 fn url_does_not_exist() {
     let (project_root, range, resolver, diagnostics) = prepare();
-    let ctx = Context::from_path(".").expect("can't create context");
+    let ctx = Context::from_project_root();
 
     let url = Url::from_file_path(project_root.path().join("this_file_does_not_exist.md")).unwrap();
     let error = resolver

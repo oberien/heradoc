@@ -12,7 +12,7 @@ use super::BASE_URL;
 pub struct Context {
     /// Full URL to the file / content
     ///
-    /// Can be `heradoc://document/foo/bar.md` (relative) or `file://foo/bar.md` (absolute)
+    /// Can be `heradoc://document/foo/bar.md` (relative) or `file:///foo/bar.md` (absolute)
     /// or `https://foo.bar/baz/qux.md` (remote).
     pub(super) url: Url,
 }
@@ -45,6 +45,13 @@ impl Context {
         Ok(Context {
             url,
         })
+    }
+
+    pub fn from_project_root() -> Self {
+        // the project root is "." if interpreted as relative to the project root
+        Context {
+            url: Url::parse(BASE_URL).unwrap(),
+        }
     }
 
     pub fn from_url(url: Url) -> Self {

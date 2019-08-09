@@ -93,8 +93,9 @@ impl<'a, 'd> Target<'a, 'd> {
                 Some(domain) => TargetInner::Implementation(domain.to_string()),
                 None => {
                     diagnostics
-                        .error("no heradoc implementation domain found")
+                        .error("no heradoc implementation domain provided")
                         .with_error_section(range, "defined here")
+                        .note("the domain must be either `document` for includes or an implementation command")
                         .emit();
                     return Err(Error::Diagnostic);
                 }
@@ -102,9 +103,9 @@ impl<'a, 'd> Target<'a, 'd> {
             "file" => match url.to_file_path() {
                 Ok(path) => TargetInner::LocalAbsolute(path),
                 Err(()) => {
-                    diagnostics.error("error converting url to path")
+                    diagnostics
+                        .error("error converting url to path")
                         .with_info_section(range, "defined here")
-                        .error("the file url can't be converted to a path")
                         .help("this could be due to a malformed URL like a non-empty or non-localhost domain")
                         .emit();
                     return Err(Error::Diagnostic);
@@ -188,13 +189,14 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             },
 
             // TODO: discuss proper remote rules
-            // check CORS
+            // deny cross-origin
+            // TODO: proper CORS implementation
             (ContextType::Remote, TargetInner::Remote(url)) if meta.context.url.domain() == url.domain() => (),
             (ContextType::Remote, TargetInner::Remote(_)) => {
                 meta.diagnostics
                     .error("permission denied")
                     .with_error_section(meta.range, "trying to include this")
-                    .error("CORS request detected")
+                    .error("cross-origin request detected")
                     .note("remote inclusions can only include remote content from the same domain")
                     .emit();
                 return Err(Error::Diagnostic)
@@ -235,10 +237,8 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                     Ok(command) => Ok(Include::Command(command)),
                     Err(()) => {
                         meta.diagnostics
-                            .error(format!(
-                                "no heradoc implementation found for domain {:?}",
-                                command
-                            )).with_error_section(meta.range, "defined here")
+                            .error(format!("{:?} isn't a valid implementation command", command))
+                            .with_error_section(meta.range, "defined here")
                             .emit();
                         return Err(Error::Diagnostic)
                     }
@@ -307,7 +307,6 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
 fn to_include(
     path: PathBuf, context: Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
 ) -> Result<Include> {
-    // TODO: switch on file header type first
     match path.extension().map(|s| s.to_str().unwrap()) {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),

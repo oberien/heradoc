@@ -111,10 +111,10 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\cleardoublepage{{}}")?;
 
         if let Some(abstract1) = &cfg.abstract1 {
-            gen_abstract(abstract1.clone(), cfg, out, diagnostics)?;
+            gen_abstract(abstract1.clone(), "abstract", cfg, out, diagnostics)?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            gen_abstract(abstract2.clone(), cfg, out, diagnostics)?;
+            gen_abstract(abstract2.clone(), "abstract2", cfg, out, diagnostics)?;
         }
 
         writeln!(out)?;
@@ -133,7 +133,7 @@ impl<'a> Backend<'a> for Thesis {
     }
 }
 
-fn gen_abstract(path: PathBuf, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> FatalResult<()> {
+fn gen_abstract(path: PathBuf, abstract_name: &str, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> FatalResult<()> {
     let arena = Arena::new();
     let stderr = Arc::clone(diagnostics.stderr());
     let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
@@ -142,7 +142,8 @@ fn gen_abstract(path: PathBuf, cfg: &Config, out: &mut impl Write, diagnostics: 
         Ok(context) => context,
         Err(e) => {
             diagnostics
-                .bug("can't generate context from abstract path")
+                .error(format!("invalid path to `{}`", abstract_name))
+                .note("can't create a URL from the path")
                 .error(format!("cause: {:?}", e))
                 .emit();
             return Err(Fatal::InternalCompilerError);

@@ -22,7 +22,7 @@ pub use self::stack::Stack;
 
 use self::code_gen_units::StackElement;
 use self::event::Event;
-use crate::error::{Error, FatalResult, Fatal, Result};
+use crate::error::{Error, FatalResult, Result};
 use crate::generator::iter::Iter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
@@ -82,17 +82,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
-        // the project root is "." if interpreted as relative to the project root
-        let context = match Context::from_path(".") {
-            Ok(context) => context,
-            Err(e) => {
-                self.diagnostics()
-                    .bug("Context can't be created from project_root")
-                    .note(format!("cause: {:?}", e))
-                    .emit();
-                return Err(Fatal::InternalCompilerError);
-            }
-        };
+        let context = Context::from_project_root();
 
         let input = match &self.cfg.input {
             FileOrStdio::File(path) => Input::File(path.clone()),
