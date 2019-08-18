@@ -3,11 +3,86 @@ use std::io::Write;
 use crate::backend::Backend;
 use crate::backend::latex::{self, preamble};
 use crate::config::Config;
-use crate::error::FatalResult;
+use crate::error::{FatalResult, Result, Error};
 use crate::diagnostics::Diagnostics;
+use crate::frontend::range::SourceRange;
 
 #[derive(Debug)]
-pub struct Beamer;
+pub struct Beamer {
+    /// Stack of used headings, used to close frames.
+    ///
+    /// 1: section
+    /// 2: subsection / frame
+    /// 3: beamerboxesrounded
+    headings: Vec<i32>,
+}
+
+impl Beamer {
+    /// Closes the beamerboxesrounded / slides until including the given level.
+    /// Also performs the according checks and updates the heading stack.
+    pub fn close_until(
+        &mut self, level: i32, out: &mut impl Write, range: SourceRange, diagnostics: &Diagnostics<'_>
+    ) -> Result<()> {
+        check_level(level, range, diagnostics)?;
+
+        while let Some(&stack_level) = self.headings.last() {
+            if stack_level < level {
+                break;
+            }
+            self.headings.pop().unwrap();
+            // TODO: make heading-level configurable
+            match stack_level {
+                1 => (),
+                2 => writeln!(out, "\\end{{frame}}\n")?,
+                3 => writeln!(out, "\\end{{beamerboxesrounded}}")?,
+                _ => unreachable!(),
+            }
+        }
+        Ok(())
+    }
+
+    /// Opens the beamerboxesrounded / slides until including the given level, updating the heading
+    /// stack.
+    pub fn open_until(
+        &mut self, level: i32, out: &mut impl Write, range: SourceRange, diagnostics: &Diagnostics<'_>
+    ) -> Result<()> {
+        check_level(level, range, diagnostics)?;
+        let last = self.headings.last().cloned().unwrap_or(0);
+        for level in (last+1)..=level {
+            self.headings.push(level);
+            match level {
+                1 => {
+                    writeln!(out, "\\begin{{frame}}")?;
+                    writeln!(out, "\\Huge\\centering \\insertsection")?;
+                    writeln!(out, "\\end{{frame}}\n")?;
+                },
+                2 => {
+                    // Mark all slides as fragile, this is slower but we can use verbatim etc.
+                    writeln!(out, "\\begin{{frame}}[fragile]")?;
+                    writeln!(out, "\\frametitle{{\\insertsection}}")?;
+                    writeln!(out, "\\framesubtitle{{\\insertsubsection}}")?;
+                },
+                3 => writeln!(out, "\\begin{{beamerboxesrounded}}{{\\insertsubsubsection}}")?,
+                _ => unreachable!(),
+            }
+        }
+        Ok(())
+    }
+}
+
+fn check_level(level: i32, range: SourceRange, diagnostics: &Diagnostics<'_>) -> Result<()> {
+    assert!(level > 0, "Header level should be positive, but is {}", level);
+    if level > 3 {
+        diagnostics
+            .error("heading level in beamer greater than 3")
+            .with_error_section(range, "for this heading")
+            .note("beamer only supports levels >= 3")
+            .note("skipping over it")
+            .emit();
+        return Err(Error::Diagnostic);
+    }
+    Ok(())
+}
 
 #[rustfmt::skip]
 impl<'a> Backend<'a> for Beamer {
@@ -31,8 +106,8 @@ impl<'a> Backend<'a> for Beamer {
     type Appendix = latex::AppendixGen;
 
     type Paragraph = latex::ParagraphGen;
-    type Rule = latex::RuleGen;
-    type Header = latex::HeaderGen<'a>;
+    type Rule = latex::BeamerRuleGen;
+    type Header = latex::BeamerHeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
     type List = latex::ListGen;
@@ -61,7 +136,9 @@ impl<'a> Backend<'a> for Beamer {
     type Graphviz = latex::GraphvizGen<'a>;
 
     fn new() -> Self {
-        Beamer
+        Beamer {
+            headings: Vec::new(),
+        }
     }
 
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
@@ -115,7 +192,12 @@ impl<'a> Backend<'a> for Beamer {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+        match self.close_until(1, out, SourceRange { start: 0, end: 0 }, diagnostics) {
+            Ok(()) => (),
+            Err(Error::Diagnostic) => unreachable!(),
+            Err(Error::Fatal(fatal)) => return Err(fatal),
+        }
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

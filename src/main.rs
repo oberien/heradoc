@@ -49,8 +49,9 @@ mod ext;
 mod frontend;
 mod generator;
 mod resolve;
+mod util;
 
-use crate::backend::latex::{Article, Beamer, Report, Thesis};
+use crate::backend::{Backend, latex::{Article, Beamer, Report, Thesis}};
 use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
 use crate::error::Fatal;
 
@@ -115,10 +116,10 @@ fn gen(cfg: &Config, markdown: String, out: impl Write) {
     // TODO: make this configurable
     let stderr = Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto)));
     let res = match cfg.document_type {
-        DocumentType::Article => backend::generate(cfg, Article, &Arena::new(), markdown, out, stderr),
-        DocumentType::Beamer => backend::generate(cfg, Beamer, &Arena::new(), markdown, out, stderr),
-        DocumentType::Report => backend::generate(cfg, Report, &Arena::new(), markdown, out, stderr),
-        DocumentType::Thesis => backend::generate(cfg, Thesis, &Arena::new(), markdown, out, stderr),
+        DocumentType::Article => backend::generate(cfg, Article::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Beamer => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Report => backend::generate(cfg, Report::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Thesis => backend::generate(cfg, Thesis::new(), &Arena::new(), markdown, out, stderr),
     };
     match res {
         Ok(()) => (),

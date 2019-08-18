@@ -1,4 +1,4 @@
-```pundoc
+```config
 document_type = "beamer"
 lang = "en"
 title = "Test Markdown File"
@@ -11,16 +11,32 @@ supervisor = "My Supervisor"
 citestyle = "ieee"
 ```
 
+[toc]
+
 # A very in-depth talk
 
-## Rust Code
+## Code
 
-Some rust code on a slide:
+### Rust code
 
 ```rust
 fn main() {
-    let foo = bar();
+    println!("Hello World");
 }
+```
+
+### Python code
+
+```python
+print("Hello World")
+```
+
+---
+
+Some bash code on a different slide:
+
+```bash
+echo "Hello World"
 ```
 
 [include functionality/graphviz.md]
@@ -33,11 +49,5 @@ fn main() {
 > -- [@wikipedia-markdown]
 
 [appendix]
-
-[listoflistings]
-
-[listoftables]
-
-[listoffigures]
 
 [bibliography]
