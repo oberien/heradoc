@@ -18,9 +18,9 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
     ) -> Result<Self> {
         let WithRange(CodeBlock { label, caption, language }, _range) = code_block;
 
-        let out = gen.get_out();
+        let mut out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}[")?;
-        let mut joiner = OutJoiner::new(out);
+        let mut joiner = OutJoiner::new(&mut out, b", ");
         if let Some(WithRange(label, _)) = label {
             joiner.join(format_args!("label={{{}}}", label))?;
         }
@@ -30,7 +30,6 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
         if let Some(WithRange(language, _)) = language {
             joiner.join(format_args!("language={{{}}}", language))?;
         }
-        let out = joiner.into_inner();
         writeln!(out, "]")?;
 
         Ok(CodeBlockGen)

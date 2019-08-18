@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::error::{FatalResult, Result, Error};
 use crate::diagnostics::Diagnostics;
 use crate::frontend::range::SourceRange;
+use crate::util::OutJoiner;
 
 #[derive(Debug)]
 pub struct Beamer {
@@ -141,7 +142,7 @@ impl<'a> Backend<'a> for Beamer {
         }
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, mut out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         write!(out, "\\documentclass[")?;
         write!(out, "{},", cfg.fontsize)?;
         for other in &cfg.classoptions {
@@ -154,6 +155,7 @@ impl<'a> Backend<'a> for Beamer {
         writeln!(out, "hyperref={{pdfusetitle}},")?;
 
         writeln!(out, "]{{beamer}}")?;
+        writeln!(out, "\\usetheme{{Madrid}}")?;
         writeln!(out)?;
 
         preamble::write_packages(cfg, out)?;
@@ -188,6 +190,32 @@ impl<'a> Backend<'a> for Beamer {
         writeln!(out, "\\newcommand*{{\\getLocation}}{{{}}}", get(&cfg.location))?;
 
         writeln!(out, "\\pagenumbering{{alph}}")?;
+        writeln!(out)?;
+
+        if cfg.title.is_some() {
+            writeln!(out, "\\title{{\\getTitle}}")?;
+        }
+        if cfg.subtitle.is_some() {
+            writeln!(out, "\\subtitle{{\\getSubtitle}}")?;
+        }
+        if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
+            write!(out, "\\author[\\getAuthor]{{")?;
+            let mut joiner = OutJoiner::new(&mut out, b"\\\\");
+            if cfg.author.is_some() {
+                joiner.join(format_args!("\\getAuthor"))?;
+            }
+            if cfg.advisor.is_some() {
+                joiner.join(format_args!("[0.75em]{{\\footnotesize Advisor: \\getAdvisor}}"))?;
+            }
+            if cfg.supervisor.is_some() {
+                joiner.join(format_args!("{{\\footnotesize Supervisor: \\getSupervisor}}"))?;
+            }
+            write!(out, "}}")?;
+        }
+        writeln!(out, "\\date{{\\getDate}}")?;
+        writeln!(out)?;
+
+        writeln!(out, "\\frame{{\\titlepage}}")?;
 
         Ok(())
     }
