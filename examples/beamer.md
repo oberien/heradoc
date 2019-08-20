@@ -9,6 +9,8 @@ publisher = "My Publisher"
 advisor = "My Advisor"
 supervisor = "My Supervisor"
 citestyle = "ieee"
+sectionframes = true
+beamertheme = "Madrid"
 ```
 
 [toc]

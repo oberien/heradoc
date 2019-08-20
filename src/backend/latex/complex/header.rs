@@ -63,6 +63,7 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for BookHeaderGen<'a> {
 
 #[derive(Debug)]
 pub struct BeamerHeaderGen<'a> {
+    cfg: &'a Config,
     level: i32,
     label: WithRange<Cow<'a, str>>,
     range: SourceRange,
@@ -70,7 +71,7 @@ pub struct BeamerHeaderGen<'a> {
 
 impl<'a> StatefulCodeGenUnit<'a, Beamer, Header<'a>> for BeamerHeaderGen<'a> {
     fn new(
-        _cfg: &'a Config, header: WithRange<Header<'a>>,
+        cfg: &'a Config, header: WithRange<Header<'a>>,
         gen: &mut Generator<'a, Beamer, impl Write>,
     ) -> Result<Self> {
         let (diagnostics, backend, mut out) = gen.backend_and_out();
@@ -81,18 +82,18 @@ impl<'a> StatefulCodeGenUnit<'a, Beamer, Header<'a>> for BeamerHeaderGen<'a> {
 
         write!(out, "\\{}section{{", "sub".repeat(level as usize - 1))?;
 
-        Ok(BeamerHeaderGen { level, label, range })
+        Ok(BeamerHeaderGen { cfg, level, label, range })
     }
 
     fn finish(
         self, gen: &mut Generator<'a, Beamer, impl Write>,
         _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
-        let BeamerHeaderGen { level, label, range } = self;
+        let BeamerHeaderGen { cfg, level, label, range } = self;
         let (diagnostics, backend, mut out) = gen.backend_and_out();
         writeln!(out, "}}\\label{{{}}}\n", label.0)?;
 
-        backend.open_until(level, &mut out, range, diagnostics)?;
+        backend.open_until(level, cfg, &mut out, range, diagnostics)?;
         Ok(())
     }
 }

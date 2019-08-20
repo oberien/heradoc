@@ -20,7 +20,7 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
 
         let mut out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}[")?;
-        let mut joiner = OutJoiner::new(&mut out, b", ");
+        let mut joiner = OutJoiner::new(&mut out, ", ");
         if let Some(WithRange(label, _)) = label {
             joiner.join(format_args!("label={{{}}}", label))?;
         }

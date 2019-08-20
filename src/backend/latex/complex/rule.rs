@@ -34,26 +34,27 @@ impl<'a> CodeGenUnit<'a, ()> for RuleGen {
 }
 
 #[derive(Debug)]
-pub struct BeamerRuleGen {
+pub struct BeamerRuleGen<'a> {
+    cfg: &'a Config,
     range: SourceRange,
 }
 
-impl<'a> StatefulCodeGenUnit<'a, Beamer, ()> for BeamerRuleGen {
+impl<'a> StatefulCodeGenUnit<'a, Beamer, ()> for BeamerRuleGen<'a> {
     fn new(
-        _cfg: &'a Config, WithRange(_, range): WithRange<()>,
+        cfg: &'a Config, WithRange(_, range): WithRange<()>,
         _gen: &mut Generator<'a, Beamer, impl Write>,
     ) -> Result<Self> {
-        Ok(BeamerRuleGen { range })
+        Ok(BeamerRuleGen { cfg, range })
     }
 
     fn finish(
         self, gen: &mut Generator<'a, Beamer, impl Write>,
         _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
-        let BeamerRuleGen { range } = self;
+        let BeamerRuleGen { cfg, range } = self;
         let (diagnostics, backend, mut out) = gen.backend_and_out();
         backend.close_until(2, &mut out, range, diagnostics)?;
-        backend.open_until(2, &mut out, range, diagnostics)?;
+        backend.open_until(2, cfg, &mut out, range, diagnostics)?;
         Ok(())
     }
 }

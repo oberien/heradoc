@@ -22,7 +22,8 @@ impl Beamer {
     /// Closes the beamerboxesrounded / slides until including the given level.
     /// Also performs the according checks and updates the heading stack.
     pub fn close_until(
-        &mut self, level: i32, out: &mut impl Write, range: SourceRange, diagnostics: &Diagnostics<'_>
+        &mut self, level: i32, out: &mut impl Write, range: SourceRange,
+        diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
         check_level(level, range, diagnostics)?;
 
@@ -45,14 +46,15 @@ impl Beamer {
     /// Opens the beamerboxesrounded / slides until including the given level, updating the heading
     /// stack.
     pub fn open_until(
-        &mut self, level: i32, out: &mut impl Write, range: SourceRange, diagnostics: &Diagnostics<'_>
+        &mut self, level: i32, cfg: &Config, out: &mut impl Write, range: SourceRange,
+        diagnostics: &Diagnostics<'_>,
     ) -> Result<()> {
         check_level(level, range, diagnostics)?;
         let last = self.headings.last().cloned().unwrap_or(0);
         for level in (last+1)..=level {
             self.headings.push(level);
             match level {
-                1 => {
+                1 => if cfg.sectionframes {
                     writeln!(out, "\\begin{{frame}}")?;
                     writeln!(out, "\\Huge\\centering \\insertsection")?;
                     writeln!(out, "\\end{{frame}}\n")?;
@@ -107,7 +109,7 @@ impl<'a> Backend<'a> for Beamer {
     type Appendix = latex::AppendixGen;
 
     type Paragraph = latex::ParagraphGen;
-    type Rule = latex::BeamerRuleGen;
+    type Rule = latex::BeamerRuleGen<'a>;
     type Header = latex::BeamerHeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
@@ -155,7 +157,7 @@ impl<'a> Backend<'a> for Beamer {
         writeln!(out, "hyperref={{pdfusetitle}},")?;
 
         writeln!(out, "]{{beamer}}")?;
-        writeln!(out, "\\usetheme{{Madrid}}")?;
+        writeln!(out, "\\usetheme{{{}}}", cfg.beamertheme)?;
         writeln!(out)?;
 
         preamble::write_packages(cfg, out)?;
@@ -200,7 +202,7 @@ impl<'a> Backend<'a> for Beamer {
         }
         if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
             write!(out, "\\author[\\getAuthor]{{")?;
-            let mut joiner = OutJoiner::new(&mut out, b"\\\\");
+            let mut joiner = OutJoiner::new(&mut out, "\\\\");
             if cfg.author.is_some() {
                 joiner.join(format_args!("\\getAuthor"))?;
             }
@@ -215,7 +217,9 @@ impl<'a> Backend<'a> for Beamer {
         writeln!(out, "\\date{{\\getDate}}")?;
         writeln!(out)?;
 
-        writeln!(out, "\\frame{{\\titlepage}}")?;
+        if cfg.titlepage {
+            writeln!(out, "\\frame{{\\titlepage}}")?;
+        }
 
         Ok(())
     }

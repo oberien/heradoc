@@ -147,6 +147,11 @@ pub struct FileConfig {
     pub abstract1: Option<String>,
     /// Path to a second file containing the abstract in a different language.
     pub abstract2: Option<String>,
+    // only for beamer
+    /// If true, inserts titleframes for each section before starting with that section's content frames
+    pub sectionframes: Option<bool>,
+    /// Theme to use for beamer presentations. Defaults to Madrid.
+    pub beamertheme: Option<String>,
 
     /// Custom header includes
     #[structopt(long = "header-includes")]
@@ -212,6 +217,9 @@ pub struct Config {
     pub disclaimer: Option<String>,
     pub abstract1: Option<PathBuf>,
     pub abstract2: Option<PathBuf>,
+    // only for beamer
+    pub sectionframes: bool,
+    pub beamertheme: String,
 
     pub header_includes: Vec<String>,
 
@@ -402,6 +410,8 @@ impl Config {
             disclaimer: args.fileconfig.disclaimer.or(infile.disclaimer).or(file.disclaimer),
             abstract1,
             abstract2,
+            sectionframes: args.fileconfig.sectionframes.or(infile.sectionframes).or(file.sectionframes).unwrap_or(true),
+            beamertheme: args.fileconfig.beamertheme.or(infile.beamertheme).or(file.beamertheme).unwrap_or_else(|| "Madrid".to_string()),
             classoptions,
             header_includes,
             geometry: args.fileconfig.geometry.merge(infile.geometry).merge(file.geometry),
