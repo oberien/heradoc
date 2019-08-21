@@ -182,38 +182,43 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn get_out<'s: 'b, 'b>(&'s mut self) -> &'b mut dyn Write {
-        self.stack
-            .iter_mut()
-            .rev()
-            .filter_map(|state| state.output_redirect())
-            .next()
-            .unwrap_or(&mut self.default_out)
+        self.top_context().4
     }
 
-    fn top_context(&mut self) -> (&mut Context, &Diagnostics<'a>, &mut Resolver) {
-        let (context, diagnostics) = self.stack
-            .iter_mut()
-            .rev()
-            .find_map(|se| match se {
-                StackElement::Context(context, diagnostics) => Some((context, diagnostics)),
-                _ => None,
-            })
-            .expect("no Context???");
-        // partial self borrows aren't a thing, so we need to return the resolver as well as it's
-        // needed in Self::resolve
-        (context, diagnostics, &mut self.resolver)
+    /// Because we don't have partial borrows, returns all information required somewhere in some
+    /// combination, for example for resolving.
+    fn top_context(
+        &mut self
+    ) -> (&mut Context, &Diagnostics<'a>, &mut Resolver, &mut B, &mut dyn Write) {
+        let mut context = None;
+        let mut out = None;
+        for state in &mut self.stack {
+            if context.is_none() {
+                match state {
+                    StackElement::Context(ctx, diagnostics) => context = Some((ctx, diagnostics)),
+                    _ => (),
+                }
+            } else if out.is_none() {
+                out = state.output_redirect();
+            }
+        }
+
+        let (context, diagnostics) = context.expect("no Context???");
+        let out = out.unwrap_or(&mut self.default_out);
+        (context, diagnostics, &mut self.resolver, &mut self.backend, out)
     }
 
     pub fn diagnostics(&mut self) -> &Diagnostics<'a> {
         self.top_context().1
     }
 
-    pub fn backend(&mut self) -> &mut B {
-        &mut self.backend
+    pub fn backend_and_out(&mut self) -> (&Diagnostics<'a>, &mut B, &mut dyn Write) {
+        let (_, diagnostics, _, backend, out) = self.top_context();
+        (diagnostics, backend, out)
     }
 
     fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {
-        let (context, diagnostics, resolver) = self.top_context();
+        let (context, diagnostics, resolver, _, _) = self.top_context();
         resolver.resolve(context, url, range, diagnostics)
     }
 }

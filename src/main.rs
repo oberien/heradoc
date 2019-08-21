@@ -49,8 +49,9 @@ mod ext;
 mod frontend;
 mod generator;
 mod resolve;
+mod util;
 
-use crate::backend::latex::{Article, Report, Thesis};
+use crate::backend::{Backend, latex::{Article, Beamer, Report, Thesis}};
 use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
 use crate::error::Fatal;
 
@@ -98,12 +99,12 @@ fn main() {
             let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
             gen(&cfg, markdown, tex_file);
 
-            pdflatex(tmpdir.path(), &cfg);
+            pdflatex(&tmpdir, &cfg);
             if cfg.bibliography.is_some() {
-                biber(tmpdir.path());
-                pdflatex(tmpdir.path(), &cfg);
+                biber(&tmpdir);
+                pdflatex(&tmpdir, &cfg);
             }
-            pdflatex(tmpdir.path(), &cfg);
+            pdflatex(&tmpdir, &cfg);
             let mut pdf = File::open(tmpdir.path().join("document.pdf"))
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
@@ -115,9 +116,10 @@ fn gen(cfg: &Config, markdown: String, out: impl Write) {
     // TODO: make this configurable
     let stderr = Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto)));
     let res = match cfg.document_type {
-        DocumentType::Article => backend::generate(cfg, Article, &Arena::new(), markdown, out, stderr),
-        DocumentType::Report => backend::generate(cfg, Report, &Arena::new(), markdown, out, stderr),
-        DocumentType::Thesis => backend::generate(cfg, Thesis, &Arena::new(), markdown, out, stderr),
+        DocumentType::Article => backend::generate(cfg, Article::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Beamer => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Report => backend::generate(cfg, Report::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Thesis => backend::generate(cfg, Thesis::new(), &Arena::new(), markdown, out, stderr),
     };
     match res {
         Ok(()) => (),

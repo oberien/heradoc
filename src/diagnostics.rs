@@ -108,7 +108,7 @@ impl<'a> Diagnostics<'a> {
 }
 
 #[must_use = "call `emit` to emit the diagnostic"]
-pub struct DiagnosticBuilder<'a: 'b, 'b> {
+pub struct DiagnosticBuilder<'a, 'b> {
     file_map: &'b FileMap<&'a str>,
     stderr: &'b Arc<Mutex<StandardStream>>,
     diagnostics: Vec<Diagnostic>,

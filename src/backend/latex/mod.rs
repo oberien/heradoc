@@ -8,7 +8,7 @@ mod presentation;
 mod replace;
 mod simple;
 
-pub use self::document::{Article, Report, Thesis};
+pub use self::document::{Article, Beamer, Report, Thesis};
 
 use crate::frontend::range::WithRange;
 
@@ -43,6 +43,7 @@ use self::complex::{
     FootnoteDefinitionGen,
     GraphvizGen,
     HeaderGen,
+    BeamerHeaderGen,
     HtmlBlockGen,
     InlineCodeGen,
     InlineEmphasisGen,
@@ -55,6 +56,7 @@ use self::complex::{
     NumberedEquationGen,
     ParagraphGen,
     RuleGen,
+    BeamerRuleGen,
     TableCellGen,
     TableFigureGen,
     TableGen,

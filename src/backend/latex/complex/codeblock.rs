@@ -6,6 +6,7 @@ use crate::error::Result;
 use crate::frontend::range::WithRange;
 use crate::generator::event::{CodeBlock, Event};
 use crate::generator::Generator;
+use crate::util::OutJoiner;
 
 #[derive(Debug)]
 pub struct CodeBlockGen;
@@ -17,16 +18,17 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
     ) -> Result<Self> {
         let WithRange(CodeBlock { label, caption, language }, _range) = code_block;
 
-        let out = gen.get_out();
+        let mut out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}[")?;
+        let mut joiner = OutJoiner::new(&mut out, ", ");
         if let Some(WithRange(label, _)) = label {
-            write!(out, "label={{{}}},", label)?;
+            joiner.join(format_args!("label={{{}}}", label))?;
         }
         if let Some(WithRange(caption, _)) = caption {
-            write!(out, "caption={{{}}},", caption)?;
+            joiner.join(format_args!("caption={{{}}}", caption))?;
         }
         if let Some(WithRange(language, _)) = language {
-            write!(out, "language={{{}}},", language)?;
+            joiner.join(format_args!("language={{{}}}", language))?;
         }
         writeln!(out, "]")?;
 

@@ -4,7 +4,7 @@ use super::StackElement;
 use crate::backend::Backend;
 use crate::diagnostics::Diagnostics;
 
-pub struct Stack<'a: 'b, 'b, B: Backend<'a>, W: Write> {
+pub struct Stack<'a, 'b, B: Backend<'a>, W: Write> {
     default_out: &'b mut W,
     stack: &'b mut [StackElement<'a, B>],
 }
