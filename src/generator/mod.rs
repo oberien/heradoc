@@ -192,7 +192,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     ) -> (&mut Context, &Diagnostics<'a>, &mut Resolver, &mut B, &mut dyn Write) {
         let mut context = None;
         let mut out = None;
-        for state in &mut self.stack {
+        for state in self.stack.iter_mut().rev() {
             if context.is_none() {
                 match state {
                     StackElement::Context(ctx, diagnostics) => context = Some((ctx, diagnostics)),
