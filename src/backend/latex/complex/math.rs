@@ -54,7 +54,7 @@ impl<'a> CodeGenUnit<'a, Equation<'a>> for EquationGen<'a> {
         _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         let out = gen.get_out();
-        write!(out, "\\end{{align*}}")?;
+        writeln!(out, "\\end{{align*}}")?;
         self.inline_fig.write_end(out)?;
         Ok(())
     }
