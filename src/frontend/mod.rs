@@ -363,12 +363,19 @@ impl<'a> Frontend<'a> {
         let mut cskvp = cskvp.unwrap_or_default();
         let tag = match &*language {
             "equation" | "$$" => {
-                Tag::Equation(Equation { label: cskvp.take_label(), caption: cskvp.take_caption() })
+                Tag::MathBlock (MathBlock {
+                    kind: MathBlockKind::Equation,
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
+                })
             },
-            "numberedequation" | "$$$" => Tag::NumberedEquation(Equation {
-                label: cskvp.take_label(),
-                caption: cskvp.take_caption(),
-            }),
+            "numberedequation" | "$$$" => {
+                Tag::MathBlock(MathBlock {
+                    kind: MathBlockKind::NumberedEquation,
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
+                })
+            },
             "graphviz" => {
                 let graphviz = Graphviz {
                     label: cskvp.take_label(),
