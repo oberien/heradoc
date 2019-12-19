@@ -93,8 +93,7 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
-    Equation(Equation<'a>),
-    NumberedEquation(Equation<'a>),
+    MathBlock(MathBlock<'a>),
     Graphviz(Graphviz<'a>),
 }
 
@@ -148,9 +147,16 @@ pub struct Include<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Equation<'a> {
+pub struct MathBlock<'a> {
+    pub kind: MathBlockKind,
     pub label: Option<WithRange<Cow<'a, str>>>,
     pub caption: Option<WithRange<Cow<'a, str>>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum MathBlockKind {
+    Equation,
+    NumberedEquation,
 }
 
 #[derive(Debug, Clone)]

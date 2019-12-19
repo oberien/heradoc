@@ -23,7 +23,7 @@ pub use self::htmlblock::HtmlBlockGen;
 pub use self::inline::{InlineCodeGen, InlineEmphasisGen, InlineStrikethroughGen, InlineStrongGen};
 pub use self::link::{InterLinkWithContentGen, UrlWithContentGen};
 pub use self::list::{EnumerateGen, ItemGen, ListGen};
-pub use self::math::{EquationGen, InlineMathGen, NumberedEquationGen};
+pub use self::math::{InlineMathGen, MathBlockGen};
 pub use self::paragraph::ParagraphGen;
 pub use self::rule::{RuleGen, BeamerRuleGen};
 pub use self::table::{TableCellGen, TableGen, TableHeadGen, TableRowGen};

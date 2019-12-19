@@ -14,7 +14,6 @@ use crate::generator::event::{
     BiberReference,
     CodeBlock,
     Enumerate,
-    Equation,
     Event,
     Figure,
     FootnoteDefinition,
@@ -24,6 +23,7 @@ use crate::generator::event::{
     Image,
     Svg,
     InterLink,
+    MathBlock,
     Pdf,
     Table,
     TaskListMarker,
@@ -92,8 +92,7 @@ pub trait Backend<'a>: Sized + Debug {
     type InlineCode: StatefulCodeGenUnit<'a, Self, ()>;
     type InlineMath: StatefulCodeGenUnit<'a, Self, ()>;
 
-    type Equation: StatefulCodeGenUnit<'a, Self, Equation<'a>>;
-    type NumberedEquation: StatefulCodeGenUnit<'a, Self, Equation<'a>>;
+    type MathBlock: StatefulCodeGenUnit<'a, Self, MathBlock<'a>>;
     type Graphviz: StatefulCodeGenUnit<'a, Self, Graphviz<'a>>;
 
     fn new() -> Self;

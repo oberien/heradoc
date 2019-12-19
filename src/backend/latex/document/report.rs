@@ -57,8 +57,7 @@ impl<'a> Backend<'a> for Report {
     type InlineCode = latex::InlineCodeGen;
     type InlineMath = latex::InlineMathGen;
 
-    type Equation = latex::EquationGen<'a>;
-    type NumberedEquation = latex::NumberedEquationGen<'a>;
+    type MathBlock = latex::MathBlockGen<'a>;
     type Graphviz = latex::GraphvizGen<'a>;
 
     fn new() -> Self {

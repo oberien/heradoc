@@ -35,8 +35,7 @@ pub enum StackElement<'a, B: Backend<'a>> {
     InlineStrikethrough(B::InlineStrikethrough),
     InlineCode(B::InlineCode),
     InlineMath(B::InlineMath),
-    Equation(B::Equation),
-    NumberedEquation(B::NumberedEquation),
+    MathBlock(B::MathBlock),
     Graphviz(B::Graphviz),
 
     // resolve context
@@ -73,8 +72,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             Tag::InlineStrikethrough => Ok(InlineStrikethrough(B::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
             Tag::InlineCode => Ok(InlineCode(B::InlineCode::new(cfg, WithRange((), range), gen)?)),
             Tag::InlineMath => Ok(InlineMath(B::InlineMath::new(cfg, WithRange((), range), gen)?)),
-            Tag::Equation(equation) => Ok(Equation(B::Equation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::NumberedEquation(equation) => Ok(NumberedEquation(B::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
+            Tag::MathBlock(block) => Ok(MathBlock(B::MathBlock::new(cfg, WithRange(block, range), gen)?)),
             Tag::Graphviz(graphviz) => Ok(Graphviz(B::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
         }
     }
@@ -104,8 +102,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             InlineStrikethrough(s) => s.output_redirect(),
             InlineCode(s) => s.output_redirect(),
             InlineMath(s) => s.output_redirect(),
-            Equation(s) => s.output_redirect(),
-            NumberedEquation(s) => s.output_redirect(),
+            MathBlock(s) => s.output_redirect(),
             Graphviz(s) => s.output_redirect(),
 
             Context(..) => None,
@@ -137,8 +134,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             (InlineStrikethrough(s), Tag::InlineStrikethrough) => s.finish(gen, peek),
             (InlineCode(s), Tag::InlineCode) => s.finish(gen, peek),
             (InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
-            (Equation(s), Tag::Equation(_)) => s.finish(gen, peek),
-            (NumberedEquation(s), Tag::NumberedEquation(_)) => s.finish(gen, peek),
+            (MathBlock(s), Tag::MathBlock(_)) => s.finish(gen, peek),
             (Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
             (state, tag) => unreachable!("invalid end tag {:?}, expected {:?}", tag, state),
         }
@@ -176,16 +172,9 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
         }
     }
 
-    pub fn is_equation(&self) -> bool {
+    pub fn is_math_block(&self) -> bool {
         match self {
-            Equation(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_numbered_equation(&self) -> bool {
-        match self {
-            NumberedEquation(_) => true,
+            MathBlock(_) => true,
             _ => false,
         }
     }
@@ -196,7 +185,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
     }
 
     pub fn is_math(&self) -> bool {
-        self.is_equation() || self.is_numbered_equation() || self.is_inline_math()
+        self.is_math_block() || self.is_inline_math()
     }
 
     #[allow(dead_code)]
