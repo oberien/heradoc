@@ -43,6 +43,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage{{environ}}")?;
     writeln!(out, "\\usepackage{{amssymb}}")?;
     writeln!(out, "\\usepackage{{amsmath}}")?;
+    writeln!(out, "\\usepackage{{amsthm}}")?;
     writeln!(out, "\\usepackage{{stmaryrd}}")?;
     writeln!(out, "\\usepackage[gen]{{eurosym}}")?;
     writeln!(out, "\\usepackage[normalem]{{ulem}}")?;
@@ -76,6 +77,7 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "{}", IMAGE_WITH_TEXT)?;
     writeln!(out, "{}", SCALE_TIKZ_PICTURE_TO_WIDTH)?;
     writeln!(out, "{}", TABULARX)?;
+    writeln!(out, "{}", AMSTHM_DEFAULTS)?;
     // TODO: figures inline? https://tex.stackexchange.com/a/11342 last codeblock
     // with package float and `[H]`
 
@@ -442,4 +444,15 @@ pub const TABULARX: &str = r#"
 \newcolumntype{C}{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}X}
 \newcolumntype{R}{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}X}
 \renewcommand\tabularxcolumn[1]{m{#1}}
+"#;
+
+// TODO: i18n? How to interact with this smartly?
+pub const AMSTHM_DEFAULTS: &str = r#"
+\newcounter{common-thm-ctr}
+\theoremstyle{plain}
+\newtheorem{amsthm-theorem}[common-thm-ctr]{Theorem}
+\newtheorem{amsthm-lemma}[common-thm-ctr]{Lemma}
+\newtheorem{amsthm-corollary}[common-thm-ctr]{Corollary}
+\theoremstyle{amsthm-definition}
+\newtheorem{amsthm-definition}[common-thm-ctr]{Definition}
 "#;

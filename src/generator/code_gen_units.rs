@@ -37,6 +37,7 @@ pub enum StackElement<'a, B: Backend<'a>> {
     InlineMath(B::InlineMath),
     MathBlock(B::MathBlock),
     Graphviz(B::Graphviz),
+    Proof(B::Proof),
 
     // resolve context
     Context(Context, Arc<Diagnostics<'a>>),
@@ -74,6 +75,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             Tag::InlineMath => Ok(InlineMath(B::InlineMath::new(cfg, WithRange((), range), gen)?)),
             Tag::MathBlock(block) => Ok(MathBlock(B::MathBlock::new(cfg, WithRange(block, range), gen)?)),
             Tag::Graphviz(graphviz) => Ok(Graphviz(B::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
+            Tag::Proof(proof) => Ok(Proof(B::Proof::new(cfg, WithRange(proof, range), gen)?)),
         }
     }
 
@@ -104,6 +106,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             InlineMath(s) => s.output_redirect(),
             MathBlock(s) => s.output_redirect(),
             Graphviz(s) => s.output_redirect(),
+            Proof(s) => s.output_redirect(),
 
             Context(..) => None,
         }
@@ -136,6 +139,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             (InlineMath(s), Tag::InlineMath) => s.finish(gen, peek),
             (MathBlock(s), Tag::MathBlock(_)) => s.finish(gen, peek),
             (Graphviz(s), Tag::Graphviz(_)) => s.finish(gen, peek),
+            (Proof(s), Tag::Proof(_)) => s.finish(gen, peek),
             (state, tag) => unreachable!("invalid end tag {:?}, expected {:?}", tag, state),
         }
     }

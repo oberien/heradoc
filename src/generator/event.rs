@@ -17,6 +17,8 @@ pub use crate::frontend::{
     Table,
     TaskListMarker,
     Url,
+    Proof,
+    ProofKind,
 };
 pub use pulldown_cmark::Alignment;
 
