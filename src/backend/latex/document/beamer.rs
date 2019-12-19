@@ -136,6 +136,7 @@ impl<'a> Backend<'a> for Beamer {
 
     type MathBlock = latex::MathBlockGen<'a>;
     type Graphviz = latex::GraphvizGen<'a>;
+    type Proof = latex::ProofGen;
 
     fn new() -> Self {
         Beamer {

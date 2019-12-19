@@ -160,6 +160,14 @@ impl<'a> Cskvp<'a> {
         self.double.remove(key)
     }
 
+    pub fn take_single(&mut self) -> Option<WithRange<Cow<'a, str>>> {
+        if self.single.is_empty() {
+            None
+        } else {
+            Some(self.single.remove(0))
+        }
+    }
+
     /// Removes all elements from `self`.
     ///
     /// This can be used before dropping `Cskvp` to omit all "unused attribute" warnings.

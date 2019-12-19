@@ -43,6 +43,8 @@ Reference to [#test-heading].
 
 [include examples/functionality/math.md]
 
+[include examples/functionality/theorem.md]
+
 [include examples/functionality/latex-block.md]
 
 [appendix]

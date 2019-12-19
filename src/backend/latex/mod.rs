@@ -54,6 +54,7 @@ use self::complex::{
     ListGen,
     MathBlockGen,
     ParagraphGen,
+    ProofGen,
     RuleGen,
     BeamerRuleGen,
     TableCellGen,

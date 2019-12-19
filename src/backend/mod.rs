@@ -28,6 +28,7 @@ use crate::generator::event::{
     Table,
     TaskListMarker,
     Url,
+    Proof,
 };
 use crate::generator::{Generator, Stack};
 
@@ -94,6 +95,7 @@ pub trait Backend<'a>: Sized + Debug {
 
     type MathBlock: StatefulCodeGenUnit<'a, Self, MathBlock<'a>>;
     type Graphviz: StatefulCodeGenUnit<'a, Self, Graphviz<'a>>;
+    type Proof: StatefulCodeGenUnit<'a, Self, Proof<'a>>;
 
     fn new() -> Self;
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()>;
