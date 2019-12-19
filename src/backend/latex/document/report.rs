@@ -66,24 +66,11 @@ impl<'a> Backend<'a> for Report {
 
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
-        // documentclass
-        write!(out, "\\documentclass[")?;
-        write!(out, "{},", cfg.fontsize)?;
-        match cfg.titlepage {
-            true => write!(out, "titlepage,")?,
-            false => write!(out, "notitlepage,")?,
-        }
-        for other in &cfg.classoptions {
-            write!(out, "{},", other)?;
-        }
-        writeln!(out, "]{{scrreprt}}")?;
-        writeln!(out)?;
-
+        preamble::write_documentclass(cfg, out, "scrreprt", "")?;
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
 
         writeln!(out)?;
-        writeln!(out, "\\def \\ifempty#1{{\\ifx\\empty#1}}")?;
 
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;

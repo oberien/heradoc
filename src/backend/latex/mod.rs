@@ -4,7 +4,6 @@ use std::io::{Result, Write};
 mod complex;
 mod document;
 mod preamble;
-mod presentation;
 mod replace;
 mod simple;
 

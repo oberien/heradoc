@@ -145,26 +145,13 @@ impl<'a> Backend<'a> for Beamer {
     }
 
     fn gen_preamble(&mut self, cfg: &Config, mut out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
-        write!(out, "\\documentclass[")?;
-        write!(out, "{},", cfg.fontsize)?;
-        for other in &cfg.classoptions {
-            write!(out, "{},", other)?;
-        }
-
         // Beamer already loads internally color, hyperref, xcolor. Correct their options.
-        writeln!(out, "color={{usenames,dvipsnames}},")?;
-        writeln!(out, "xcolor={{usenames,dvipsnames}},")?;
-        writeln!(out, "hyperref={{pdfusetitle}},")?;
-
-        writeln!(out, "]{{beamer}}")?;
+        preamble::write_documentclass(cfg, out, "beamer", "color={usenames,dvipsnames},xcolor={usenames,dvipsnames},hyperref={pdfusetitle},")?;
         writeln!(out, "\\usetheme{{{}}}", cfg.beamertheme)?;
         writeln!(out)?;
 
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
-
-        writeln!(out)?;
-        writeln!(out, "\\def \\ifempty#1{{\\def\\temp{{#1}} \\ifx\\temp\\empty}}")?;
 
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;

@@ -4,6 +4,22 @@ use isolang::Language;
 
 use crate::config::Config;
 
+pub fn write_documentclass(cfg: &Config, out: &mut impl Write, class: &str, options: &str) -> Result<()> {
+    write!(out, "\\documentclass[")?;
+    write!(out, "{},", cfg.fontsize)?;
+    write!(out, "{}", options)?;
+    match cfg.titlepage {
+        true => write!(out, "titlepage,")?,
+        false => write!(out, "notitlepage,")?,
+    }
+    for other in &cfg.classoptions {
+        write!(out, "{},", other)?;
+    }
+    writeln!(out, "]{{{}}}", class)?;
+    writeln!(out)?;
+    Ok(())
+}
+
 pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
     writeln!(out, "\\usepackage[T1]{{fontenc}}")?;
@@ -86,6 +102,7 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
 }
 
 pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<()> {
+    writeln!(out, "\\def \\ifempty#1{{\\ifx\\empty#1}}")?;
     fn get(o: &Option<String>) -> &str {
         o.as_ref().map_or("", |s| s.as_str())
     }

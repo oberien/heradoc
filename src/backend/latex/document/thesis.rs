@@ -74,21 +74,9 @@ impl<'a> Backend<'a> for Thesis {
 
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
-        // documentclass
-        write!(out, "\\documentclass[")?;
-        write!(out, "{},", cfg.fontsize)?;
-        write!(out, "headsepline,footsepline,BCOR=12mm,DIV=12,")?;
-        for other in &cfg.classoptions {
-            write!(out, "{},", other)?;
-        }
-        writeln!(out, "]{{scrbook}}")?;
-        writeln!(out)?;
-
+        preamble::write_documentclass(cfg, out, "scrbook", "headsepline,footsepline,BCOR=12mm,DIV=12,")?;
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
-
-        writeln!(out)?;
-        writeln!(out, "\\def \\ifempty#1{{\\def\\temp{{#1}} \\ifx\\temp\\empty}}")?;
 
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
