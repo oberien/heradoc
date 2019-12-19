@@ -1,18 +1,12 @@
-use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
-use std::sync::Arc;
 
 use typed_arena::Arena;
 
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
-use crate::diagnostics::Input;
-use crate::error::FatalResult;
-use crate::generator::Generator;
-use crate::resolve::Context;
 use crate::diagnostics::Diagnostics;
+use crate::error::FatalResult;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -100,10 +94,10 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\cleardoublepage{{}}")?;
 
         if let Some(abstract1) = &cfg.abstract1 {
-            gen_abstract(abstract1.clone(), "abstract", cfg, out, diagnostics)?;
+            preamble::gen_abstract(abstract1.clone(), "abstract", &Arena::new(), Thesis, cfg, out, diagnostics)?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            gen_abstract(abstract2.clone(), "abstract2", cfg, out, diagnostics)?;
+            preamble::gen_abstract(abstract2.clone(), "abstra,t2", &Arena::new(), Thesis, cfg, out, diagnostics)?;
         }
 
         writeln!(out)?;
@@ -120,27 +114,4 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }
-}
-
-fn gen_abstract(path: PathBuf, abstract_name: &str, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> FatalResult<()> {
-    let arena = Arena::new();
-    let stderr = Arc::clone(diagnostics.stderr());
-    let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
-    let markdown = fs::read_to_string(&path)?;
-    let context = match Context::from_path(path.clone()) {
-        Ok(context) => context,
-        Err(e) => {
-            diagnostics
-                .error(format!("invalid path to `{}` in the config", abstract_name))
-                .note("can't create a URL from the path")
-                .error(format!("cause: {:?}", e))
-                .note("skipping over it")
-                .emit();
-            return Ok(());
-        }
-    };
-    let input = Input::File(path);
-    let events = gen.get_events(markdown, context, input);
-    gen.generate_body(events)?;
-    Ok(())
 }

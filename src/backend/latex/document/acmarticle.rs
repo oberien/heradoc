@@ -1,5 +1,7 @@
 use std::io::Write;
 
+use typed_arena::Arena;
+
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
@@ -64,7 +66,7 @@ impl<'a> Backend<'a> for AcmArticle {
         AcmArticle
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
         writeln!(out, "\\PassOptionsToPackage{{usenames,dvipsnames}}{{color}}")?;
         writeln!(out, "\\PassOptionsToPackage{{pdfusetitle}}{{hyperref}}")?;
@@ -72,6 +74,12 @@ impl<'a> Backend<'a> for AcmArticle {
         preamble::write_documentclass(cfg, out, "acmart", "nonacm,sigconf,natbib=false,pdfusetitle,")?;
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
+
+        if let Some(abstract1) = &cfg.abstract1 {
+            writeln!(out, "\\begin{{abstract}}")?;
+            preamble::gen_abstract(abstract1.clone(), "abstract", &Arena::new(), AcmArticle, cfg, out, diagnostics)?;
+            writeln!(out, "\\end{{abstract}}")?;
+        }
 
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;

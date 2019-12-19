@@ -1,9 +1,19 @@
 use std::io::{Result, Write};
+use std::path::PathBuf;
+use std::fs;
+use std::sync::Arc;
 
 use isolang::Language;
+use typed_arena::Arena;
 
 use crate::config::Config;
 use crate::util::OutJoiner;
+use crate::backend::Backend;
+use crate::generator::Generator;
+use crate::resolve::Context;
+use crate::diagnostics::Diagnostics;
+use crate::diagnostics::Input;
+use crate::error::FatalResult;
 
 /// Writes the documentclass header of latex documents with the given class and options.
 ///
@@ -190,6 +200,28 @@ pub fn write_manual_titlepage_commands(cfg: &Config, out: &mut impl Write) -> Re
     writeln!(out, "\\newcommand*{{\\getFaculty}}{{{}}}", get(&cfg.faculty))?;
     writeln!(out, "\\newcommand*{{\\getThesisType}}{{{}}}", get(&cfg.thesis_type))?;
     writeln!(out, "\\newcommand*{{\\getLocation}}{{{}}}", get(&cfg.location))
+}
+
+pub fn gen_abstract<'a>(path: PathBuf, abstract_name: &str, arena: &'a Arena<String>, backend: impl Backend<'a>, cfg: &'a Config, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> FatalResult<()> {
+    let stderr = Arc::clone(diagnostics.stderr());
+    let mut gen = Generator::new(cfg, backend, out, &arena, stderr);
+    let markdown = fs::read_to_string(&path)?;
+    let context = match Context::from_path(path.clone()) {
+        Ok(context) => context,
+        Err(e) => {
+            diagnostics
+                .error(format!("invalid path to `{}` in the config", abstract_name))
+                .note("can't create a URL from the path")
+                .error(format!("cause: {:?}", e))
+                .note("skipping over it")
+                .emit();
+            return Ok(());
+        }
+    };
+    let input = Input::File(path);
+    let events = gen.get_events(markdown, context, input);
+    gen.generate_body(events)?;
+    Ok(())
 }
 
 // https://en.wikibooks.org/wiki/LaTeX/Source_Code_Listings
