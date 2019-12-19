@@ -82,7 +82,7 @@ impl<'a> Backend<'a> for Thesis {
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
-        preamble::write_university_commands(cfg, out)?;
+        preamble::write_manual_titlepage_commands(cfg, out)?;
 
         writeln!(out, "\\pagenumbering{{alph}}")?;
         writeln!(out, "{}", preamble::THESIS_COVER)?;

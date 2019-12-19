@@ -3,7 +3,11 @@ use std::io::{Result, Write};
 use isolang::Language;
 
 use crate::config::Config;
+use crate::util::OutJoiner;
 
+/// Writes the documentclass header of latex documents with the given class and options.
+///
+/// Also adds options specified in the config like the fontsize, titlepage and manual classoptions.
 pub fn write_documentclass(cfg: &Config, out: &mut impl Write, class: &str, options: &str) -> Result<()> {
     write!(out, "\\documentclass[")?;
     write!(out, "{},", cfg.fontsize)?;
@@ -20,6 +24,7 @@ pub fn write_documentclass(cfg: &Config, out: &mut impl Write, class: &str, opti
     Ok(())
 }
 
+/// Writes required usepackage statements.
 pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage[utf8]{{inputenc}}")?;
     writeln!(out, "\\usepackage[T1]{{fontenc}}")?;
@@ -79,6 +84,8 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
+/// Writes customized fixes of commands, configuration options of packages, custom commands
+/// and similar, which are used by latex code generation.
 pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\setlength{{\\parindent}}{{0pt}}")?;
     writeln!(out, "\\setlength{{\\parskip}}{{1\\baselineskip plus 2pt minus 2pt}}")?;
@@ -101,7 +108,62 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
-pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<()> {
+/// Sets up variables for the latex maketitle titlepage.
+///
+/// It doesn't write the titlepage itself, that is left to the caller.
+pub fn write_maketitle_info(cfg: &Config, out: &mut impl Write) -> Result<()> {
+    if let Some(title) = &cfg.title {
+        writeln!(out, "\\title{{{}}}", title)?;
+    }
+    if let Some(subtitle) = &cfg.subtitle {
+        writeln!(out, "\\subtitle{{{}}}", subtitle)?;
+    }
+    if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
+        write!(out, "\\author")?;
+        if let Some(author) = &cfg.author {
+            write!(out, "[{}]", author)?;
+        }
+        write!(out, "{{")?;
+        let mut joiner = OutJoiner::new(&mut *out, "\\\\");
+        if let Some(author) = &cfg.author {
+            joiner.join(format_args!("{}", author))?;
+        }
+        if let Some(supervisor) = &cfg.supervisor {
+            joiner.join(format_args!("{{\\footnotesize Supervisor: {}}}", supervisor))?;
+        }
+        if let Some(advisor) = &cfg.advisor {
+            joiner.join(format_args!("{{\\footnotesize Advisor: {}}}", advisor))?;
+        }
+        writeln!(out, "}}")?;
+    }
+    if let Some(date) = &cfg.date {
+        writeln!(out, "\\date{{{}}}", date)?;
+    }
+    if let Some(email) = &cfg.email {
+        writeln!(out, "\\email{{{}}}", email)?;
+    }
+    if cfg.university.is_some() || cfg.faculty.is_some() {
+        write!(out, "\\affiliation{{")?;
+        let mut joiner = OutJoiner::new(&mut *out, "\\\\");
+        if let Some(university) = &cfg.university {
+            joiner.join(format_args!("{}", university))?;
+        }
+        if let Some(faculty) = &cfg.faculty {
+            joiner.join(format_args!("{}", faculty))?;
+        }
+        writeln!(out, "}}")?;
+    }
+    if let Some(publisher) = &cfg.publisher {
+        writeln!(out, "\\publishers{{{}}}", publisher)?;
+    }
+    writeln!(out)?;
+
+    Ok(())
+}
+
+/// If using a manual titlepage template, like Thesis, this command defines latex commands
+/// to be used within that template.
+pub fn write_manual_titlepage_commands(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\def \\ifempty#1{{\\ifx\\empty#1}}")?;
     fn get(o: &Option<String>) -> &str {
         o.as_ref().map_or("", |s| s.as_str())
@@ -109,6 +171,7 @@ pub fn write_university_commands(cfg: &Config, out: &mut impl Write) -> Result<(
     writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
     writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
     writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;
+    writeln!(out, "\\newcommand*{{\\getEmail}}{{{}}}", get(&cfg.email))?;
     writeln!(out, "\\newcommand*{{\\getDate}}{{{}}}", get(&cfg.date))?;
     writeln!(out, "\\newcommand*{{\\getSupervisor}}{{{}}}", get(&cfg.supervisor))?;
     writeln!(out, "\\newcommand*{{\\getAdvisor}}{{{}}}", get(&cfg.advisor))?;

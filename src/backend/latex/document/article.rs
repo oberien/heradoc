@@ -67,7 +67,6 @@ impl<'a> Backend<'a> for Article {
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
         preamble::write_documentclass(cfg, out, "scrartcl", "")?;
-
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
 
@@ -75,42 +74,11 @@ impl<'a> Backend<'a> for Article {
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
-        if let Some(title) = &cfg.title {
-            writeln!(out, "\\title{{{}}}", title)?;
-        }
-        if let Some(subtitle) = &cfg.subtitle {
-            writeln!(out, "\\subtitle{{{}}}", subtitle)?;
-        }
-        if let Some(author) = &cfg.author {
-            writeln!(out, "\\author{{{}}}", author)?;
-        }
-        if let Some(date) = &cfg.date {
-            writeln!(out, "\\date{{{}}}", date)?;
-        }
-        let publisher = match (&cfg.publisher, &cfg.supervisor, &cfg.advisor) {
-            (None, None, None) => None,
-            (a, b, c) => {
-                let mut buffer = String::new();
-                a.as_ref().map(|s| { buffer.push_str(s); buffer.push_str("\\\\"); });
-                // TODO: i18n
-                // TODO: better use table here
-                b.as_ref().map(|s| { buffer.push_str("Supervisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
-                c.as_ref().map(|s| { buffer.push_str("Advisor: "); buffer.push_str(s); buffer.push_str("\\\\"); });
-                // strip possibly leading linebreak
-                buffer.pop(); buffer.pop();
-                Some(buffer)
-            }
-        };
-        if let Some(publisher) = publisher {
-            writeln!(out, "\\publishers{{{}}}", publisher)?;
-        }
-
         if cfg.title.is_some() {
             // TODO: Warn if title isn't set but something else is
+            preamble::write_maketitle_info(cfg, out)?;
             writeln!(out, "\\maketitle")?;
         }
-        writeln!(out)?;
-
         Ok(())
     }
 

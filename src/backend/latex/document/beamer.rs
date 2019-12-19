@@ -6,7 +6,6 @@ use crate::config::Config;
 use crate::error::{FatalResult, Result, Error};
 use crate::diagnostics::Diagnostics;
 use crate::frontend::range::SourceRange;
-use crate::util::OutJoiner;
 
 #[derive(Debug)]
 pub struct Beamer {
@@ -156,57 +155,15 @@ impl<'a> Backend<'a> for Beamer {
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
-
-        fn get(o: &Option<String>) -> &str { o.as_ref().map(|s| s.as_str()).unwrap_or("") }
-        writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
-        writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
-        writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;
-        writeln!(out, "\\newcommand*{{\\getDate}}{{{}}}", get(&cfg.date))?;
-        writeln!(out, "\\newcommand*{{\\getSupervisor}}{{{}}}", get(&cfg.supervisor))?;
-        writeln!(out, "\\newcommand*{{\\getAdvisor}}{{{}}}", get(&cfg.advisor))?;
-        if let Some(logo_university) = cfg.logo_university.as_ref() {
-            writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{{}}}", logo_university.display())?;
-        } else {
-            writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{}}")?;
-        }
-        if let Some(logo_faculty) = cfg.logo_faculty.as_ref() {
-            writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{{}}}", logo_faculty.display())?;
-        } else {
-            writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{}}")?;
-        }
-        writeln!(out, "\\newcommand*{{\\getUniversity}}{{{}}}", get(&cfg.university))?;
-        writeln!(out, "\\newcommand*{{\\getFaculty}}{{{}}}", get(&cfg.faculty))?;
-        writeln!(out, "\\newcommand*{{\\getLocation}}{{{}}}", get(&cfg.location))?;
-
         writeln!(out, "\\pagenumbering{{alph}}")?;
         writeln!(out)?;
 
-        if cfg.title.is_some() {
-            writeln!(out, "\\title{{\\getTitle}}")?;
-        }
-        if cfg.subtitle.is_some() {
-            writeln!(out, "\\subtitle{{\\getSubtitle}}")?;
-        }
-        if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
-            write!(out, "\\author[\\getAuthor]{{")?;
-            let mut joiner = OutJoiner::new(&mut out, "\\\\");
-            if cfg.author.is_some() {
-                joiner.join(format_args!("\\getAuthor"))?;
-            }
-            if cfg.advisor.is_some() {
-                joiner.join(format_args!("[0.75em]{{\\footnotesize Advisor: \\getAdvisor}}"))?;
-            }
-            if cfg.supervisor.is_some() {
-                joiner.join(format_args!("{{\\footnotesize Supervisor: \\getSupervisor}}"))?;
-            }
-            write!(out, "}}")?;
-        }
-        writeln!(out, "\\date{{\\getDate}}")?;
-        writeln!(out)?;
-
         if cfg.titlepage {
+            // TODO: warn if any info is set but titlepage false
+            preamble::write_maketitle_info(cfg, out)?;
             writeln!(out, "\\frame{{\\titlepage}}")?;
         }
+
 
         Ok(())
     }
