@@ -270,9 +270,9 @@ pub const LST_DEFINE_RUST: &str = r#"
 
 pub const LST_DEFINE_JS: &str = r#"
 \lstdefinelanguage{js}{
-  keywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, if, in, while, do, else, case, break},
+  keywords={typeof, new, true, false, catch, function, return, null, catch, switch, var, let, const, if, in, while, do, else, case, break},
   keywordstyle=\color{blue}\bfseries,
-  ndkeywords={class, export, boolean, throw, implements, import, this},
+  ndkeywords={class, export, boolean, throw, implements, import, this, console},
   ndkeywordstyle=\color{darkgray}\bfseries,
   identifierstyle=\color{black},
   sensitive=false,
