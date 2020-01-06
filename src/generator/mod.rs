@@ -90,11 +90,15 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         };
         let events = self.get_events(markdown, context, input);
         if let Some(template) = self.template.take() {
-            let body_index =
-                template.find("\nHERADOCBODY\n").expect("HERADOCBODY not found in template");
-            self.default_out.write_all(&template.as_bytes()[..body_index])?;
+            let body_index = template
+                .find("\nHERADOCBODY\n")
+                .expect("HERADOCBODY not found in template on");
+
+            let head = &template.as_bytes()[..body_index];
+            let tail = &template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..];
+            self.default_out.write_all(head)?;
             self.generate_body(events)?;
-            self.default_out.write_all(&template.as_bytes()[body_index + "\nHERADOCBODY\n".len()..])?;
+            self.default_out.write_all(tail)?;
         } else {
             let diagnostics = Arc::clone(&events.diagnostics);
             self.backend.gen_preamble(self.cfg, &mut self.default_out, &diagnostics)?;
