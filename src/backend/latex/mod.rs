@@ -25,6 +25,7 @@ use self::simple::{
     ListOfListingsGen,
     ListOfTablesGen,
     PdfGen,
+    BeamerPdfGen,
     SoftBreakGen,
     TableOfContentsGen,
     TaskListMarkerGen,

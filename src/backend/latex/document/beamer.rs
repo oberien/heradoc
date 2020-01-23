@@ -96,7 +96,7 @@ impl<'a> Backend<'a> for Beamer {
     type InterLink = latex::InterLinkGen;
     type Image = latex::ImageGen;
     type Label = latex::LabelGen;
-    type Pdf = latex::PdfGen;
+    type Pdf = latex::BeamerPdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
     type TaskListMarker = latex::TaskListMarkerGen;

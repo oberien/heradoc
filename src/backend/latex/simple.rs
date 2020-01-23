@@ -208,6 +208,18 @@ impl SimpleCodeGenUnit<Pdf> for PdfGen {
 }
 
 #[derive(Debug)]
+pub struct BeamerPdfGen;
+
+impl SimpleCodeGenUnit<Pdf> for BeamerPdfGen {
+    fn gen(pdf: WithRange<Pdf>, out: &mut impl Write) -> Result<()> {
+        let WithRange(Pdf { path }, _range) = pdf;
+
+        writeln!(out, "\\includegraphics{{{}}}", path.display())?;
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
 pub struct SoftBreakGen;
 
 impl SimpleCodeGenUnit<()> for SoftBreakGen {
