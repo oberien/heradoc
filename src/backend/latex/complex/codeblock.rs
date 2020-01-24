@@ -28,6 +28,11 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
             joiner.join(format_args!("caption={{{}}}", caption))?;
         }
         if let Some(WithRange(language, _)) = language {
+            // some fixes for weird latex-specific language naming
+            let language = match language.as_ref() {
+                "asm-x86" | "x86" | "x86-asm" => "[x86_64]{Assembler}",
+                lang => lang
+            };
             joiner.join(format_args!("language={{{}}}", language))?;
         }
         writeln!(out, "]")?;
