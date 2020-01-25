@@ -1,5 +1,11 @@
 use std::borrow::Cow;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path};
+use std::fmt;
+use std::ffi::OsString;
+use std::str::FromStr;
+
+use librsvg::{Loader, LoadingError, RenderingError, CairoRenderer};
+use cairo::{PdfSurface, Context, Rectangle};
 
 pub use crate::frontend::{
     Tag,
@@ -19,7 +25,7 @@ pub use crate::frontend::{
 };
 pub use pulldown_cmark::Alignment;
 
-use crate::frontend::Event as FeEvent;
+use crate::frontend::{Event as FeEvent, Size};
 use crate::frontend::range::WithRange;
 use crate::generator::Events;
 use crate::resolve::Command;
@@ -41,6 +47,7 @@ pub enum Event<'a> {
     /// InterLink without content
     InterLink(InterLink<'a>),
     Image(Image<'a>),
+    Svg(Svg<'a>),
     Label(Cow<'a, str>),
     Pdf(Pdf),
     SoftBreak,
@@ -66,6 +73,82 @@ pub struct Image<'a> {
     pub scale: Option<WithRange<Cow<'a, str>>>,
     pub width: Option<WithRange<Cow<'a, str>>>,
     pub height: Option<WithRange<Cow<'a, str>>>,
+}
+
+/// Vectorgraphic to display as figure.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Svg<'a> {
+    pub label: Option<WithRange<Cow<'a, str>>>,
+    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub title: Option<Cow<'a, str>>,
+    pub alt_text: Option<String>,
+    /// Path to read image from.
+    pub path: PathBuf,
+    pub scale: Option<WithRange<Cow<'a, str>>>,
+    pub width: Option<WithRange<Cow<'a, str>>>,
+    pub height: Option<WithRange<Cow<'a, str>>>,
+}
+
+pub enum SvgConversionError {
+    UnknownDimensions,
+    LoadingError(LoadingError),
+    RenderingError(RenderingError),
+}
+
+impl fmt::Display for SvgConversionError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SvgConversionError::UnknownDimensions => write!(f, "unknown dimensions"),
+            SvgConversionError::LoadingError(err) => write!(f, "can't load svg: {}", err),
+            SvgConversionError::RenderingError(err) => write!(f, "conversion from svg to pdf failed: {}", err),
+        }
+    }
+}
+impl From<LoadingError> for SvgConversionError {
+    fn from(err: LoadingError) -> Self {
+        SvgConversionError::LoadingError(err)
+    }
+}
+impl From<RenderingError> for SvgConversionError {
+    fn from(err: RenderingError) -> Self {
+        SvgConversionError::RenderingError(err)
+    }
+}
+
+impl<'a> Svg<'a> {
+    /// Converts the SVG to a PDF file and returns its path.
+    ///
+    /// This can be used by backends like latex, which don't support SVGs.
+    pub fn to_pdf_path<P: AsRef<Path>>(&self, temp_dir: P) -> Result<PathBuf, SvgConversionError> {
+        let pdf_extension = self.path.extension()
+            .map(|s| { let mut s = s.to_os_string(); s.push(".pdf"); s })
+            .unwrap_or_else(|| OsString::from("pdf"));
+        let mut pdf_path = temp_dir.as_ref().join(self.path.file_name().unwrap());
+        pdf_path.set_extension(pdf_extension);
+        let handle = Loader::new().read_path(&self.path)?;
+        let renderer = CairoRenderer::new(&handle);
+
+        // cairo uses 72ppi by default, which is equal to 12pt
+        let width = self.width.as_ref()
+            .and_then(|width| Size::from_str(&width.0).ok())
+            .and_then(|size| size.to_f64_opt(72.0, 12.0))
+            .or_else(|| Size::from(renderer.intrinsic_dimensions().width?).to_f64_opt(72.0, 12.0))
+            .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.width))
+            .ok_or(SvgConversionError::UnknownDimensions)?;
+        let height = self.height.as_ref()
+            .and_then(|height| Size::from_str(&height.0).ok())
+            .and_then(|size| size.to_f64_opt(72.0, 12.0))
+            .or_else(|| Size::from(renderer.intrinsic_dimensions().height?).to_f64_opt(72.0, 12.0))
+            .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.height))
+            .ok_or(SvgConversionError::UnknownDimensions)?;
+        let surface = PdfSurface::new(width, height, &pdf_path);
+        let cr = Context::new(&surface);
+        renderer.render_document(
+            &cr,
+            &Rectangle { x: 0.0, y: 0.0, width, height },
+        )?;
+        Ok(pdf_path)
+    }
 }
 
 /// Pdf to include at that point inline.

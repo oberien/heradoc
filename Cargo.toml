@@ -31,6 +31,9 @@ codespan = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc5
 codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc58721415ce3120d05cf117ca81" }
 backtrace = "0.3.14"
 enum-kinds = "0.4.1"
+librsvg = { git="https://gitlab.gnome.org/GNOME/librsvg", rev="6ecab568" }
+cairo-rs = { version = "0.7.0", features = ["pdf"] }
+lexical = "5.0.0"
 
 [profile.release]
 debug = true

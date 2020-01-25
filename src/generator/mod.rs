@@ -111,7 +111,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 
         while let Some(WithRange(event, range)) = events.next(self)? {
             let peek = events.peek(self)?;
-            match self.visit_event(WithRange(event, range), peek) {
+            match self.visit_event(WithRange(event, range), self.cfg, peek) {
                 Ok(()) => {},
                 Err(Error::Diagnostic) => events.skip(self)?,
                 Err(Error::Fatal(fatal)) => return Err(fatal),
@@ -128,7 +128,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn visit_event(
-        &mut self, event: WithRange<Event<'a>>, peek: Option<WithRange<&Event<'a>>>,
+        &mut self, event: WithRange<Event<'a>>, config: &Config, peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         let WithRange(event, range) = event;
         if let Event::End(tag) = event {
@@ -144,33 +144,34 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 let state = StackElement::new(self.cfg, WithRange(tag, range), self)?;
                 self.stack.push(state);
             },
-            Event::Text(text) => B::Text::gen(WithRange(text, range), &mut stack)?,
-            Event::Html(html) => B::Text::gen(WithRange(html, range), &mut stack)?,
-            Event::InlineHtml(html) => B::Text::gen(WithRange(html, range), &mut stack)?,
-            Event::Latex(latex) => B::Latex::gen(WithRange(latex, range), &mut stack)?,
+            Event::Text(text) => B::Text::gen(WithRange(text, range), config, &mut stack)?,
+            Event::Html(html) => B::Text::gen(WithRange(html, range), config, &mut stack)?,
+            Event::InlineHtml(html) => B::Text::gen(WithRange(html, range), config, &mut stack)?,
+            Event::Latex(latex) => B::Latex::gen(WithRange(latex, range), config, &mut stack)?,
             Event::IncludeMarkdown(events) => self.generate_body(*events)?,
             Event::FootnoteReference(fnote) => {
-                B::FootnoteReference::gen(WithRange(fnote, range), &mut stack)?
+                B::FootnoteReference::gen(WithRange(fnote, range), config, &mut stack)?
             },
             Event::BiberReferences(biber) => {
-                B::BiberReferences::gen(WithRange(biber, range), &mut stack)?
+                B::BiberReferences::gen(WithRange(biber, range), config, &mut stack)?
             },
-            Event::Url(url) => B::Url::gen(WithRange(url, range), &mut stack)?,
-            Event::InterLink(interlink) => B::InterLink::gen(WithRange(interlink, range), &mut stack)?,
-            Event::Image(img) => B::Image::gen(WithRange(img, range), &mut stack)?,
-            Event::Label(label) => B::Label::gen(WithRange(label, range), &mut stack)?,
-            Event::Pdf(pdf) => B::Pdf::gen(WithRange(pdf, range), &mut stack)?,
-            Event::SoftBreak => B::SoftBreak::gen(WithRange((), range), &mut stack)?,
-            Event::HardBreak => B::HardBreak::gen(WithRange((), range), &mut stack)?,
+            Event::Url(url) => B::Url::gen(WithRange(url, range), config, &mut stack)?,
+            Event::InterLink(interlink) => B::InterLink::gen(WithRange(interlink, range), config, &mut stack)?,
+            Event::Image(img) => B::Image::gen(WithRange(img, range), config, &mut stack)?,
+            Event::Svg(svg) => B::Svg::gen(WithRange(svg, range), config, &mut stack)?,
+            Event::Label(label) => B::Label::gen(WithRange(label, range), config, &mut stack)?,
+            Event::Pdf(pdf) => B::Pdf::gen(WithRange(pdf, range), config, &mut stack)?,
+            Event::SoftBreak => B::SoftBreak::gen(WithRange((), range), config, &mut stack)?,
+            Event::HardBreak => B::HardBreak::gen(WithRange((), range), config, &mut stack)?,
             Event::TaskListMarker(marker) => {
-                B::TaskListMarker::gen(WithRange(marker, range), &mut stack)?
+                B::TaskListMarker::gen(WithRange(marker, range), config, &mut stack)?
             },
-            Event::TableOfContents => B::TableOfContents::gen(WithRange((), range), &mut stack)?,
-            Event::Bibliography => B::Bibliography::gen(WithRange((), range), &mut stack)?,
-            Event::ListOfTables => B::ListOfTables::gen(WithRange((), range), &mut stack)?,
-            Event::ListOfFigures => B::ListOfFigures::gen(WithRange((), range), &mut stack)?,
-            Event::ListOfListings => B::ListOfListings::gen(WithRange((), range), &mut stack)?,
-            Event::Appendix => B::Appendix::gen(WithRange((), range), &mut stack)?,
+            Event::TableOfContents => B::TableOfContents::gen(WithRange((), range), config, &mut stack)?,
+            Event::Bibliography => B::Bibliography::gen(WithRange((), range), config, &mut stack)?,
+            Event::ListOfTables => B::ListOfTables::gen(WithRange((), range), config, &mut stack)?,
+            Event::ListOfFigures => B::ListOfFigures::gen(WithRange((), range), config, &mut stack)?,
+            Event::ListOfListings => B::ListOfListings::gen(WithRange((), range), config, &mut stack)?,
+            Event::Appendix => B::Appendix::gen(WithRange((), range), config, &mut stack)?,
         }
 
         Ok(())

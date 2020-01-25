@@ -18,6 +18,7 @@ use self::simple::{
     FootnoteReferenceGen,
     HardBreakGen,
     ImageGen,
+    SvgGen,
     InterLinkGen,
     LabelGen,
     LatexGen,

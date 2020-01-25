@@ -22,6 +22,7 @@ use crate::generator::event::{
     Graphviz,
     Header,
     Image,
+    Svg,
     InterLink,
     Pdf,
     Table,
@@ -52,6 +53,7 @@ pub trait Backend<'a>: Sized + Debug {
     type Url: MediumCodeGenUnit<Url<'a>>;
     type InterLink: MediumCodeGenUnit<InterLink<'a>>;
     type Image: MediumCodeGenUnit<Image<'a>>;
+    type Svg: MediumCodeGenUnit<Svg<'a>>;
     type Label: MediumCodeGenUnit<Cow<'a, str>>;
     type Pdf: MediumCodeGenUnit<Pdf>;
     type SoftBreak: MediumCodeGenUnit<()>;
@@ -162,14 +164,14 @@ pub trait SimpleCodeGenUnit<T> {
 /// being passed the stack. The out-writer can be gotten from `stack.get_out()`.
 pub trait MediumCodeGenUnit<T> {
     fn gen<'a, 'b>(
-        data: WithRange<T>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+        data: WithRange<T>, config: &Config, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()>;
 }
 
 // default implementation of Medium… for Simple… such that we can use Medium… everywhere
 impl<C: SimpleCodeGenUnit<T>, T> MediumCodeGenUnit<T> for C {
     fn gen<'a, 'b>(
-        data: WithRange<T>, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+        data: WithRange<T>, _config: &Config, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()> {
         C::gen(data, &mut stack.get_out())
     }
