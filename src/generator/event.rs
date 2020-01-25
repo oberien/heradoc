@@ -119,11 +119,11 @@ impl<'a> Svg<'a> {
     /// Converts the SVG to a PDF file and returns its path.
     ///
     /// This can be used by backends like latex, which don't support SVGs.
-    pub fn to_pdf_path<P: AsRef<Path>>(&self, temp_dir: P) -> Result<PathBuf, SvgConversionError> {
+    pub fn to_pdf_path<P: AsRef<Path>>(&self, out_dir: P) -> Result<PathBuf, SvgConversionError> {
         let pdf_extension = self.path.extension()
             .map(|s| { let mut s = s.to_os_string(); s.push(".pdf"); s })
             .unwrap_or_else(|| OsString::from("pdf"));
-        let mut pdf_path = temp_dir.as_ref().join(self.path.file_name().unwrap());
+        let mut pdf_path = out_dir.as_ref().join(self.path.file_name().unwrap());
         pdf_path.set_extension(pdf_extension);
         let handle = Loader::new().read_path(&self.path)?;
         let renderer = CairoRenderer::new(&handle);

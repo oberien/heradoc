@@ -203,7 +203,7 @@ pub struct SvgGen;
 
 impl<'a> MediumCodeGenUnit<Svg<'a>> for SvgGen {
     fn gen<'b, 'c>(svg: WithRange<Svg<'a>>, config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
-        let pdf_path = match svg.0.to_pdf_path(&config.temp_dir) {
+        let pdf_path = match svg.0.to_pdf_path(&config.out_dir) {
             Ok(path) => path,
             Err(e) => {
                 stack.diagnostics().error("can't convert svg to pdf")
