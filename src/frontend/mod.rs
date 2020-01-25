@@ -13,8 +13,10 @@ mod convert_cow;
 mod event;
 pub mod range;
 mod refs;
+mod size;
 
 pub use self::event::*;
+pub use self::size::*;
 pub use self::refs::LinkType;
 
 use self::concat::Concat;

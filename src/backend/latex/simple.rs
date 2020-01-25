@@ -1,15 +1,18 @@
 use std::borrow::Cow;
 use std::io::Write;
+use std::path::Path;
 
 use super::replace::replace;
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, MediumCodeGenUnit, SimpleCodeGenUnit};
-use crate::error::Result;
+use crate::config::Config;
+use crate::error::{Result, Error};
 use crate::frontend::range::WithRange;
 use crate::generator::event::{
     BiberReference,
     FootnoteReference,
     Image,
+    Svg,
     InterLink,
     Pdf,
     TaskListMarker,
@@ -22,7 +25,7 @@ pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     fn gen<'b, 'c>(
-        text: WithRange<Cow<'a, str>>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+        text: WithRange<Cow<'a, str>>, _config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
     ) -> Result<()> {
         let WithRange(text, _range) = text;
         // TODO: make code-blocks containing unicode allow inline-math
@@ -147,39 +150,71 @@ pub struct ImageGen;
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
     fn gen(image: WithRange<Image<'a>>, out: &mut impl Write) -> Result<()> {
         let WithRange(Image { label, caption, title, alt_text, path, scale, width, height }, _range) = image;
-        let inline_fig = InlineEnvironment::new_figure(label, caption);
-        inline_fig.write_begin(&mut *out)?;
+        includegraphics(out, label, caption, title, alt_text, path, scale, width, height)?;
+        Ok(())
+    }
+}
 
-        if title.is_some() {
-            writeln!(out, "\\pdftooltip{{")?;
-        }
-        if alt_text.is_some() {
-            write!(out, "\\imagewithtext[")?;
-        } else {
-            write!(out, "\\includegraphics[")?;
-        }
+fn includegraphics(out: &mut impl Write, label: Option<WithRange<Cow<'_, str>>>,
+    caption: Option<WithRange<Cow<'_, str>>>, title: Option<Cow<'_, str>>, alt_text: Option<String>,
+    path: impl AsRef<Path>, scale: Option<WithRange<Cow<'_, str>>>, width: Option<WithRange<Cow<'_, str>>>,
+    height: Option<WithRange<Cow<'_, str>>>,
+) -> Result<()> {
+    let inline_fig = InlineEnvironment::new_figure(label, caption);
+    inline_fig.write_begin(&mut *out)?;
 
-        if let Some(WithRange(scale, _)) = scale {
-            write!(out, "scale={}", scale)?;
-        }
-        if let Some(WithRange(width, _)) = width {
-            write!(out, "width={},", width)?;
-        }
-        if let Some(WithRange(height, _)) = height {
-            write!(out, "height={},", height)?;
-        }
+    if title.is_some() {
+        writeln!(out, "\\pdftooltip{{")?;
+    }
+    if alt_text.is_some() {
+        write!(out, "\\imagewithtext[")?;
+    } else {
+        write!(out, "\\includegraphics[")?;
+    }
 
-        if let Some(alt_text) = alt_text {
-            writeln!(out, "]{{{}}}{{{}}}", path.display(), alt_text)?;
-        } else {
-            writeln!(out, "]{{{}}}", path.display())?;
-        }
+    if let Some(WithRange(scale, _)) = scale {
+        write!(out, "scale={}", scale)?;
+    }
+    if let Some(WithRange(width, _)) = width {
+        write!(out, "width={},", width)?;
+    }
+    if let Some(WithRange(height, _)) = height {
+        write!(out, "height={},", height)?;
+    }
 
-        if let Some(title) = title {
-            writeln!(out, "}}{{{}}}", title)?;
-        }
+    write!(out, "]{{{}}}", path.as_ref().display())?;
 
-        inline_fig.write_end(out)?;
+    if let Some(alt_text) = alt_text {
+        write!(out, "{{{}}}", alt_text)?;
+    }
+
+    writeln!(out)?;
+
+    if let Some(title) = title {
+        writeln!(out, "}}{{{}}}", title)?;
+    }
+
+    inline_fig.write_end(out)?;
+    Ok(())
+}
+
+#[derive(Debug)]
+pub struct SvgGen;
+
+impl<'a> MediumCodeGenUnit<Svg<'a>> for SvgGen {
+    fn gen<'b, 'c>(svg: WithRange<Svg<'a>>, config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+        let pdf_path = match svg.0.to_pdf_path(&config.out_dir) {
+            Ok(path) => path,
+            Err(e) => {
+                stack.diagnostics().error("can't convert svg to pdf")
+                    .with_info_section(svg.1, "including this svg")
+                    .error(format!("{}", e))
+                    .emit();
+                return Err(Error::Diagnostic);
+            },
+        };
+        let WithRange(Svg { label, caption, title, alt_text, path: _, scale, width, height }, _range) = svg;
+        includegraphics(&mut stack.get_out(), label, caption, title, alt_text, pdf_path, scale, width, height)?;
         Ok(())
     }
 }
@@ -224,7 +259,7 @@ pub struct HardBreakGen;
 
 impl MediumCodeGenUnit<()> for HardBreakGen {
     fn gen<'b, 'c>(
-        _: WithRange<()>, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+        _: WithRange<()>, _config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
     ) -> Result<()> {
         let in_table = stack.iter().any(|e| e.is_table());
         let out = stack.get_out();

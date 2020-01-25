@@ -95,6 +95,7 @@ impl<'a> Backend<'a> for Beamer {
     type Url = latex::UrlGen;
     type InterLink = latex::InterLinkGen;
     type Image = latex::ImageGen;
+    type Svg = latex::SvgGen;
     type Label = latex::LabelGen;
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;

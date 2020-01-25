@@ -80,6 +80,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage{{array}}")?;
     writeln!(out, "\\usepackage{{pdfcomment}}")?;
     writeln!(out, "\\usepackage{{tabularx}}")?;
+    writeln!(out, "\\usepackage{{grffile}}")?;
     writeln!(out)?;
     Ok(())
 }

@@ -81,6 +81,7 @@ pub enum Include {
     Command(Command),
     Markdown(PathBuf, Context),
     Image(PathBuf),
+    Svg(PathBuf),
     Pdf(PathBuf),
 }
 

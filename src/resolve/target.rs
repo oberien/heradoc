@@ -310,6 +310,7 @@ fn to_include(
     match path.extension().map(|s| s.to_str().unwrap()) {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
+        Some("svg") => Ok(Include::Svg(path)),
         Some("pdf") => Ok(Include::Pdf(path)),
         Some(ext) => {
             diagnostics

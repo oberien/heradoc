@@ -7,7 +7,7 @@ use crate::diagnostics::Input;
 use crate::error::{Error, FatalResult, Result};
 use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude};
 use crate::frontend::range::WithRange;
-use crate::generator::event::{Event, Image, Pdf};
+use crate::generator::event::{Event, Image, Pdf, Svg};
 use crate::generator::Generator;
 use crate::resolve::{Include, ContextType};
 
@@ -129,6 +129,22 @@ impl<'a> Iter<'a> {
         &mut self, WithRange(include, range): WithRange<Include>, image: Option<FeInclude<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
+        let (label, caption, title, alt_text, scale, width, height) =
+            if let Some(FeInclude {
+                label,
+                caption,
+                title,
+                alt_text,
+                dst: _dst,
+                scale,
+                width,
+                height,
+            }) = image
+            {
+                (label, caption, title, alt_text, scale, width, height)
+            } else {
+                Default::default()
+            };
         match include {
             Include::Command(command) => Ok(command.into()),
             Include::Markdown(path, context) => {
@@ -151,23 +167,19 @@ impl<'a> Iter<'a> {
                 Ok(Event::IncludeMarkdown(Box::new(events)))
             },
             Include::Image(path) => {
-                let (label, caption, title, alt_text, scale, width, height) =
-                    if let Some(FeInclude {
-                        label,
-                        caption,
-                        title,
-                        alt_text,
-                        dst: _dst,
-                        scale,
-                        width,
-                        height,
-                    }) = image
-                    {
-                        (label, caption, title, alt_text, scale, width, height)
-                    } else {
-                        Default::default()
-                    };
                 Ok(Event::Image(Image {
+                    label,
+                    caption,
+                    title,
+                    alt_text,
+                    path,
+                    scale,
+                    width,
+                    height,
+                }))
+            },
+            Include::Svg(path) => {
+                Ok(Event::Svg(Svg {
                     label,
                     caption,
                     title,
