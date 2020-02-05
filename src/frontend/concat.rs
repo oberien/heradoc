@@ -32,6 +32,7 @@ impl<'a> Iterator for Concat<'a> {
             // > foo
             // > bar
             // ```
+            assert!(range.end <= r.start);
             range.end = r.end;
 
             let next = match evt {
