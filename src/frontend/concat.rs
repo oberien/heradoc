@@ -25,8 +25,14 @@ impl<'a> Iterator for Concat<'a> {
 
         while let Some(Event::Text(_)) = self.0.peek().map(|t| t.as_ref().element()) {
             let WithRange(evt, r) = self.0.next().unwrap();
-            // TODO: why are both variants needed?
-            assert!(range.end == r.start || range.end + 1 == r.start);
+            // We can't assume that two text events follow each other directly here.
+            // For example a quote results in two text events following each other having different
+            // offsets in the original markdown content string:
+            // ```md
+            // > foo
+            // > bar
+            // ```
+            assert!(range.end <= r.start);
             range.end = r.end;
 
             let next = match evt {
