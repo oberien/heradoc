@@ -97,7 +97,7 @@ impl<'a> Backend<'a> for Thesis {
             preamble::gen_abstract(abstract1.clone(), "abstract", &Arena::new(), Thesis, cfg, out, diagnostics)?;
         }
         if let Some(abstract2) = &cfg.abstract2 {
-            preamble::gen_abstract(abstract2.clone(), "abstra,t2", &Arena::new(), Thesis, cfg, out, diagnostics)?;
+            preamble::gen_abstract(abstract2.clone(), "abstract2", &Arena::new(), Thesis, cfg, out, diagnostics)?;
         }
 
         writeln!(out)?;
