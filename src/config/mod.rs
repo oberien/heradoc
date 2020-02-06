@@ -381,7 +381,7 @@ impl Config {
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
             figures: args.fileconfig.figures.or(infile.figures).or(file.figures).unwrap_or_else(
                 || match document_type {
-                    DocumentType::Article | DocumentType::Beamer => false,
+                    DocumentType::Article | DocumentType::AcmArticle | DocumentType::Beamer => false,
                     DocumentType::Thesis | DocumentType::Report => true,
                 },
             ),
@@ -556,6 +556,7 @@ impl FromStr for OutType {
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
 pub enum DocumentType {
     Article,
+    AcmArticle,
     Report,
     Thesis,
     Beamer,

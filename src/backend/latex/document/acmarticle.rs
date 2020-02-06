@@ -5,14 +5,14 @@ use typed_arena::Arena;
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
-use crate::diagnostics::Diagnostics;
 use crate::error::FatalResult;
+use crate::diagnostics::Diagnostics;
 
 #[derive(Debug)]
-pub struct Thesis;
+pub struct AcmArticle;
 
 #[rustfmt::skip]
-impl<'a> Backend<'a> for Thesis {
+impl<'a> Backend<'a> for AcmArticle {
     type Text = latex::TextGen;
     type Latex = latex::LatexGen;
     type FootnoteReference = latex::FootnoteReferenceGen;
@@ -20,7 +20,6 @@ impl<'a> Backend<'a> for Thesis {
     type Url = latex::UrlGen;
     type InterLink = latex::InterLinkGen;
     type Image = latex::ImageGen;
-    type Svg = latex::SvgGen;
     type Label = latex::LabelGen;
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
@@ -35,7 +34,7 @@ impl<'a> Backend<'a> for Thesis {
 
     type Paragraph = latex::ParagraphGen;
     type Rule = latex::RuleGen;
-    type Header = latex::BookHeaderGen<'a>;
+    type Header = latex::HeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
     type List = latex::ListGen;
@@ -64,49 +63,33 @@ impl<'a> Backend<'a> for Thesis {
     type Graphviz = latex::GraphvizGen<'a>;
 
     fn new() -> Self {
-        Thesis
+        AcmArticle
     }
 
     fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
-        preamble::write_documentclass(cfg, out, "scrbook", "headsepline,footsepline,BCOR=12mm,DIV=12,")?;
+        writeln!(out, "\\PassOptionsToPackage{{usenames,dvipsnames}}{{color}}")?;
+        writeln!(out, "\\PassOptionsToPackage{{pdfusetitle}}{{hyperref}}")?;
+        writeln!(out, "\\PassOptionsToPackage{{final}}{{microtype}}")?;
+        preamble::write_documentclass(cfg, out, "acmart", "nonacm,sigconf,natbib=false,pdfusetitle,")?;
         preamble::write_packages(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
+
+        if let Some(abstract1) = &cfg.abstract1 {
+            writeln!(out, "\\begin{{abstract}}")?;
+            preamble::gen_abstract(abstract1.clone(), "abstract", &Arena::new(), AcmArticle, cfg, out, diagnostics)?;
+            writeln!(out, "\\end{{abstract}}")?;
+        }
 
         writeln!(out)?;
         writeln!(out, "\\begin{{document}}")?;
         writeln!(out)?;
 
-        preamble::write_manual_titlepage_commands(cfg, out)?;
-
-        writeln!(out, "\\pagenumbering{{alph}}")?;
-        writeln!(out, "{}", preamble::THESIS_COVER)?;
-
-        writeln!(out, "\\frontmatter{{}}")?;
-
-        writeln!(out, "{}", preamble::THESIS_TITLE)?;
-
-        if let Some(disclaimer) = &cfg.disclaimer {
-            writeln!(out, "\\newcommand*{{\\getDisclaimer}}{{{}}}", disclaimer)?;
-            writeln!(out, "{}", preamble::THESIS_DISCLAIMER)?;
+        if cfg.title.is_some() {
+            // TODO: Warn if title isn't set but something else is
+            preamble::write_maketitle_info(cfg, out)?;
+            writeln!(out, "\\maketitle")?;
         }
-
-        writeln!(out, "\\cleardoublepage{{}}")?;
-
-        if let Some(abstract1) = &cfg.abstract1 {
-            preamble::gen_abstract(abstract1.clone(), "abstract", &Arena::new(), Thesis, cfg, out, diagnostics)?;
-        }
-        if let Some(abstract2) = &cfg.abstract2 {
-            preamble::gen_abstract(abstract2.clone(), "abstract2", &Arena::new(), Thesis, cfg, out, diagnostics)?;
-        }
-
-        writeln!(out)?;
-        writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
-        writeln!(out, "\\tableofcontents{{}}")?;
-        writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
-        writeln!(out)?;
-        writeln!(out, "\\mainmatter{{}}")?;
-
         Ok(())
     }
 
