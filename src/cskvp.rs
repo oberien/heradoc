@@ -160,6 +160,10 @@ impl<'a> Cskvp<'a> {
         self.double.remove(key)
     }
 
+    pub fn take_all_double(&mut self) -> HashMap<Cow<'a, str>, WithRange<Cow<'a, str>>> {
+        self.double.drain().collect()
+    }
+
     /// Removes all elements from `self`.
     ///
     /// This can be used before dropping `Cskvp` to omit all "unused attribute" warnings.
@@ -179,7 +183,7 @@ impl<'a> Drop for Cskvp<'a> {
         let mut diag = self
             .diagnostics
             .as_mut()
-            .map(|d| d.warning("unknown attributes in element config")
+            .map(|d| d.warning("unused / unknown attributes in element config")
                 .with_info_section(range, "in this element config"));
         if let Some(WithRange(label, range)) = self.label.take() {
             diag = diag.map(|d| {

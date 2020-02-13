@@ -6,6 +6,7 @@ use enum_kinds::EnumKind;
 
 use crate::frontend::range::WithRange;
 use crate::resolve::{Command, ResolveSecurity};
+use std::collections::HashMap;
 
 // extension of pulldown_cmark::Event with custom types
 #[derive(Debug, EnumKind)]
@@ -111,6 +112,7 @@ pub struct CodeBlock<'a> {
     pub label: Option<WithRange<Cow<'a, str>>>,
     pub caption: Option<WithRange<Cow<'a, str>>>,
     pub language: Option<WithRange<Cow<'a, str>>>,
+    pub attributes: HashMap<Cow<'a, str>, WithRange<Cow<'a, str>>>,
 }
 
 #[derive(Debug, Clone)]
