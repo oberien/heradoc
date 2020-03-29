@@ -17,58 +17,83 @@ pub struct Beamer {
     headings: Vec<i32>,
 }
 
+pub enum FrameEvent {
+    BeginFrame,
+    BeginBox,
+    EndFrame,
+    EndBox,
+}
+
 impl Beamer {
     /// Closes the beamerboxesrounded / slides until including the given level.
     /// Also performs the according checks and updates the heading stack.
-    pub fn close_until(
+    pub fn close_until<C: Default + Extend<FrameEvent>>(
         &mut self, level: i32, out: &mut impl Write, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
-    ) -> Result<()> {
+    ) -> Result<C> {
         check_level(level, range, diagnostics)?;
 
+        let mut levels = C::default();
         while let Some(&stack_level) = self.headings.last() {
             if stack_level < level {
                 break;
             }
             self.headings.pop().unwrap();
             // TODO: make heading-level configurable
-            match stack_level {
-                1 => (),
-                2 => writeln!(out, "\\end{{frame}}\n")?,
-                3 => writeln!(out, "\\end{{beamerboxesrounded}}")?,
+            let event = match stack_level {
+                1 => None,
+                2 => {
+                    writeln!(out, "\\end{{frame}}\n")?;
+                    Some(FrameEvent::EndFrame)
+                },
+                3 => {
+                    writeln!(out, "\\end{{beamerboxesrounded}}")?;
+                    Some(FrameEvent::EndBox)
+                },
                 _ => unreachable!(),
-            }
+            };
+            levels.extend(event);
         }
-        Ok(())
+        Ok(levels)
     }
 
     /// Opens the beamerboxesrounded / slides until including the given level, updating the heading
     /// stack.
-    pub fn open_until(
+    pub fn open_until<C: Default + Extend<FrameEvent>>(
         &mut self, level: i32, cfg: &Config, out: &mut impl Write, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
-    ) -> Result<()> {
+    ) -> Result<C> {
         check_level(level, range, diagnostics)?;
         let last = self.headings.last().cloned().unwrap_or(0);
+        let mut levels = C::default();
         for level in (last+1)..=level {
             self.headings.push(level);
-            match level {
+            let event = match level {
                 1 => if cfg.sectionframes {
                     writeln!(out, "\\begin{{frame}}")?;
+                    levels.extend(Some(FrameEvent::BeginFrame));
                     writeln!(out, "\\Huge\\centering \\insertsection")?;
                     writeln!(out, "\\end{{frame}}\n")?;
+                    Some(FrameEvent::EndFrame)
+                } else {
+                    None
                 },
                 2 => {
                     // Mark all slides as fragile, this is slower but we can use verbatim etc.
                     writeln!(out, "\\begin{{frame}}[fragile]")?;
                     writeln!(out, "\\frametitle{{\\insertsection}}")?;
                     writeln!(out, "\\framesubtitle{{\\insertsubsection}}")?;
+                    Some(FrameEvent::BeginFrame)
                 },
-                3 => writeln!(out, "\\begin{{beamerboxesrounded}}{{\\insertsubsubsection}}")?,
+                3 => {
+                    writeln!(out, "\\begin{{beamerboxesrounded}}{{\\insertsubsubsection}}")?;
+                    Some(FrameEvent::BeginBox)
+                },
                 _ => unreachable!(),
-            }
+            };
+            levels.extend(event);
         }
-        Ok(())
+        Ok(levels)
     }
 }
 
@@ -177,5 +202,11 @@ impl<'a> Backend<'a> for Beamer {
         }
         writeln!(out, "\\end{{document}}")?;
         Ok(())
+    }
+}
+
+impl Extend<FrameEvent> for () {
+    fn extend<Iter: IntoIterator<Item=FrameEvent>>(&mut self, iter: Iter) {
+        for _ in iter {}
     }
 }
