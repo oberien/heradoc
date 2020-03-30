@@ -119,7 +119,7 @@ impl CurrentFrame {
 impl Extend<BeamerFrameEvent> for CurrentFrame {
     fn extend<Iter: IntoIterator<Item=BeamerFrameEvent>>(&mut self, iter: Iter) {
         for item in iter {
-            if let BeamerFrameEvent::BeginFrame = item {
+            if let BeamerFrameEvent::EndFrame = item {
                 self.0 += 1;
             }
         }
