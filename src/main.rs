@@ -195,6 +195,7 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
             .arg(&speak)
             .arg("-w")
             .arg(&wav)
+            .args(&["-v", "Henrique"])
             .status()
             .expect("Conversion with `espeak-ng` failed.");
 
