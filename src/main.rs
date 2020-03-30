@@ -31,7 +31,7 @@
 use std::env;
 use std::fs::{self, File};
 use std::io::{self, Result, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 
@@ -51,7 +51,11 @@ mod generator;
 mod resolve;
 mod util;
 
-use crate::backend::{Backend, latex::{Article, Beamer, Report, Thesis}};
+use crate::backend::{
+    Backend,
+    latex::{Article, Beamer, Report, Thesis},
+    ffmpeg::SlidesFfmpegEspeak,
+};
 use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
 use crate::error::Fatal;
 
@@ -93,31 +97,47 @@ fn main() {
     println!("{:#?}", cfg);
 
     match cfg.output_type {
-        OutType::Latex => gen(&cfg, markdown, cfg.output.to_write()),
+        OutType::Latex => gen_latex(&cfg, markdown, cfg.output.to_write()),
         OutType::Pdf => {
-            let tex_path = tmpdir.path().join("document.tex");
-            let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
-            gen(&cfg, markdown, tex_file);
-
-            pdflatex(&tmpdir, &cfg);
-            if cfg.bibliography.is_some() {
-                biber(&tmpdir);
-                pdflatex(&tmpdir, &cfg);
-            }
-            pdflatex(&tmpdir, &cfg);
-            let mut pdf = File::open(tmpdir.path().join("document.pdf"))
+            let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
+            let mut pdf = File::open(generated)
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
         },
+        OutType::Mp4 => {
+            let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
+            let movie = ffmpeg(generated, &cfg, &tmpdir);
+            let mut movie = File::open(movie)
+                .expect("unable to open generated pdf");
+            io::copy(&mut movie, &mut cfg.output.to_write()).expect("can't write to output");
+        }
     }
 }
 
-fn gen(cfg: &Config, markdown: String, out: impl Write) {
+fn gen_pdf_to_file(cfg: &Config, markdown: String, tmpdir: &TempDir) -> PathBuf {
+    let tex_path = tmpdir.path().join("document.tex");
+    let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
+    gen_latex(&cfg, markdown, tex_file);
+
+    pdflatex(&tmpdir, &cfg);
+    if cfg.bibliography.is_some() {
+        biber(&tmpdir);
+        pdflatex(&tmpdir, &cfg);
+    }
+    pdflatex(&tmpdir, &cfg);
+    tmpdir.path().join("document.pdf")
+}
+
+fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
     // TODO: make this configurable
     let stderr = Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto)));
     let res = match cfg.document_type {
         DocumentType::Article => backend::generate(cfg, Article::new(), &Arena::new(), markdown, out, stderr),
-        DocumentType::Beamer => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Beamer => match cfg.output_type {
+            OutType::Pdf => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
+            OutType::Mp4 => backend::generate(cfg, SlidesFfmpegEspeak::new(), &Arena::new(), markdown, out, stderr),
+            _ => unreachable!(),
+        },
         DocumentType::Report => backend::generate(cfg, Report::new(), &Arena::new(), markdown, out, stderr),
         DocumentType::Thesis => backend::generate(cfg, Thesis::new(), &Arena::new(), markdown, out, stderr),
     };
@@ -126,6 +146,10 @@ fn gen(cfg: &Config, markdown: String, out: impl Write) {
         Err(Fatal::Output(io)) => eprintln!("\n\nerror writing to output: {}", io),
         Err(Fatal::InternalCompilerError) => eprintln!("\n\nCan not continue due to internal error"),
     }
+}
+
+fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config, tmpdir: &TempDir) -> PathBuf {
+    unimplemented!()
 }
 
 fn pdflatex<P: AsRef<Path>>(tmpdir: P, cfg: &Config) {

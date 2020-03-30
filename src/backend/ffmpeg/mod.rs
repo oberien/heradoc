@@ -1,17 +1,22 @@
 use std::borrow::Cow;
 use std::io::{self, Write};
+use std::fs::{File, OpenOptions};
 
 use crate::backend::latex::{self, Beamer};
 use crate::backend::{Backend, CodeGenUnit, StatefulCodeGenUnit};
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
-use crate::error::{FatalResult, Result};
+use crate::error::{Error, Fatal, FatalResult, Result};
 use crate::frontend::range::{WithRange, SourceRange};
-use crate::generator::event::{Event, Header};
+use crate::generator::event::{CodeBlock, Event, Header};
 use crate::generator::Generator;
 
+/// Combines beamer structure but forks off some of the comments into separate files where we will
+/// later read it and generate commentary with `espeak`/`espeak-ng`. This is a generator as slides
+/// and audio will need to be synchronized.
 #[derive(Debug)]
 pub struct SlidesFfmpegEspeak {
+    current_frame: u32,
     slides: Beamer,
 }
 
@@ -41,7 +46,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
     type Rule = PseudoBeamerRuleGen<'a>;
     type Header = PseudoBeamerHeaderGen<'a>;
     type BlockQuote = <Beamer as Backend<'a>>::BlockQuote;
-    type CodeBlock = <Beamer as Backend<'a>>::CodeBlock;
+    type CodeBlock = CodeBlockGen;
     type List = <Beamer as Backend<'a>>::List;
     type Enumerate = <Beamer as Backend<'a>>::Enumerate;
     type Item = <Beamer as Backend<'a>>::Item;
@@ -69,6 +74,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
 
     fn new() -> Self {
         SlidesFfmpegEspeak {
+            current_frame: 0,
             slides: Beamer::new(),
         }
     }
@@ -79,6 +85,25 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
 
     fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         self.slides.gen_epilogue(cfg, out, diagnostics)
+    }
+}
+
+impl SlidesFfmpegEspeak {
+    fn open_speech_file(&self, cfg: &Config, diagnostics: &Diagnostics<'_>) -> Result<File> {
+        let i = self.current_frame;
+        let p = cfg.out_dir.join(format!("espeak_{}", i));
+        let res = OpenOptions::new().create(true).write(true).open(&p);
+        match res {
+            Ok(file) => Ok(file),
+            Err(e) => {
+                diagnostics
+                    .error("error creating temporary espeak file for frame")
+                    .note(format!("cause: {}", e))
+                    .note("this is fatal")
+                    .emit();
+                Err(Error::Fatal(Fatal::Output(e)))
+            },
+        }
     }
 }
 
@@ -142,5 +167,52 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, Header<'a>> for PseudoBeame
 
         backend.slides.open_until(level, cfg, &mut out, range, diagnostics)?;
         Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum CodeBlockGen {
+    Speech(File),
+    Normal(<Beamer as Backend<'static>>::CodeBlock),
+}
+
+impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, CodeBlock<'a>> for CodeBlockGen {
+    fn new(
+        cfg: &'a Config, code_block: WithRange<CodeBlock<'a>>,
+        gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
+    ) -> Result<Self> {
+        let WithRange(CodeBlock { label: _, caption: _, language }, _range) = &code_block;
+
+        if let Some(WithRange(language, _range)) = language {
+            if language.as_ref() == "espeak" {
+                let (diagnostics, backend, _) = gen.backend_and_out();
+                return backend.open_speech_file(cfg, diagnostics).map(CodeBlockGen::Speech);
+            }
+        }
+
+        <<Beamer as Backend<'static>>::CodeBlock as CodeGenUnit<'a, CodeBlock<'a>>>
+            ::new(cfg, code_block, gen)
+            .map(CodeBlockGen::Normal)
+    }
+
+    fn output_redirect(&mut self) -> Option<&mut dyn Write> {
+        match self {
+            CodeBlockGen::Speech(file) => Some(file),
+            CodeBlockGen::Normal(inner) => 
+                <<Beamer as Backend<'static>>::CodeBlock as CodeGenUnit<'a, CodeBlock<'a>>>
+                ::output_redirect(inner),
+        }
+    }
+
+    fn finish(
+        self, gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
+        peek: Option<WithRange<&Event<'a>>>,
+    ) -> Result<()> {
+        match self {
+            CodeBlockGen::Normal(inner) =>
+                <<Beamer as Backend<'static>>::CodeBlock as CodeGenUnit<'a, CodeBlock<'a>>>
+                    ::finish(inner, gen, peek),
+            CodeBlockGen::Speech(_) => Ok(()),
+        }
     }
 }
