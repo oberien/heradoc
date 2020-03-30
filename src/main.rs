@@ -106,9 +106,9 @@ fn main() {
         },
         OutType::Mp4 => {
             let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
-            let movie = ffmpeg(generated, &cfg, &tmpdir);
+            let movie = ffmpeg(generated, &cfg);
             let mut movie = File::open(movie)
-                .expect("unable to open generated pdf");
+                .expect("unable to open generated movie");
             io::copy(&mut movie, &mut cfg.output.to_write()).expect("can't write to output");
         }
     }
@@ -148,8 +148,100 @@ fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
     }
 }
 
-fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config, tmpdir: &TempDir) -> PathBuf {
-    unimplemented!()
+fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
+    // First, generate all voice files and record their lengths.
+    let mut lengths = vec![];
+
+    for idx in 0.. {
+        let speak = cfg.out_dir.join(format!("espeak_{}.text", idx));
+        let wav = cfg.out_dir.join(format!("espeak_{}.wav", idx));
+
+        if !Path::new(&speak).exists() {
+            break;
+        }
+
+        Command::new("espeak-ng")
+            .arg("-f")
+            .arg(&speak)
+            .arg("-w")
+            .arg(&wav)
+            .status()
+            .expect("Conversion with `espeak-ng` failed.");
+
+        let output = Command::new("sox")
+            .arg(&wav)
+            .args(&["-n", "stat"])
+            .output()
+            .expect("Getting wav metadata with `sox` failed.");
+
+        let statted = String::from_utf8(output.stderr)
+            .unwrap();
+
+        let length = statted
+            .lines()
+            .find(|line| line.starts_with("Length"))
+            .expect("No length field in `sox` output");
+        let len: f32 = length
+            .split(':')
+            .nth(2)
+            .expect("No length field value.")
+            .trim()
+            .parse()
+            .expect("Length not a valid value.");
+        lengths.push(len);
+    }
+
+    let count = lengths.len();
+
+    // concatenate all audio
+    {
+        let mut concat = Command::new("sox");
+        concat.current_dir(&cfg.out_dir);
+        (0..count)
+            .map(|ct| format!("espeak_{}.wav", ct))
+            .fold(&mut concat, |cmd, arg| cmd.arg(arg))
+            .arg("concat.wav")
+            .status()
+            .expect("Failed to concatenate audio files");
+    }
+
+    assert!(count < 1_000_000, "Reasonable number of frames");
+
+    // Now, let's demux the pdf into its frames.
+    Command::new("pdftk")
+        .current_dir(&cfg.out_dir)
+        .arg(pdf.as_ref())
+        .args(&["burst", "output", "page_%06d.pdf"])
+        .status()
+        .expect("Demuxing pdf into pages with `pdftk` failed");
+
+    // And convert them to readable images for ffmpeg
+    let mut control = File::create(cfg.out_dir.join("ffmpeg.concat.txt"))
+        .expect("Failed to create ffmpeg control file");
+    for (idx, &duration) in lengths.iter().enumerate() {
+        let page = format!("page_{:06}.pdf", idx);
+        let image = format!("page_{:06}.png", idx);
+        Command::new("convert")
+            .current_dir(&cfg.out_dir)
+            .arg(page)
+            .arg(&image)
+            .status()
+            .expect("Converting pdf with `convert` failed");
+        writeln!(control, "file '{}'", image);
+        writeln!(control, "duration {}", duration);
+    }
+
+    Command::new("ffmpeg")
+        .current_dir(&cfg.out_dir)
+        .args(&["-i", "concat.wav"])
+        .args(&["-f", "concat", "-i", "ffmpeg.concat.txt"])
+        .args(&["-filter_complex", r#""[2:v][0:a][3:v][1:a]concat=n=2:v=1:a=1[sizev][outa];[sizev]scale=ceil(iw/2)*2:ceil(ih/2)*2[outv]""#])
+        .args(&["-map", "[outv]", "-map", "[outa]", "-pix_fmt yuv420p"])
+        .arg("output.mp4")
+        .status()
+        .expect("Concatening into movie with `ffmpeg` failed");
+
+    cfg.out_dir.join("output.mp4")
 }
 
 fn pdflatex<P: AsRef<Path>>(tmpdir: P, cfg: &Config) {

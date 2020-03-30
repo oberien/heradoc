@@ -1,8 +1,8 @@
 use std::borrow::Cow;
-use std::io::{self, Write};
+use std::io::Write;
 use std::fs::{File, OpenOptions};
 
-use crate::backend::latex::{self, Beamer};
+use crate::backend::latex::{Beamer, BeamerFrameEvent};
 use crate::backend::{Backend, CodeGenUnit, StatefulCodeGenUnit};
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
@@ -16,9 +16,12 @@ use crate::generator::Generator;
 /// and audio will need to be synchronized.
 #[derive(Debug)]
 pub struct SlidesFfmpegEspeak {
-    current_frame: u32,
+    current_frame: CurrentFrame,
     slides: Beamer,
 }
+
+#[derive(Debug)]
+struct CurrentFrame(u32);
 
 #[rustfmt::skip]
 impl<'a> Backend<'a> for SlidesFfmpegEspeak {
@@ -74,7 +77,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
 
     fn new() -> Self {
         SlidesFfmpegEspeak {
-            current_frame: 0,
+            current_frame: CurrentFrame(0),
             slides: Beamer::new(),
         }
     }
@@ -90,8 +93,8 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
 
 impl SlidesFfmpegEspeak {
     fn open_speech_file(&self, cfg: &Config, diagnostics: &Diagnostics<'_>) -> Result<File> {
-        let i = self.current_frame;
-        let p = cfg.out_dir.join(format!("espeak_{}", i));
+        let i = self.current_frame.get();
+        let p = cfg.out_dir.join(format!("espeak_{}.txt", i));
         let res = OpenOptions::new().create(true).write(true).open(&p);
         match res {
             Ok(file) => Ok(file),
@@ -103,6 +106,23 @@ impl SlidesFfmpegEspeak {
                     .emit();
                 Err(Error::Fatal(Fatal::Output(e)))
             },
+        }
+    }
+}
+
+impl CurrentFrame {
+    fn get(&self) -> u32 {
+        self.0
+    }
+}
+
+impl Extend<BeamerFrameEvent> for CurrentFrame {
+    fn extend<Iter: IntoIterator<Item=BeamerFrameEvent>>(&mut self, iter: Iter) {
+        for item in iter {
+            match item {
+                BeamerFrameEvent::BeginFrame => self.0 += 1,
+                _ => {},
+            }
         }
     }
 }
