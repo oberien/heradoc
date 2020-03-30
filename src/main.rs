@@ -117,14 +117,14 @@ fn main() {
 fn gen_pdf_to_file(cfg: &Config, markdown: String, tmpdir: &TempDir) -> PathBuf {
     let tex_path = tmpdir.path().join("document.tex");
     let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
-    gen_latex(&cfg, markdown, tex_file);
+    gen_latex(cfg, markdown, tex_file);
 
-    pdflatex(&tmpdir, &cfg);
+    pdflatex(tmpdir, cfg);
     if cfg.bibliography.is_some() {
-        biber(&tmpdir);
-        pdflatex(&tmpdir, &cfg);
+        biber(tmpdir);
+        pdflatex(tmpdir, cfg);
     }
-    pdflatex(&tmpdir, &cfg);
+    pdflatex(tmpdir, cfg);
     tmpdir.path().join("document.pdf")
 }
 
@@ -149,18 +149,48 @@ fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
 }
 
 fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
-    // First, generate all voice files and record their lengths.
-    let mut lengths = vec![];
+    // Start by demuxing the pdf into its frames, which gives us their number.
+    // We use poppler tools and not imagemagick because the latter is bloody stupid. It
+    // disables code access to pdf conversion as a 'security measure'. That's an idiots patch
+    // to broken code that just hurts usability. There's nothing malicious about what we're
+    // attempting to do but, I assumed, since they can't admit to the PHP crowds of SaaS image
+    // tools that their tools are utterly messy and completely unmaintainable they introduce a
+    // black-list that makes it impossible to use for other people as well.
+    // /rant
+    Command::new("pdftoppm")
+        .current_dir(&cfg.out_dir)
+        .arg("-png")
+        .arg(pdf.as_ref())
+        .arg("pages")
+        .status()
+        .expect("Converting pdf with `convert` failed");
+
+    // Then, generate all voice files and record their lengths. Note that a voice file need not
+    // exist (e.g. for title frames) in which case we should prepare some filler (TODO).
+    // Also add all the pages to readable image list for ffmpeg
+    let mut control = File::create(cfg.out_dir.join("ffmpeg.concat.txt"))
+        .expect("Failed to create ffmpeg control file");
+
+    let mut audios = vec![];
 
     for idx in 0.. {
-        let speak = cfg.out_dir.join(format!("espeak_{}.text", idx));
-        let wav = cfg.out_dir.join(format!("espeak_{}.wav", idx));
+        // Yes, for some reason the page index is 1 based
+        let frame = format!("pages-{}.png", idx + 1);
+        let speak = format!("espeak_{}.txt", idx);
+        let wav = format!("espeak-{}.wav", idx);
 
-        if !Path::new(&speak).exists() {
+        if !cfg.out_dir.join(&frame).exists() {
             break;
         }
 
+        if !cfg.out_dir.join(&speak).exists() {
+            writeln!(control, "file '{}'", frame).unwrap();
+            writeln!(control, "duration {}", 0.0).unwrap();
+            continue;
+        }
+
         Command::new("espeak-ng")
+            .current_dir(&cfg.out_dir)
             .arg("-f")
             .arg(&speak)
             .arg("-w")
@@ -169,6 +199,7 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
             .expect("Conversion with `espeak-ng` failed.");
 
         let output = Command::new("sox")
+            .current_dir(&cfg.out_dir)
             .arg(&wav)
             .args(&["-n", "stat"])
             .output()
@@ -181,62 +212,36 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
             .lines()
             .find(|line| line.starts_with("Length"))
             .expect("No length field in `sox` output");
-        let len: f32 = length
+        let duration: f32 = length
             .split(':')
-            .nth(2)
+            .nth(1)
             .expect("No length field value.")
             .trim()
             .parse()
             .expect("Length not a valid value.");
-        lengths.push(len);
+        writeln!(control, "file '{}'", frame).unwrap();
+        writeln!(control, "duration {}", duration).unwrap();
+        audios.push(wav);
     }
-
-    let count = lengths.len();
 
     // concatenate all audio
     {
         let mut concat = Command::new("sox");
         concat.current_dir(&cfg.out_dir);
-        (0..count)
-            .map(|ct| format!("espeak_{}.wav", ct))
+        audios
+            .into_iter()
             .fold(&mut concat, |cmd, arg| cmd.arg(arg))
             .arg("concat.wav")
             .status()
             .expect("Failed to concatenate audio files");
     }
 
-    assert!(count < 1_000_000, "Reasonable number of frames");
-
-    // Now, let's demux the pdf into its frames.
-    Command::new("pdftk")
-        .current_dir(&cfg.out_dir)
-        .arg(pdf.as_ref())
-        .args(&["burst", "output", "page_%06d.pdf"])
-        .status()
-        .expect("Demuxing pdf into pages with `pdftk` failed");
-
-    // And convert them to readable images for ffmpeg
-    let mut control = File::create(cfg.out_dir.join("ffmpeg.concat.txt"))
-        .expect("Failed to create ffmpeg control file");
-    for (idx, &duration) in lengths.iter().enumerate() {
-        let page = format!("page_{:06}.pdf", idx);
-        let image = format!("page_{:06}.png", idx);
-        Command::new("convert")
-            .current_dir(&cfg.out_dir)
-            .arg(page)
-            .arg(&image)
-            .status()
-            .expect("Converting pdf with `convert` failed");
-        writeln!(control, "file '{}'", image);
-        writeln!(control, "duration {}", duration);
-    }
-
     Command::new("ffmpeg")
         .current_dir(&cfg.out_dir)
         .args(&["-i", "concat.wav"])
         .args(&["-f", "concat", "-i", "ffmpeg.concat.txt"])
-        .args(&["-filter_complex", r#""[2:v][0:a][3:v][1:a]concat=n=2:v=1:a=1[sizev][outa];[sizev]scale=ceil(iw/2)*2:ceil(ih/2)*2[outv]""#])
-        .args(&["-map", "[outv]", "-map", "[outa]", "-pix_fmt yuv420p"])
+        .args(&["-filter_complex", r#"[1:v][0:a]concat=n=1:v=1:a=1[sizev][outa];[sizev]scale=ceil(iw/2)*2:ceil(ih/2)*2[outv]"#])
+        .args(&["-map", "[outv]", "-map", "[outa]", "-pix_fmt", "yuv420p"])
         .arg("output.mp4")
         .status()
         .expect("Concatening into movie with `ffmpeg` failed");

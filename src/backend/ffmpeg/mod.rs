@@ -82,7 +82,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
         }
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, mut out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         self.slides.gen_preamble(cfg, out, diagnostics)
     }
 
@@ -111,7 +111,7 @@ impl SlidesFfmpegEspeak {
 }
 
 impl CurrentFrame {
-    fn get(&self) -> u32 {
+    const fn get(&self) -> u32 {
         self.0
     }
 }
@@ -119,9 +119,8 @@ impl CurrentFrame {
 impl Extend<BeamerFrameEvent> for CurrentFrame {
     fn extend<Iter: IntoIterator<Item=BeamerFrameEvent>>(&mut self, iter: Iter) {
         for item in iter {
-            match item {
-                BeamerFrameEvent::BeginFrame => self.0 += 1,
-                _ => {},
+            if let BeamerFrameEvent::BeginFrame = item {
+                self.0 += 1;
             }
         }
     }
@@ -147,8 +146,10 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, ()> for PseudoBeamerRuleGen
     ) -> Result<()> {
         let PseudoBeamerRuleGen { cfg, range } = self;
         let (diagnostics, backend, mut out) = gen.backend_and_out();
-        backend.slides.close_until(2, &mut out, range, diagnostics)?;
-        backend.slides.open_until(2, cfg, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.close_until(2, &mut out, range, diagnostics)?;
+        backend.current_frame.extend(events);
+        let events: Vec<_> = backend.slides.open_until(2, cfg, &mut out, range, diagnostics)?;
+        backend.current_frame.extend(events);
         Ok(())
     }
 }
@@ -170,7 +171,8 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, Header<'a>> for PseudoBeame
         let WithRange(Header { label, level }, range) = header;
 
         // close old slide / beamerboxesrounded
-        backend.slides.close_until(level, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.close_until(level, &mut out, range, diagnostics)?;
+        backend.current_frame.extend(events);
 
         write!(out, "\\{}section{{", "sub".repeat(level as usize - 1))?;
 
@@ -185,7 +187,8 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, Header<'a>> for PseudoBeame
         let (diagnostics, backend, mut out) = gen.backend_and_out();
         writeln!(out, "}}\\label{{{}}}\n", label.0)?;
 
-        backend.slides.open_until(level, cfg, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.open_until(level, cfg, &mut out, range, diagnostics)?;
+        backend.current_frame.extend(events);
         Ok(())
     }
 }
