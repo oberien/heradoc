@@ -105,6 +105,7 @@ fn main() {
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
         },
         OutType::Mp4 => {
+            let tmpdir = core::mem::ManuallyDrop::new(tmpdir);
             let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
             let movie = ffmpeg(generated, &cfg);
             let mut movie = File::open(movie)
@@ -163,7 +164,7 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
         .arg(pdf.as_ref())
         .arg("pages")
         .status()
-        .expect("Converting pdf with `convert` failed");
+        .expect("Converting pdf with `pdftoppm` failed");
 
     // Then, generate all voice files and record their lengths. Note that a voice file need not
     // exist (e.g. for title frames) in which case we should prepare some filler (TODO).
@@ -191,10 +192,8 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
 
         Command::new("espeak-ng")
             .current_dir(&cfg.out_dir)
-            .arg("-f")
-            .arg(&speak)
-            .arg("-w")
-            .arg(&wav)
+            .args(&["-f", &speak])
+            .args(&["-w", &wav])
             .args(&["-v", "Henrique"])
             .status()
             .expect("Conversion with `espeak-ng` failed.");

@@ -17,6 +17,7 @@ pub struct Beamer {
     headings: Vec<i32>,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum FrameEvent {
     BeginFrame,
     BeginBox,
@@ -27,71 +28,67 @@ pub enum FrameEvent {
 impl Beamer {
     /// Closes the beamerboxesrounded / slides until including the given level.
     /// Also performs the according checks and updates the heading stack.
-    pub fn close_until<C: Default + Extend<FrameEvent>>(
+    pub fn close_until(
         &mut self, level: i32, out: &mut impl Write, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
-    ) -> Result<C> {
+    ) -> Result<Vec<FrameEvent>> {
         check_level(level, range, diagnostics)?;
 
-        let mut levels = C::default();
+        let mut levels = Vec::new();
         while let Some(&stack_level) = self.headings.last() {
             if stack_level < level {
                 break;
             }
             self.headings.pop().unwrap();
             // TODO: make heading-level configurable
-            let event = match stack_level {
-                1 => None,
+            match stack_level {
+                1 => {},
                 2 => {
                     writeln!(out, "\\end{{frame}}\n")?;
-                    Some(FrameEvent::EndFrame)
+                    levels.push(FrameEvent::EndFrame);
                 },
                 3 => {
                     writeln!(out, "\\end{{beamerboxesrounded}}")?;
-                    Some(FrameEvent::EndBox)
+                    levels.push(FrameEvent::EndBox);
                 },
                 _ => unreachable!(),
-            };
-            levels.extend(event);
+            }
         }
         Ok(levels)
     }
 
     /// Opens the beamerboxesrounded / slides until including the given level, updating the heading
     /// stack.
-    pub fn open_until<C: Default + Extend<FrameEvent>>(
+    pub fn open_until(
         &mut self, level: i32, cfg: &Config, out: &mut impl Write, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
-    ) -> Result<C> {
+    ) -> Result<Vec<FrameEvent>> {
         check_level(level, range, diagnostics)?;
         let last = self.headings.last().cloned().unwrap_or(0);
-        let mut levels = C::default();
+        let mut levels = Vec::new();
         for level in (last+1)..=level {
             self.headings.push(level);
-            let event = match level {
+            match level {
                 1 => if cfg.sectionframes {
                     writeln!(out, "\\begin{{frame}}")?;
-                    levels.extend(Some(FrameEvent::BeginFrame));
+                    levels.push(FrameEvent::BeginFrame);
                     writeln!(out, "\\Huge\\centering \\insertsection")?;
                     writeln!(out, "\\end{{frame}}\n")?;
-                    Some(FrameEvent::EndFrame)
-                } else {
-                    None
+                    levels.push(FrameEvent::EndFrame);
                 },
                 2 => {
                     // Mark all slides as fragile, this is slower but we can use verbatim etc.
                     writeln!(out, "\\begin{{frame}}[fragile]")?;
                     writeln!(out, "\\frametitle{{\\insertsection}}")?;
                     writeln!(out, "\\framesubtitle{{\\insertsubsection}}")?;
-                    Some(FrameEvent::BeginFrame)
+                    levels.push(FrameEvent::BeginFrame);
                 },
                 3 => {
                     writeln!(out, "\\begin{{beamerboxesrounded}}{{\\insertsubsubsection}}")?;
-                    Some(FrameEvent::BeginBox)
+                    levels.push(FrameEvent::BeginBox);
                 },
                 _ => unreachable!(),
-            };
-            levels.extend(event);
+            }
         }
         Ok(levels)
     }
@@ -169,7 +166,7 @@ impl<'a> Backend<'a> for Beamer {
         }
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, mut out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // Beamer already loads internally color, hyperref, xcolor. Correct their options.
         preamble::write_documentclass(cfg, out, "beamer", "color={usenames,dvipsnames},xcolor={usenames,dvipsnames},hyperref={pdfusetitle},")?;
         writeln!(out, "\\usetheme{{{}}}", cfg.beamertheme)?;
@@ -196,17 +193,11 @@ impl<'a> Backend<'a> for Beamer {
 
     fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         match self.close_until(1, out, SourceRange { start: 0, end: 0 }, diagnostics) {
-            Ok(()) => (),
+            Ok(_events) => (),
             Err(Error::Diagnostic) => unreachable!(),
             Err(Error::Fatal(fatal)) => return Err(fatal),
         }
         writeln!(out, "\\end{{document}}")?;
         Ok(())
-    }
-}
-
-impl Extend<FrameEvent> for () {
-    fn extend<Iter: IntoIterator<Item=FrameEvent>>(&mut self, iter: Iter) {
-        for _ in iter {}
     }
 }
