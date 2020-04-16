@@ -198,24 +198,17 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
             .status()
             .expect("Conversion with `espeak-ng` failed.");
 
-        let output = Command::new("sox")
+        let output = Command::new("ffprobe")
             .current_dir(&cfg.out_dir)
+            .args(&["-v", "error"])
+            .args(&["-show_entries", "format=duration"])
+            .args(&["-of", "default=noprint_wrappers=1:nokey=1"])
             .arg(&wav)
-            .args(&["-n", "stat"])
             .output()
             .expect("Getting wav metadata with `sox` failed.");
 
-        let statted = String::from_utf8(output.stderr)
-            .unwrap();
-
-        let length = statted
-            .lines()
-            .find(|line| line.starts_with("Length"))
-            .expect("No length field in `sox` output");
-        let duration: f32 = length
-            .split(':')
-            .nth(1)
-            .expect("No length field value.")
+        let duration: f32 = String::from_utf8(output.stdout)
+            .unwrap()
             .trim()
             .parse()
             .expect("Length not a valid value.");
@@ -226,11 +219,20 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
 
     // concatenate all audio
     {
-        let mut concat = Command::new("sox");
-        concat.current_dir(&cfg.out_dir);
-        audios
-            .into_iter()
-            .fold(&mut concat, |cmd, arg| cmd.arg(arg))
+        let audios = audios
+            .iter()
+            .map(|audio| format!("file {}\n", audio))
+            .collect::<Vec<_>>();
+        let audios = audios.concat();
+        let audio_list = cfg.temp_dir
+            .join("audio-list.txt");
+        fs::write(&audio_list, audios)
+            .expect("Failed to write list of audio files");
+        Command::new("ffmpeg")
+            .current_dir(&cfg.out_dir)
+            .args(&["-f", "concat", "-i"])
+            .arg(&audio_list)
+            .args(&["-c", "copy"])
             .arg("concat.wav")
             .status()
             .expect("Failed to concatenate audio files");
