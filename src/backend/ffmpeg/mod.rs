@@ -100,7 +100,7 @@ impl SlidesFfmpegEspeak {
             Ok(file) => Ok(file),
             Err(e) => {
                 diagnostics
-                    .error("error creating temporary espeak file for frame")
+                    .error(format!("error creating espeak file `{}` for frame {}", p.display(), i))
                     .note(format!("cause: {}", e))
                     .note("this is fatal")
                     .emit();

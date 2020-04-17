@@ -105,6 +105,7 @@ fn main() {
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
         },
         OutType::Mp4 => {
+            ensure_mp4_tools_installed();
             let tmpdir = core::mem::ManuallyDrop::new(tmpdir);
             let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
             let movie = ffmpeg(generated, &cfg);
@@ -149,6 +150,51 @@ fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
     }
 }
 
+fn ensure_mp4_tools_installed() {
+    // TODO: minimum version requirements or alternatives?
+    let has_pdf_to_ppm = Command::new("pdftoppm")
+        .arg("-v")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+
+    if !has_pdf_to_ppm {
+        panic!("The tool `pdftoppm` is required but does not appear to be installed (it's a part of poppler).");
+    }
+
+    // TODO: minimum version requirements?
+    let has_ffmpeg = Command::new("ffmpeg")
+        .arg("-version")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+
+    if !has_ffmpeg {
+        panic!("The tool `ffmpeg` is required but does not appear to be installed.");
+    }
+
+    let has_ffprobe = Command::new("ffprobe")
+        .arg("-version")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+
+    if !has_ffprobe {
+        panic!("The tool `ffprobe` is required but does not appear to be installed (it's usually a part of ffmpeg).");
+    }
+
+    // TODO: minimum version requirements and alternatives?
+    let has_espeak_ng = Command::new("espeak-ng")
+        .arg("--version")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false);
+
+    if !has_espeak_ng {
+        panic!("The tool `espeak-ng` is required but does not appear to be installed.");
+    }
+}
+
 fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
     // Start by demuxing the pdf into its frames, which gives us their number.
     // We use poppler tools and not imagemagick because the latter is bloody stupid. It
@@ -181,6 +227,8 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
         let wav = format!("espeak-{}.wav", idx);
 
         if !cfg.out_dir.join(&frame).exists() {
+            // TODO: Used to indirectly detect the number of frames in the rendered beamer
+            // document. This could be implemented more cleanly.
             break;
         }
 
