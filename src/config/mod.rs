@@ -268,6 +268,7 @@ impl Config {
                 match output_type {
                     OutType::Latex => assert!(filename.set_extension("tex")),
                     OutType::Pdf => assert!(filename.set_extension("pdf")),
+                    OutType::Mp4 => assert!(filename.set_extension("mp4")),
                 }
                 FileOrStdio::File(filename)
             },
@@ -529,6 +530,7 @@ impl FromStr for FileOrStdio {
 pub enum OutType {
     Latex,
     Pdf,
+    Mp4,
 }
 
 impl<'de> Deserialize<'de> for OutType {
@@ -546,6 +548,8 @@ impl FromStr for OutType {
             Ok(OutType::Latex)
         } else if s.eq_ignore_ascii_case("pdf") {
             Ok(OutType::Pdf)
+        } else if s.eq_ignore_ascii_case("mp4") || s.eq_ignore_ascii_case("ffmpeg") {
+            Ok(OutType::Mp4)
         } else {
             Err(format!("unknown output type {:?}", s))
         }

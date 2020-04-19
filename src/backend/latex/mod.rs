@@ -7,7 +7,7 @@ mod preamble;
 mod replace;
 mod simple;
 
-pub use self::document::{Article, Beamer, Report, Thesis};
+pub use self::document::{Article, Beamer, BeamerFrameEvent, Report, Thesis};
 
 use crate::frontend::range::WithRange;
 

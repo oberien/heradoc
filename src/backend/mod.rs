@@ -32,6 +32,7 @@ use crate::generator::event::{
 use crate::generator::{Generator, Stack};
 
 pub mod latex;
+pub mod ffmpeg;
 
 pub fn generate<'a>(
     cfg: &'a Config, backend: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
