@@ -206,7 +206,7 @@ fn ffmpeg<P: AsRef<Path>>(pdf: P, cfg: &Config) -> PathBuf {
     // /rant
     Command::new("pdftoppm")
         .current_dir(&cfg.out_dir)
-        .arg("-png")
+        .args(&["-png", "-rx", "600", "-ry", "600"])
         .arg(pdf.as_ref())
         .arg("pages")
         .status()
