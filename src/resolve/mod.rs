@@ -31,6 +31,18 @@ pub struct Resolver {
     remote: Remote,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum ResolveSecurity {
+    Default,
+    /// Skip permission and security checks when resolving an include.
+    /// If this option is used, the path to-be-resolved must be either relative to the document
+    /// directory, or an absolute file using the `file:///foo/bar` URL scheme.
+    /// This should be used only if includes are created within heradoc and are known to be safe
+    /// but would otherwise fail the checks during the resolve phase.
+    /// This can be the case if files are created by heradoc and written to the out_dir to be included.
+    SkipChecks,
+}
+
 /// Manages permissions if includes as allowed explicitly from the Cli.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Permissions {
@@ -48,10 +60,16 @@ impl Resolver {
 
     /// Make a request to an url in the context of a document with the specified source.
     pub fn resolve(
-        &self, context: &Context, url: &str, range: SourceRange, diagnostics: &Diagnostics<'_>,
+        &self, resolve_security: ResolveSecurity, context: &Context, url: &str, range: SourceRange,
+        diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
         let target = Target::new(url, context, &self.project_root, &self.permissions, range, diagnostics)?;
-        let include = target.canonicalize()?.check_access()?.into_include(&self.remote)?;
+        let include = match resolve_security {
+            ResolveSecurity::Default =>
+                target.canonicalize()?.check_access()?.into_include(&self.remote)?,
+            ResolveSecurity::SkipChecks =>
+                target.skip_canonicalization().skip_check_access().into_include(&self.remote)?
+        };
         Ok(include)
     }
 }

@@ -11,7 +11,7 @@ use crate::config::{Config, FileOrStdio};
 use crate::diagnostics::{Diagnostics, Input};
 use crate::frontend::Frontend;
 use crate::frontend::range::{SourceRange, WithRange};
-use crate::resolve::{Context, Include, Resolver};
+use crate::resolve::{Context, Include, Resolver, ResolveSecurity};
 
 mod code_gen_units;
 pub mod event;
@@ -217,8 +217,8 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         (diagnostics, backend, out)
     }
 
-    fn resolve(&mut self, url: &str, range: SourceRange) -> Result<Include> {
+    fn resolve(&mut self, resolve_security: ResolveSecurity, url: &str, range: SourceRange) -> Result<Include> {
         let (context, diagnostics, resolver, _, _) = self.top_context();
-        resolver.resolve(context, url, range, diagnostics)
+        resolver.resolve(resolve_security, context, url, range, diagnostics)
     }
 }

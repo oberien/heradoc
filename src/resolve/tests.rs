@@ -67,37 +67,37 @@ fn relative_to_project_root() {
 
     let test = |ctx: Context| {
         let main = resolver
-            .resolve(&ctx, "/main.md", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/main.md", range, &diagnostics)
             .expect("failed to resolve `/main.md`");
         assert_match!(main, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://document/main.md");
 
         let test = resolver
-            .resolve(&ctx, "/test.md", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/test.md", range, &diagnostics)
             .expect("failed to resolve `/test.md`");
         assert_match!(test, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://document/test.md");
 
         let image = resolver
-            .resolve(&ctx, "/image.png", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/image.png", range, &diagnostics)
             .expect("failed to resolve `/image.png`");
         assert_match!(image, Include::Image(path) if path == &project_root.path().join("image.png"));
 
         let pdf = resolver
-            .resolve(&ctx, "/pdf.pdf", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/pdf.pdf", range, &diagnostics)
             .expect("failed to resolve `/pdf.pdf`");
         assert_match!(pdf, Include::Pdf(path) if path == &project_root.path().join("pdf.pdf"));
 
         let chapter1 = resolver
-            .resolve(&ctx, "/chapters/chapter1.md", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/chapters/chapter1.md", range, &diagnostics)
             .expect("failed to resolve `/chapters/chapter1.md`");
         assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter1.md");
 
         let chapter2 = resolver
-            .resolve(&ctx, "/chapters/chapter2.md", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/chapters/chapter2.md", range, &diagnostics)
             .expect("failed to resolve `/chapters/chapter2.md`");
         assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter2.md");
 
         let image = resolver
-            .resolve(&ctx, "/images/image.png", range, &diagnostics)
+            .resolve(ResolveSecurity::Default, &ctx, "/images/image.png", range, &diagnostics)
             .expect("failed to resolve `/images/image.png`");
         assert_match!(image, Include::Image(path) if path == &project_root.path().join("images/image.png"));
     };
@@ -114,64 +114,64 @@ fn relative_to_current_file() {
     let ctx2 = Context::from_path("chapters/").expect("can't create context");
 
     let main = resolver
-        .resolve(&ctx, "main.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "main.md", range, &diagnostics)
         .expect("failed to resolve `main.md`");
     let main2 = resolver
-        .resolve(&ctx2, "../main.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "../main.md", range, &diagnostics)
         .expect("failed to resolve `../main.md`");
     assert_match!(main, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://document/main.md");
     assert_match!(main2, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://document/main.md");
 
     let test = resolver
-        .resolve(&ctx, "test.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "test.md", range, &diagnostics)
         .expect("failed to resolve `test.md`");
     let test2 = resolver
-        .resolve(&ctx2, "../test.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "../test.md", range, &diagnostics)
         .expect("failed to resolve `test.md`");
     assert_match!(test, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://document/test.md");
     assert_match!(test2, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://document/test.md");
 
     let image = resolver
-        .resolve(&ctx, "image.png", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "image.png", range, &diagnostics)
         .expect("failed to resolve `image.png`");
     let image2 = resolver
-        .resolve(&ctx, "../image.png", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "../image.png", range, &diagnostics)
         .expect("failed to resolve `../image.png`");
     assert_match!(image, Include::Image(path) if path == &project_root.path().join("image.png"));
     assert_match!(image2, Include::Image(path) if path == &project_root.path().join("image.png"));
 
     let pdf = resolver
-        .resolve(&ctx, "pdf.pdf", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "pdf.pdf", range, &diagnostics)
         .expect("failed to resolve `pdf.pdf`");
     let pdf2 = resolver
-        .resolve(&ctx2, "../pdf.pdf", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "../pdf.pdf", range, &diagnostics)
         .expect("failed to resolve `../pdf.pdf`");
     assert_match!(pdf, Include::Pdf(path) if path == &project_root.path().join("pdf.pdf"));
     assert_match!(pdf2, Include::Pdf(path) if path == &project_root.path().join("pdf.pdf"));
 
     let chapter1 = resolver
-        .resolve(&ctx, "chapters/chapter1.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "chapters/chapter1.md", range, &diagnostics)
         .expect("failed to resolve `chapters/chapter1.md`");
     let chapter12 = resolver
-        .resolve(&ctx2, "chapter1.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "chapter1.md", range, &diagnostics)
         .expect("failed to resolve `chapter1.md`");
     assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter1.md");
     assert_match!(chapter12, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter1.md");
 
     let chapter2 = resolver
-        .resolve(&ctx, "chapters/chapter2.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "chapters/chapter2.md", range, &diagnostics)
         .expect("failed to resolve `chapters/chapter2.md`");
     let chapter22 = resolver
-        .resolve(&ctx2, "chapter2.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "chapter2.md", range, &diagnostics)
         .expect("failed to resolve `chapter2.md`");
     assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter2.md");
     assert_match!(chapter22, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter2.md");
 
     let image = resolver
-        .resolve(&ctx, "images/image.png", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "images/image.png", range, &diagnostics)
         .expect("failed to resolve `images/image.png`");
     let image2 = resolver
-        .resolve(&ctx2, "../images/image.png", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "../images/image.png", range, &diagnostics)
         .expect("failed to resolve `../images/image.png`");
     assert_match!(image, Include::Image(path) if path == &project_root.path().join("images/image.png"));
     assert_match!(image2, Include::Image(path) if path == &project_root.path().join("images/image.png"));
@@ -185,45 +185,45 @@ fn commands() {
 
     // if one works from a subdir, all work from a a subdir
     let toc = resolver
-        .resolve(&ctx2, "//toc", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx2, "//toc", range, &diagnostics)
         .expect("failed to resolve `//toc`");
     assert_match!(toc, Include::Command(Command::Toc));
 
     // test all commands
     let appendix = resolver
-        .resolve(&ctx, "//appendix", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//appendix", range, &diagnostics)
         .expect("failed to resolve `//appendix`");
     assert_match!(appendix, Include::Command(Command::Appendix));
     let toc = resolver
-        .resolve(&ctx, "//toc", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//toc", range, &diagnostics)
         .expect("failed to resolve `//toc`");
     let toc2 = resolver
-        .resolve(&ctx, "//TOC", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//TOC", range, &diagnostics)
         .expect("failed to resolve `//TOC`");
     let toc3 = resolver
-        .resolve(&ctx, "//tableofcontents", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//tableofcontents", range, &diagnostics)
         .expect("failed to resolve `//tableofcontents`");
     assert_match!(toc, Include::Command(Command::Toc));
     assert_match!(toc2, Include::Command(Command::Toc));
     assert_match!(toc3, Include::Command(Command::Toc));
     let bib = resolver
-        .resolve(&ctx, "//bibliography", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//bibliography", range, &diagnostics)
         .expect("failed to resolve `//bibliography`");
     let bib2 = resolver
-        .resolve(&ctx, "//references", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//references", range, &diagnostics)
         .expect("failed to resolve `//references`");
     assert_match!(bib, Include::Command(Command::Bibliography));
     assert_match!(bib2, Include::Command(Command::Bibliography));
     let tables = resolver
-        .resolve(&ctx, "//listoftables", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//listoftables", range, &diagnostics)
         .expect("failed to resolve `//listoftables`");
     assert_match!(tables, Include::Command(Command::ListOfTables));
     let figures = resolver
-        .resolve(&ctx, "//listoffigures", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//listoffigures", range, &diagnostics)
         .expect("failed to resolve `//listoffigures`");
     assert_match!(figures, Include::Command(Command::ListOfFigures));
     let listings = resolver
-        .resolve(&ctx, "//listoflistings", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "//listoflistings", range, &diagnostics)
         .expect("failed to resolve `//listoflistings`");
     assert_match!(listings, Include::Command(Command::ListOfListings));
 }
@@ -234,7 +234,7 @@ fn http_resolves_needs_internet() {
     let ctx = Context::from_project_root();
 
     let external = resolver
-        .resolve(
+        .resolve(ResolveSecurity::Default,
             &ctx,
             "https://raw.githubusercontent.com/oberien/heradoc/master/README.md",
             range,
@@ -249,7 +249,7 @@ fn local_resolves_not_exist_not_internal_bug() {
     let ctx = Context::from_project_root();
 
     let error = resolver
-        .resolve(&ctx, "this_file_does_not_exist.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "this_file_does_not_exist.md", range, &diagnostics)
         .expect_err("only files that exist on disk can be resolved");
     assert_match!(error, Error::Diagnostic);
 }
@@ -261,7 +261,7 @@ fn local_absolute_url_stays_absolute() {
 
     let url = Url::from_file_path(project_root.path().join("main.md")).unwrap();
     let main = resolver
-        .resolve(&ctx, url.as_str(), range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, url.as_str(), range, &diagnostics)
         .expect("failed to resolve absolute file url");
 
     assert_match!(main, Include::Markdown(_, ctx) if ctx.typ() == ContextType::LocalAbsolute);
@@ -274,7 +274,7 @@ fn url_does_not_exist() {
 
     let url = Url::from_file_path(project_root.path().join("this_file_does_not_exist.md")).unwrap();
     let error = resolver
-        .resolve(&ctx, url.as_str(), range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, url.as_str(), range, &diagnostics)
         .expect_err("failed to resolve absolute file url");
 
     assert_match!(error, Error::Diagnostic);
@@ -286,10 +286,10 @@ fn relative_dot_slash_in_subdirectory() {
     let ctx = Context::from_path("chapters/").expect("can't create context");
 
     let chapter1 = resolver
-        .resolve(&ctx, "chapter1.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "chapter1.md", range, &diagnostics)
         .expect("failed to resolve sibling file");
     let chapter12 = resolver
-        .resolve(&ctx, "./chapter1.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx, "./chapter1.md", range, &diagnostics)
         .expect("failed to resolve sibling file via explicitely relative path");
 
     assert_eq!(chapter1, chapter12);
