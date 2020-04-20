@@ -45,6 +45,8 @@ Reference to [#test-heading].
 
 [include examples/functionality/latex-block.md]
 
+[include examples/functionality/svgbob.md]
+
 [appendix]
 
 [include examples/functionality/listoflistings.md]

@@ -3,6 +3,8 @@ use std::collections::VecDeque;
 use std::iter::Peekable;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::fs::File;
+use std::io::Write;
 
 use lazy_static::lazy_static;
 use pulldown_cmark::{Options as CmarkOptions, Parser as CmarkParser};
@@ -27,13 +29,14 @@ use crate::config::Config;
 use crate::cskvp::Cskvp;
 use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, StrExt};
-use crate::resolve::Command;
+use crate::resolve::{Command, ResolveSecurity};
 
 pub struct Frontend<'a> {
     cfg: &'a Config,
     diagnostics: Arc<Diagnostics<'a>>,
     parser: Peekable<Concat<'a>>,
     buffer: VecDeque<WithRange<Event<'a>>>,
+    svgbob_index: u64,
 }
 
 impl<'a> Iterator for Frontend<'a> {
@@ -80,6 +83,7 @@ impl<'a> Frontend<'a> {
             diagnostics,
             parser: Concat::new(ConvertCow(parser)).peekable(),
             buffer: VecDeque::new(),
+            svgbob_index: 0,
         }
     }
 
@@ -395,6 +399,39 @@ impl<'a> Frontend<'a> {
                 }
 
                 self.buffer.push_back(WithRange(Event::Latex(latex), latex_range));
+                return;
+            },
+            "svgbob" => {
+                let WithRange(evt, svgbob_range) = self.parser.next().unwrap();
+                let content = match evt {
+                    CmarkEvent::Text(content) => content,
+                    _ => unreachable!(),
+                };
+                // consume end tag
+                match self.parser.next().unwrap().0 {
+                    CmarkEvent::End(CmarkTag::CodeBlock(_)) => (),
+                    _ => unreachable!(),
+                }
+
+                // render svg
+                let filename = format!("svgbob{}.svg", self.svgbob_index);
+                self.svgbob_index += 1;
+                let path = self.cfg.temp_dir.join(filename);
+                let mut file = File::create(&path).expect(&format!("can't create temporary svgbob file {:?}", path));
+                let svg = svgbob::to_svg(&content);
+                writeln!(file, "{}", svg).expect(&format!("can't write to temporary svgbob file {:?}", path));
+
+                self.buffer.push_back(WithRange(Event::Include(Include {
+                    resolve_security: ResolveSecurity::SkipChecks,
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
+                    title: cskvp.take_double("title").map(|WithRange(title, _)| title),
+                    alt_text: cskvp.take_double("alt_text").map(|WithRange(title, _)| title.into()),
+                    dst: format!("file://{}", path.display()).into(),
+                    scale: cskvp.take_double("scale"),
+                    width: cskvp.take_double("width"),
+                    height: cskvp.take_double("height"),
+                }), svgbob_range));
                 return;
             },
             _ => Tag::CodeBlock(CodeBlock {
@@ -727,6 +764,7 @@ impl<'a> Frontend<'a> {
         let mut cskvp = cskvp.unwrap_or_default();
         self.buffer.push_back(WithRange(
             Event::Include(Include {
+                resolve_security: ResolveSecurity::Default,
                 label: cskvp.take_label(),
                 caption: cskvp.take_caption(),
                 title: if title.is_empty() { None } else { Some(title) },

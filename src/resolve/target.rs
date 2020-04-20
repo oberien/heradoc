@@ -160,6 +160,15 @@ impl<'a, 'd> Target<'a, 'd> {
             meta,
         })
     }
+
+    /// Skip path canonicalization. Use with care, as this skips some security checks.
+    ///
+    /// This function should only be used when the target is known to be fine,
+    /// for example if it was created from within heradoc.
+    pub fn skip_canonicalization(self) -> TargetCanonicalized<'a, 'd> {
+        let Target { inner, meta } = self;
+        TargetCanonicalized { inner, meta }
+    }
 }
 
 impl <'a, 'd> TargetCanonicalized<'a, 'd> {
@@ -226,6 +235,14 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             meta,
         })
     }
+
+    /// Skips the access checks. Use with care, as this could result in security problems.
+    /// This function should only be used when the target is known to be fine,
+    /// for example if it was created from within heradoc.
+    pub fn skip_check_access(self) -> TargetChecked<'a, 'd> {
+        let TargetCanonicalized { inner, meta } = self;
+        TargetChecked { inner, meta }
+    }
 }
 
 impl<'a, 'd> TargetChecked<'a, 'd> {
@@ -246,6 +263,7 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
             },
             TargetInner::LocalRelative(path) => {
                 // Making doubly sure for future changes.
+                // Number of times this error was hit during changes: 1
                 match path.strip_prefix(meta.project_root) {
                     Ok(_) => (),
                     Err(e) => {

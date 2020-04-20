@@ -20,7 +20,7 @@ pub struct Diagnostics<'a> {
 impl<'a> fmt::Debug for Diagnostics<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Diagnostics")
-            .field("file_map", &self.file_map)
+            .field("file_map.name", self.file_map.name())
             .field("out", &"Arc(Mutex(StandardStream))")
             .finish()
     }

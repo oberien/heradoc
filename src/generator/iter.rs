@@ -9,7 +9,7 @@ use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Incl
 use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Image, Pdf, Svg};
 use crate::generator::Generator;
-use crate::resolve::{Include, ContextType};
+use crate::resolve::{Include, ContextType, ResolveSecurity};
 
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
@@ -86,12 +86,12 @@ impl<'a> Iter<'a> {
             | FeEventKind::Url
             | FeEventKind::InterLink
             | FeEventKind::Include
+            | FeEventKind::ResolveInclude
             | FeEventKind::Label
             | FeEventKind::SoftBreak
             | FeEventKind::HardBreak
             | FeEventKind::TaskListMarker
-            | FeEventKind::Command
-            | FeEventKind::ResolveInclude => return Ok(()),
+            | FeEventKind::Command => return Ok(()),
         }
         let mut depth = 0;
         loop {
@@ -114,11 +114,11 @@ impl<'a> Iter<'a> {
         let WithRange(event, range) = event;
         match event {
             FeEvent::Include(image) => {
-                let include = gen.resolve(&image.dst, range)?;
+                let include = gen.resolve(image.resolve_security, &image.dst, range)?;
                 self.convert_include(WithRange(include, range), Some(image), gen)
             },
             FeEvent::ResolveInclude(include) => {
-                let include = gen.resolve(&include, range)?;
+                let include = gen.resolve(ResolveSecurity::Default, &include, range)?;
                 self.convert_include(WithRange(include, range), None, gen)
             },
             e => Ok(e.into()),
@@ -131,6 +131,7 @@ impl<'a> Iter<'a> {
     ) -> Result<Event<'a>> {
         let (label, caption, title, alt_text, scale, width, height) =
             if let Some(FeInclude {
+                resolve_security: _,
                 label,
                 caption,
                 title,

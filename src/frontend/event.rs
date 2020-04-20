@@ -5,7 +5,7 @@ pub use pulldown_cmark::Alignment;
 use enum_kinds::EnumKind;
 
 use crate::frontend::range::WithRange;
-use crate::resolve::Command;
+use crate::resolve::{Command, ResolveSecurity};
 
 // extension of pulldown_cmark::Event with custom types
 #[derive(Debug, EnumKind)]
@@ -23,15 +23,16 @@ pub enum Event<'a> {
     Url(Url<'a>),
     /// InterLink without content
     InterLink(InterLink<'a>),
+    /// An include created with `![](foo)`
     Include(Include<'a>),
+    /// Include to be resolved by the resolver
+    ResolveInclude(Cow<'a, str>),
     Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
     TaskListMarker(TaskListMarker),
 
     Command(Command),
-    /// Include to be resolved by the resolver
-    ResolveInclude(Cow<'a, str>),
 }
 
 #[derive(Debug, Clone)]
@@ -136,6 +137,7 @@ pub struct Table<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Include<'a> {
+    pub resolve_security: ResolveSecurity,
     pub label: Option<WithRange<Cow<'a, str>>>,
     pub caption: Option<WithRange<Cow<'a, str>>>,
     pub title: Option<Cow<'a, str>>,
