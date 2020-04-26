@@ -369,12 +369,19 @@ impl<'a> Frontend<'a> {
         let mut cskvp = cskvp.unwrap_or_default();
         let tag = match &*language {
             "equation" | "$$" => {
-                Tag::Equation(Equation { label: cskvp.take_label(), caption: cskvp.take_caption() })
+                Tag::MathBlock (MathBlock {
+                    kind: MathBlockKind::Equation,
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
+                })
             },
-            "numberedequation" | "$$$" => Tag::NumberedEquation(Equation {
-                label: cskvp.take_label(),
-                caption: cskvp.take_caption(),
-            }),
+            "numberedequation" | "$$$" => {
+                Tag::MathBlock(MathBlock {
+                    kind: MathBlockKind::NumberedEquation,
+                    label: cskvp.take_label(),
+                    caption: cskvp.take_caption(),
+                })
+            },
             "graphviz" => {
                 let graphviz = Graphviz {
                     label: cskvp.take_label(),
@@ -533,6 +540,7 @@ impl<'a> Frontend<'a> {
         // otherwise create label event
         match self.parser.peek().unwrap() {
             WithRange(CmarkEvent::Start(CmarkTag::Header(_)), _)
+            | WithRange(CmarkEvent::Start(CmarkTag::BlockQuote), _)
             | WithRange(CmarkEvent::Start(CmarkTag::CodeBlock(_)), _)
             | WithRange(CmarkEvent::Start(CmarkTag::Table(_)), _)
             | WithRange(CmarkEvent::Start(CmarkTag::Image(..)), _) => {
@@ -589,6 +597,9 @@ impl<'a> Frontend<'a> {
         match next_element {
             CmarkEvent::Start(CmarkTag::Header(label)) => {
                 self.convert_header(WithRange(label, next_range), Some(cskvp))
+            },
+            CmarkEvent::Start(CmarkTag::BlockQuote) => {
+                self.convert_block_quote(next_range, cskvp)
             },
             CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
                 self.convert_code_block(WithRange(lang, next_range), Some(cskvp))
@@ -683,6 +694,45 @@ impl<'a> Frontend<'a> {
             last_text.truncate_end(last_text.len() - start);
             self.buffer.push_back(WithRange(Event::Text(last_text), range));
         }
+        self.buffer.push_back(WithRange(Event::End(tag), range));
+    }
+
+    fn convert_block_quote(&mut self, range: SourceRange, mut cskvp: Cskvp<'a>) {
+        let prefix = cskvp.take_single();
+
+        let kind = if let Some(prefix) = prefix {
+            match prefix.as_ref().element().as_ref() {
+                "corollary" => ProofKind::Corollary,
+                "definition" => ProofKind::Definition,
+                "lemma" => ProofKind::Lemma,
+                "proof" => ProofKind::Proof,
+                "theorem" => ProofKind::Theorem,
+                other => {
+                    self.diagnostics
+                        .error(format!("unknown quote environment {:?}", other))
+                        .with_error_section(prefix.range(), "type defined here")
+                        .emit();
+                    return;
+                }
+            }
+        } else {
+            self.diagnostics
+                .error("quote environment has no type")
+                .with_error_section(range, "configuration defined here")
+                .help("try indicating the type, the configuration could look like")
+                .help("  {proof}")
+                .emit();
+            return;
+        };
+
+        let tag = Tag::Proof(Proof {
+            kind,
+            label: cskvp.take_label(),
+            title: cskvp.take_double("title"),
+        });
+
+        self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
+        self.convert_until_end_inclusive(|t| if let CmarkTag::BlockQuote = t { true } else { false });
         self.buffer.push_back(WithRange(Event::End(tag), range));
     }
 

@@ -12,16 +12,19 @@ pub use crate::frontend::{
     BiberReference,
     CodeBlock,
     Enumerate,
-    Equation,
     Figure,
     FootnoteDefinition,
     FootnoteReference,
     Graphviz,
     Header,
     InterLink,
+    MathBlock,
+    MathBlockKind,
     Table,
     TaskListMarker,
     Url,
+    Proof,
+    ProofKind,
 };
 pub use pulldown_cmark::Alignment;
 

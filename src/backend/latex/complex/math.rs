@@ -5,7 +5,7 @@ use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::Result;
 use crate::frontend::range::WithRange;
-use crate::generator::event::{Equation, Event};
+use crate::generator::event::{Event, MathBlock, MathBlockKind};
 use crate::generator::Generator;
 
 #[derive(Debug)]
@@ -30,23 +30,27 @@ impl<'a> CodeGenUnit<'a, ()> for InlineMathGen {
 }
 
 #[derive(Debug)]
-pub struct EquationGen<'a> {
+pub struct MathBlockGen<'a> {
     inline_fig: InlineEnvironment<'a>,
+    kind: MathBlockKind,
 }
 
-impl<'a> CodeGenUnit<'a, Equation<'a>> for EquationGen<'a> {
+impl<'a> CodeGenUnit<'a, MathBlock<'a>> for MathBlockGen<'a> {
     fn new(
-        _cfg: &Config, eq: WithRange<Equation<'a>>,
+        _cfg: &Config, eq: WithRange<MathBlock<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let WithRange(Equation { label, caption }, _range) = eq;
+        let WithRange(MathBlock { kind, label, caption }, _range) = eq;
         let inline_fig = InlineEnvironment::new_figure(label, caption);
         let out = gen.get_out();
         inline_fig.write_begin(&mut *out)?;
 
-        writeln!(out, "\\begin{{align*}}")?;
+        match kind {
+            MathBlockKind::Equation => writeln!(out, "\\begin{{align*}}")?,
+            MathBlockKind::NumberedEquation => writeln!(out, "\\begin{{align}}")?,
+        }
 
-        Ok(EquationGen { inline_fig })
+        Ok(MathBlockGen { inline_fig, kind })
     }
 
     fn finish(
@@ -54,37 +58,10 @@ impl<'a> CodeGenUnit<'a, Equation<'a>> for EquationGen<'a> {
         _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         let out = gen.get_out();
-        writeln!(out, "\\end{{align*}}")?;
-        self.inline_fig.write_end(out)?;
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
-pub struct NumberedEquationGen<'a> {
-    inline_fig: InlineEnvironment<'a>,
-}
-
-impl<'a> CodeGenUnit<'a, Equation<'a>> for NumberedEquationGen<'a> {
-    fn new(
-        _cfg: &Config, eq: WithRange<Equation<'a>>,
-        gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-    ) -> Result<Self> {
-        let WithRange(Equation { label, caption }, _range) = eq;
-        let inline_fig = InlineEnvironment::new_figure(label, caption);
-        let out = gen.get_out();
-        inline_fig.write_begin(&mut *out)?;
-
-        writeln!(out, "\\begin{{align}}")?;
-        Ok(NumberedEquationGen { inline_fig })
-    }
-
-    fn finish(
-        self, gen: &'_ mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<WithRange<&Event<'a>>>,
-    ) -> Result<()> {
-        let out = gen.get_out();
-        writeln!(out, "\\end{{align}}")?;
+        match self.kind {
+            MathBlockKind::Equation => writeln!(out, "\\end{{align*}}")?,
+            MathBlockKind::NumberedEquation => writeln!(out, "\\end{{align}}")?,
+        }
         self.inline_fig.write_end(out)?;
         Ok(())
     }

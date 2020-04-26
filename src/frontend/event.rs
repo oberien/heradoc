@@ -94,9 +94,9 @@ pub enum Tag<'a> {
     InlineCode,
     InlineMath,
 
-    Equation(Equation<'a>),
-    NumberedEquation(Equation<'a>),
+    MathBlock(MathBlock<'a>),
     Graphviz(Graphviz<'a>),
+    Proof(Proof<'a>),
 }
 
 #[derive(Debug, Clone)]
@@ -150,9 +150,16 @@ pub struct Include<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Equation<'a> {
+pub struct MathBlock<'a> {
+    pub kind: MathBlockKind,
     pub label: Option<WithRange<Cow<'a, str>>>,
     pub caption: Option<WithRange<Cow<'a, str>>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum MathBlockKind {
+    Equation,
+    NumberedEquation,
 }
 
 #[derive(Debug, Clone)]
@@ -162,4 +169,20 @@ pub struct Graphviz<'a> {
     pub scale: Option<WithRange<Cow<'a, str>>>,
     pub width: Option<WithRange<Cow<'a, str>>>,
     pub height: Option<WithRange<Cow<'a, str>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Proof<'a> {
+    pub kind: ProofKind,
+    pub label: Option<WithRange<Cow<'a, str>>>,
+    pub title: Option<WithRange<Cow<'a, str>>>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ProofKind {
+    Corollary,
+    Definition,
+    Theorem,
+    Lemma,
+    Proof,
 }
