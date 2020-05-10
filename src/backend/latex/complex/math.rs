@@ -1,6 +1,6 @@
+use std::borrow::Cow;
 use std::io::Write;
 
-use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::Result;
@@ -31,7 +31,7 @@ impl<'a> CodeGenUnit<'a, ()> for InlineMathGen {
 
 #[derive(Debug)]
 pub struct MathBlockGen<'a> {
-    inline_fig: InlineEnvironment<'a>,
+    _label: Option<WithRange<Cow<'a, str>>>,
     kind: MathBlockKind,
 }
 
@@ -41,16 +41,14 @@ impl<'a> CodeGenUnit<'a, MathBlock<'a>> for MathBlockGen<'a> {
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let WithRange(MathBlock { kind, label, caption }, _range) = eq;
-        let inline_fig = InlineEnvironment::new_figure(label, caption);
         let out = gen.get_out();
-        inline_fig.write_begin(&mut *out)?;
 
         match kind {
             MathBlockKind::Equation => writeln!(out, "\\begin{{align*}}")?,
             MathBlockKind::NumberedEquation => writeln!(out, "\\begin{{align}}")?,
         }
 
-        Ok(MathBlockGen { inline_fig, kind })
+        Ok(MathBlockGen { _label: label, kind })
     }
 
     fn finish(
@@ -62,7 +60,6 @@ impl<'a> CodeGenUnit<'a, MathBlock<'a>> for MathBlockGen<'a> {
             MathBlockKind::Equation => writeln!(out, "\\end{{align*}}")?,
             MathBlockKind::NumberedEquation => writeln!(out, "\\end{{align}}")?,
         }
-        self.inline_fig.write_end(out)?;
         Ok(())
     }
 }

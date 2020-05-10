@@ -1,4 +1,3 @@
-#![forbid(unsafe_code)]
 // groups
 #![warn(nonstandard_style)]
 #![warn(rust_2018_idioms)]
@@ -84,7 +83,8 @@ fn main() {
     };
 
     let tmpdir = TempDir::new("heradoc").expect("can't create tempdir");
-    let cfg = Config::new(args, infile, file, &tmpdir);
+    let tmpdir = core::mem::ManuallyDrop::new(tmpdir);
+    let cfg = Config::new(args, infile, file, &*tmpdir);
     if cfg.out_dir != cfg.temp_dir {
         // While initializing the config, some files may already be downloaded.
         // Thus we must only clear the output directory if it's not a temporary directory.
@@ -99,12 +99,12 @@ fn main() {
             let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
             gen(&cfg, markdown, tex_file);
 
-            pdflatex(&tmpdir, &cfg);
+            pdflatex(&*tmpdir, &cfg);
             if cfg.bibliography.is_some() {
-                biber(&tmpdir);
-                pdflatex(&tmpdir, &cfg);
+                biber(&*tmpdir);
+                pdflatex(&*tmpdir, &cfg);
             }
-            pdflatex(&tmpdir, &cfg);
+            pdflatex(&*tmpdir, &cfg);
             let mut pdf = File::open(tmpdir.path().join("document.pdf"))
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
