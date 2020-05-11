@@ -543,6 +543,7 @@ impl<'a> Frontend<'a> {
         let figure = match cskvp.take_figure().map(|f| f.element()).unwrap_or(self.cfg.figures) {
             false => None,
             true => match &next_element {
+                CmarkEvent::Start(CmarkTag::BlockQuote) => None,
                 CmarkEvent::Start(CmarkTag::Table(_)) => Some(Tag::TableFigure(Figure {
                     caption: cskvp.take_caption(),
                     label: cskvp.take_label(),
