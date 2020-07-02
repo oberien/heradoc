@@ -104,6 +104,9 @@ pub struct FileConfig {
     /// Subitle of document, used for titlepage
     #[structopt(long = "subtitle")]
     pub subtitle: Option<String>,
+    /// Titlehead of the titlepage
+    #[structopt(long = "titlehead")]
+    pub titlehead: Option<String>,
     /// Author(s) of document, used for titlepage
     #[structopt(long = "author")]
     pub author: Option<String>,
@@ -205,6 +208,7 @@ pub struct Config {
     // TODO: make metadata content dependent on document_type
     pub title: Option<String>,
     pub subtitle: Option<String>,
+    pub titlehead: Option<String>,
     pub author: Option<String>,
     pub email: Option<String>,
     pub date: Option<String>,
@@ -401,6 +405,7 @@ impl Config {
                 .unwrap_or(true),
             title: args.fileconfig.title.or(infile.title).or(file.title),
             subtitle: args.fileconfig.subtitle.or(infile.subtitle).or(file.subtitle),
+            titlehead: args.fileconfig.titlehead.or(infile.titlehead).or(file.titlehead),
             author: args.fileconfig.author.or(infile.author).or(file.author),
             email: args.fileconfig.email.or(infile.email).or(file.email),
             date: args.fileconfig.date.or(infile.date).or(file.date),

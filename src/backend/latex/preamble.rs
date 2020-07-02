@@ -131,6 +131,9 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
     if let Some(subtitle) = &cfg.subtitle {
         writeln!(out, "\\subtitle{{{}}}", subtitle)?;
     }
+    if let Some(titlehead) = &cfg.titlehead {
+        writeln!(out, "\\titlehead{{{}}}", titlehead)?;
+    }
     if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
         write!(out, "\\author")?;
         if short_author == ShortAuthor::Yes {
