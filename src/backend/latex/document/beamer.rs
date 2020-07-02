@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::error::{FatalResult, Result, Error};
 use crate::diagnostics::Diagnostics;
 use crate::frontend::range::SourceRange;
+use crate::backend::latex::preamble::ShortAuthor;
 
 #[derive(Debug)]
 pub struct Beamer {
@@ -183,7 +184,7 @@ impl<'a> Backend<'a> for Beamer {
 
         if cfg.titlepage {
             // TODO: warn if any info is set but titlepage false
-            preamble::write_maketitle_info(cfg, out)?;
+            preamble::write_maketitle_info(cfg, ShortAuthor::Yes, out)?;
             writeln!(out, "\\frame{{\\titlepage}}")?;
         }
 

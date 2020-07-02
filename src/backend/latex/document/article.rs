@@ -5,6 +5,7 @@ use crate::backend::Backend;
 use crate::config::Config;
 use crate::error::FatalResult;
 use crate::diagnostics::Diagnostics;
+use crate::backend::latex::preamble::ShortAuthor;
 
 #[derive(Debug)]
 pub struct Article;
@@ -77,7 +78,7 @@ impl<'a> Backend<'a> for Article {
 
         if cfg.title.is_some() {
             // TODO: Warn if title isn't set but something else is
-            preamble::write_maketitle_info(cfg, out)?;
+            preamble::write_maketitle_info(cfg, ShortAuthor::No, out)?;
             writeln!(out, "\\maketitle")?;
         }
         Ok(())
