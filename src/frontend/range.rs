@@ -20,6 +20,10 @@ impl<T> WithRange<T> {
         self.0
     }
 
+    pub fn element_ref(&self) -> &T {
+        &self.0
+    }
+
     pub fn range(&self) -> SourceRange {
         self.1
     }

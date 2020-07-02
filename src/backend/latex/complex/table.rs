@@ -20,7 +20,7 @@ impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
         _cfg: &'a Config, table: WithRange<Table<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let WithRange(Table { label, caption, alignment }, _range) = table;
+        let WithRange(Table { label, caption, columns }, _range) = table;
         let inline_table = InlineEnvironment::new_table(label, caption);
         let out = gen.get_out();
         inline_table.write_begin(&mut *out)?;
@@ -30,12 +30,16 @@ impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
         // TODO: merging rows
         // TODO: easier custom formatting
         write!(out, "\\begin{{tabularx}}{{\\textwidth}}{{|")?;
-        for align in alignment {
+        let total_width = columns.len() as f32;
+        for (align, width) in columns {
+            // https://tex.stackexchange.com/a/249043
+            let width = total_width * (width.0 / 100.0);
+            write!(out, " >{{\\hsize={:.3}\\hsize}}", width);
             match align {
-                Alignment::None => write!(out, " X |")?,
-                Alignment::Left => write!(out, " L |")?,
-                Alignment::Center => write!(out, " C |")?,
-                Alignment::Right => write!(out, " R |")?,
+                Alignment::None => write!(out, "X |")?,
+                Alignment::Left => write!(out, "L |")?,
+                Alignment::Center => write!(out, "C |")?,
+                Alignment::Right => write!(out, "R |")?,
             }
         }
         write!(out, "}}")?;

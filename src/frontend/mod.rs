@@ -16,6 +16,7 @@ mod event;
 pub mod range;
 mod refs;
 mod size;
+mod table_layout;
 
 pub use self::event::*;
 pub use self::size::*;
@@ -248,12 +249,21 @@ impl<'a> Frontend<'a> {
     }
 
     /// Consumes all events until the End event, concatenating any text-like events.
+    /// Takes a function which generates the events to be consumed (allowing to pass a consuming,
+    /// or a multi-peeking function).
     #[inline]
-    fn concat_until_end_inclusive(&mut self) -> String {
+    fn concat_until_end_inclusive(&mut self, consume: bool) -> String {
         let mut s = String::with_capacity(100);
         let mut nest = 0;
         loop {
-            match self.parser.next().unwrap().element() {
+            let evt;
+            let el = if consume {
+                evt = self.parser.next();
+                evt.as_ref().unwrap()
+            } else {
+                self.parser.peek().unwrap()
+            };
+            match el.element_ref() {
                 CmarkEvent::Start(_) => nest += 1,
                 CmarkEvent::End(_) if nest > 0 => nest -= 1,
                 CmarkEvent::End(_) => break,
@@ -718,10 +728,36 @@ impl<'a> Frontend<'a> {
         &mut self, WithRange(alignment, range): WithRange<Vec<Alignment>>, cskvp: Option<Cskvp<'a>>,
     ) {
         let mut cskvp = cskvp.unwrap_or_default();
+
+        let mut column_lines = vec![Vec::new(); alignment.len()];
+        loop {
+            match &self.parser.peek().unwrap().0 {
+                &CmarkEvent::Start(CmarkTag::TableHead) | &CmarkEvent::Start(CmarkTag::TableRow) => {
+                    let mut i = 0;
+                    loop {
+                        let cell_text = match &self.parser.peek().unwrap().0 {
+                            &CmarkEvent::Start(CmarkTag::TableCell) => self.concat_until_end_inclusive(false),
+                            &CmarkEvent::End(CmarkTag::TableHead) | &CmarkEvent::End(CmarkTag::TableRow) => break,
+                            _ => unreachable!(),
+                        };
+                        column_lines[i].extend(cell_text.lines().map(str::to_owned));
+                        i += 1;
+                    }
+                }
+                &CmarkEvent::End(CmarkTag::TableHead) | &CmarkEvent::End(CmarkTag::TableRow) => (),
+                &CmarkEvent::End(CmarkTag::Table(_)) => break,
+                _ => unreachable!(),
+            }
+        }
+        self.parser.reset_peek();
+
+        let widths = table_layout::column_widths(column_lines);
+        assert_eq!(widths.len(), alignment.len());
+
         let tag = Tag::Table(Table {
             label: cskvp.take_label(),
             caption: cskvp.take_caption(),
-            alignment,
+            columns: alignment.into_iter().zip(widths.into_iter().map(|w| ColumnWidthPercent(w))).collect(),
         });
         self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
         self.convert_until_end_inclusive(|t| if let CmarkTag::Table(_) = t { true } else { false });
@@ -778,7 +814,7 @@ impl<'a> Frontend<'a> {
         // TODO: maybe not concat all text-like events but actually forward events
         // The CommonMark spec says that the parser should produce the correct events, while
         // the html renderer should only render it as text.
-        let content = self.concat_until_end_inclusive();
+        let content = self.concat_until_end_inclusive(true);
         let alt_text = match typ {
             LinkType::Reference | LinkType::ReferenceUnknown | LinkType::Inline => {
                 if content.is_empty() { None } else { Some(content) }
