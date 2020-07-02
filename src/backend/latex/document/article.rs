@@ -80,6 +80,7 @@ impl<'a> Backend<'a> for Article {
         if cfg.title.is_some() {
             // TODO: Warn if title isn't set but something else is
             preamble::write_maketitle_info(cfg, ShortAuthor::No, out)?;
+            preamble::write_manual_titlepage_commands(cfg, out)?;
             writeln!(out, "\\maketitle")?;
         }
         Ok(())

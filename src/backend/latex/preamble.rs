@@ -188,6 +188,7 @@ pub fn write_manual_titlepage_commands(cfg: &Config, out: &mut impl Write) -> Re
     }
     writeln!(out, "\\newcommand*{{\\getTitle}}{{{}}}", get(&cfg.title))?;
     writeln!(out, "\\newcommand*{{\\getSubtitle}}{{{}}}", get(&cfg.subtitle))?;
+    writeln!(out, "\\newcommand*{{\\getTitlehead}}{{{}}}", get(&cfg.titlehead))?;
     writeln!(out, "\\newcommand*{{\\getAuthor}}{{{}}}", get(&cfg.author))?;
     writeln!(out, "\\newcommand*{{\\getEmail}}{{{}}}", get(&cfg.email))?;
     writeln!(out, "\\newcommand*{{\\getDate}}{{{}}}", get(&cfg.date))?;

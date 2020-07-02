@@ -186,6 +186,7 @@ impl<'a> Backend<'a> for Beamer {
         if cfg.titlepage {
             // TODO: warn if any info is set but titlepage false
             preamble::write_maketitle_info(cfg, ShortAuthor::Yes, out)?;
+            preamble::write_manual_titlepage_commands(cfg, out)?;
             writeln!(out, "\\frame{{\\titlepage}}")?;
         }
 
