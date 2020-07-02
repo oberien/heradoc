@@ -34,7 +34,7 @@ enum-kinds = "0.4.1"
 librsvg = { git="https://gitlab.gnome.org/GNOME/librsvg", rev="6ecab568" }
 cairo-rs = { version = "0.7.0", features = ["pdf"] }
 lexical = "5.0.0"
-svgbob = "0.5.0-alpha.1"
+svgbob = "0.5.0-alpha.5"
 
 [profile.release]
 debug = true
