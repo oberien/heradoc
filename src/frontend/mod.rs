@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::VecDeque;
-use std::iter::Peekable;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::fs::File;
@@ -9,6 +8,7 @@ use std::io::Write;
 use lazy_static::lazy_static;
 use pulldown_cmark::{Options as CmarkOptions, Parser as CmarkParser};
 use regex::Regex;
+use itertools::structs::MultiPeek;
 
 mod concat;
 mod convert_cow;
@@ -34,7 +34,7 @@ use crate::resolve::{Command, ResolveSecurity};
 pub struct Frontend<'a> {
     cfg: &'a Config,
     diagnostics: Arc<Diagnostics<'a>>,
-    parser: Peekable<Concat<'a>>,
+    parser: MultiPeek<Concat<'a>>,
     buffer: VecDeque<WithRange<Event<'a>>>,
     svgbob_index: u64,
 }
@@ -81,7 +81,7 @@ impl<'a> Frontend<'a> {
         Frontend {
             cfg,
             diagnostics,
-            parser: Concat::new(ConvertCow(parser)).peekable(),
+            parser: itertools::multipeek(Concat::new(ConvertCow(parser))),
             buffer: VecDeque::new(),
             svgbob_index: 0,
         }
@@ -459,8 +459,10 @@ impl<'a> Frontend<'a> {
     }
 
     fn convert_paragraph(&mut self, WithRange((), range): WithRange<()>) {
-        // check for label/config (Start(Paragraph), Text("{#foo,config...}"),
-        // End(Paragraph)/SoftBreak)
+        if self.check_convert_pagebreak(range) {
+            return;
+        }
+        // check for label/config (Start(Paragraph), Text("{#foo,config...}"), End(Paragraph)/SoftBreak)
 
         macro_rules! handle_normal {
             () => {{
@@ -482,8 +484,8 @@ impl<'a> Frontend<'a> {
             _ => handle_normal!(),
         };
 
-        let text = text.trim();
-        if !(text.starts_with('{') && text.ends_with('}')) {
+        let trimmed = text.trim();
+        if !(trimmed.starts_with('{') && trimmed.ends_with('}')) {
             handle_normal!();
         }
         // consume text
@@ -563,6 +565,32 @@ impl<'a> Frontend<'a> {
             });
             self.buffer.push_back(WithRange(Event::End(Tag::Paragraph), range));
         }
+    }
+
+    /// Check for pagebreak (Start(Paragraph), Text("[=\s*]{3,}"), End(Paragraph))
+    fn check_convert_pagebreak(&mut self, par_range: SourceRange) -> bool {
+        let (text, _) = match self.parser.peek().unwrap() {
+            WithRange(CmarkEvent::Text(text), range) => (text, range),
+            _ => { self.parser.reset_peek(); return false },
+        };
+        if !text.starts_with('=') || !RE.is_match(text) {
+            self.parser.reset_peek();
+            return false;
+        }
+
+        match self.parser.peek().unwrap() {
+            WithRange(CmarkEvent::End(CmarkTag::Paragraph), _) => (),
+            _ => { self.parser.reset_peek(); return false },
+        }
+        lazy_static! {
+            static ref RE: Regex = Regex::new(r"[=\s*]{3,}").unwrap();
+        }
+        // consume Text
+        let _ = self.parser.next().unwrap();
+        // consume End(Paragraph)
+        let _ = self.parser.next().unwrap();
+        self.buffer.push_back(WithRange(Event::PageBreak, par_range));
+        return true;
     }
 
     fn handle_cskvp(

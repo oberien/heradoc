@@ -123,6 +123,7 @@ impl<'a> Backend<'a> for Beamer {
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
+    type PageBreak = latex::BeamerPageBreakGen<'a>;
     type TaskListMarker = latex::TaskListMarkerGen;
     type TableOfContents = latex::TableOfContentsGen;
     type Bibliography = latex::BibliographyGen;
@@ -132,7 +133,7 @@ impl<'a> Backend<'a> for Beamer {
     type Appendix = latex::AppendixGen;
 
     type Paragraph = latex::ParagraphGen;
-    type Rule = latex::BeamerRuleGen<'a>;
+    type Rule = latex::RuleGen;
     type Header = latex::BeamerHeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;

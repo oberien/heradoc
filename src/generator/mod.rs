@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use typed_arena::Arena;
 use codespan_reporting::termcolor::StandardStream;
 
-use crate::backend::{Backend, MediumCodeGenUnit};
+use crate::backend::{Backend, StatefulCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
 use crate::diagnostics::{Diagnostics, Input};
 use crate::frontend::Frontend;
@@ -128,7 +128,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn visit_event(
-        &mut self, event: WithRange<Event<'a>>, config: &Config, peek: Option<WithRange<&Event<'a>>>,
+        &mut self, event: WithRange<Event<'a>>, config: &'a Config, peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         let WithRange(event, range) = event;
         if let Event::End(tag) = event {
@@ -137,44 +137,48 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             return Ok(());
         }
 
-        let mut stack = Stack::new(&mut self.default_out, &mut self.stack);
         match event {
             Event::End(_) => unreachable!(),
             Event::Start(tag) => {
                 let state = StackElement::new(self.cfg, WithRange(tag, range), self)?;
                 self.stack.push(state);
             },
-            Event::Text(text) => B::Text::gen(WithRange(text, range), config, &mut stack)?,
-            Event::Html(html) => B::Text::gen(WithRange(html, range), config, &mut stack)?,
-            Event::InlineHtml(html) => B::Text::gen(WithRange(html, range), config, &mut stack)?,
-            Event::Latex(latex) => B::Latex::gen(WithRange(latex, range), config, &mut stack)?,
+            Event::Text(text) => B::Text::new(config, WithRange(text, range), self)?.finish(self, peek)?,
+            Event::Html(html) => B::Text::new(config, WithRange(html, range), self)?.finish(self, peek)?,
+            Event::InlineHtml(html) => B::Text::new(config, WithRange(html, range), self)?.finish(self, peek)?,
+            Event::Latex(latex) => B::Latex::new(config, WithRange(latex, range), self)?.finish(self, peek)?,
             Event::IncludeMarkdown(events) => self.generate_body(*events)?,
             Event::FootnoteReference(fnote) => {
-                B::FootnoteReference::gen(WithRange(fnote, range), config, &mut stack)?
+                B::FootnoteReference::new(config, WithRange(fnote, range), self)?.finish(self, peek)?
             },
             Event::BiberReferences(biber) => {
-                B::BiberReferences::gen(WithRange(biber, range), config, &mut stack)?
+                B::BiberReferences::new(config, WithRange(biber, range), self)?.finish(self, peek)?
             },
-            Event::Url(url) => B::Url::gen(WithRange(url, range), config, &mut stack)?,
-            Event::InterLink(interlink) => B::InterLink::gen(WithRange(interlink, range), config, &mut stack)?,
-            Event::Image(img) => B::Image::gen(WithRange(img, range), config, &mut stack)?,
-            Event::Svg(svg) => B::Svg::gen(WithRange(svg, range), config, &mut stack)?,
-            Event::Label(label) => B::Label::gen(WithRange(label, range), config, &mut stack)?,
-            Event::Pdf(pdf) => B::Pdf::gen(WithRange(pdf, range), config, &mut stack)?,
-            Event::SoftBreak => B::SoftBreak::gen(WithRange((), range), config, &mut stack)?,
-            Event::HardBreak => B::HardBreak::gen(WithRange((), range), config, &mut stack)?,
+            Event::Url(url) => B::Url::new(config, WithRange(url, range), self)?.finish(self, peek)?,
+            Event::InterLink(interlink) => B::InterLink::new(config, WithRange(interlink, range), self)?.finish(self, peek)?,
+            Event::Image(img) => B::Image::new(config, WithRange(img, range), self)?.finish(self, peek)?,
+            Event::Svg(svg) => B::Svg::new(config, WithRange(svg, range), self)?.finish(self, peek)?,
+            Event::Label(label) => B::Label::new(config, WithRange(label, range), self)?.finish(self, peek)?,
+            Event::Pdf(pdf) => B::Pdf::new(config, WithRange(pdf, range), self)?.finish(self, peek)?,
+            Event::SoftBreak => B::SoftBreak::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::HardBreak => B::HardBreak::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::PageBreak => B::PageBreak::new(config, WithRange((), range), self)?.finish(self, peek)?,
             Event::TaskListMarker(marker) => {
-                B::TaskListMarker::gen(WithRange(marker, range), config, &mut stack)?
+                B::TaskListMarker::new(config, WithRange(marker, range), self)?.finish(self, peek)?
             },
-            Event::TableOfContents => B::TableOfContents::gen(WithRange((), range), config, &mut stack)?,
-            Event::Bibliography => B::Bibliography::gen(WithRange((), range), config, &mut stack)?,
-            Event::ListOfTables => B::ListOfTables::gen(WithRange((), range), config, &mut stack)?,
-            Event::ListOfFigures => B::ListOfFigures::gen(WithRange((), range), config, &mut stack)?,
-            Event::ListOfListings => B::ListOfListings::gen(WithRange((), range), config, &mut stack)?,
-            Event::Appendix => B::Appendix::gen(WithRange((), range), config, &mut stack)?,
+            Event::TableOfContents => B::TableOfContents::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::Bibliography => B::Bibliography::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::ListOfTables => B::ListOfTables::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::ListOfFigures => B::ListOfFigures::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::ListOfListings => B::ListOfListings::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::Appendix => B::Appendix::new(config, WithRange((), range), self)?.finish(self, peek)?,
         }
 
         Ok(())
+    }
+
+    pub fn stack(&mut self) -> Stack<'a, '_, B, W> {
+        Stack::new(&mut self.default_out, &mut self.stack)
     }
 
     pub fn iter_stack(&self) -> impl Iterator<Item = &StackElement<'a, B>> {

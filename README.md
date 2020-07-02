@@ -25,6 +25,7 @@ It is a very biased partial reimplementation of [pandoc](https://pandoc.org/MANU
 - [x] equation without number (```` ```$$\nfoo\n``` ````)
 - [x] equation with number (```` ```$$$\nfoo\n``` ````)
 - [x] hrule
+- [x] pagebreak / newpage (`\n===\n`)
 - [x] unicode support (for common symbols, translate into latex math equivalents, e.g. →, basically neo layer 6 :D )
     - [ ] typographic replacements (e.g. `(c)`, `(r)`, `(tm)`)
     - [ ] code-blocks with inline unicode / math-mode (`\begin{lstlisting}[mathescape=true]`)
@@ -100,7 +101,6 @@ It is a very biased partial reimplementation of [pandoc](https://pandoc.org/MANU
     - [ ] compare with pandoc
 - [x] figures (true / false): puts every listing / image / … inside figures
 - [x] oneside (true / false)
-    - [ ] pagebreak / newpage / clearpage
 - [ ] itemizespacing
 - [ ] use minted instead of lstlistings
 - [ ] lstset

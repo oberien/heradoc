@@ -37,6 +37,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
     type Pdf = <Beamer as Backend<'a>>::Pdf;
     type SoftBreak = <Beamer as Backend<'a>>::SoftBreak;
     type HardBreak = <Beamer as Backend<'a>>::HardBreak;
+    type PageBreak = PseudoBeamerPageBreakGen<'a>;
     type TaskListMarker = <Beamer as Backend<'a>>::TaskListMarker;
     type TableOfContents = <Beamer as Backend<'a>>::TableOfContents;
     type Bibliography = <Beamer as Backend<'a>>::Bibliography;
@@ -46,7 +47,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
     type Appendix = <Beamer as Backend<'a>>::Appendix;
 
     type Paragraph = <Beamer as Backend<'a>>::Paragraph;
-    type Rule = PseudoBeamerRuleGen<'a>;
+    type Rule = <Beamer as Backend<'a>>::Rule;
     type Header = PseudoBeamerHeaderGen<'a>;
     type BlockQuote = <Beamer as Backend<'a>>::BlockQuote;
     type CodeBlock = CodeBlockGen;
@@ -127,24 +128,24 @@ impl CurrentFrame {
 }
 
 #[derive(Debug)]
-pub struct PseudoBeamerRuleGen<'a> {
+pub struct PseudoBeamerPageBreakGen<'a> {
     cfg: &'a Config,
     range: SourceRange,
 }
 
-impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, ()> for PseudoBeamerRuleGen<'a> {
+impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, ()> for PseudoBeamerPageBreakGen<'a> {
     fn new(
         cfg: &'a Config, WithRange(_, range): WithRange<()>,
         _gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
     ) -> Result<Self> {
-        Ok(PseudoBeamerRuleGen { cfg, range })
+        Ok(PseudoBeamerPageBreakGen { cfg, range })
     }
 
     fn finish(
         self, gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
         _peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
-        let PseudoBeamerRuleGen { cfg, range } = self;
+        let PseudoBeamerPageBreakGen { cfg, range } = self;
         let (diagnostics, backend, mut out) = gen.backend_and_out();
         let events: Vec<_> = backend.slides.close_until(2, &mut out, range, diagnostics)?;
         backend.current_frame.advance_with(events);

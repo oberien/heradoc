@@ -23,6 +23,7 @@ impl<'a> Backend<'a> for Report {
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
+    type PageBreak = latex::PageBreakGen;
     type TaskListMarker = latex::TaskListMarkerGen;
     type TableOfContents = latex::TableOfContentsGen;
     type Bibliography = latex::BibliographyGen;

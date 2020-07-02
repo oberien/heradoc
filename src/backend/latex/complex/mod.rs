@@ -25,5 +25,5 @@ pub use self::link::{InterLinkWithContentGen, UrlWithContentGen};
 pub use self::list::{EnumerateGen, ItemGen, ListGen};
 pub use self::math::{EquationGen, InlineMathGen, NumberedEquationGen};
 pub use self::paragraph::ParagraphGen;
-pub use self::rule::{RuleGen, BeamerRuleGen};
+pub use self::rule::{RuleGen, BeamerPageBreakGen};
 pub use self::table::{TableCellGen, TableGen, TableHeadGen, TableRowGen};
