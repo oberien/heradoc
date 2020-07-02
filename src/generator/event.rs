@@ -52,6 +52,7 @@ pub enum Event<'a> {
     Pdf(Pdf),
     SoftBreak,
     HardBreak,
+    PageBreak,
     TaskListMarker(TaskListMarker),
     TableOfContents,
     Bibliography,
@@ -178,6 +179,7 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::Label(label) => Event::Label(label),
             FeEvent::SoftBreak => Event::SoftBreak,
             FeEvent::HardBreak => Event::HardBreak,
+            FeEvent::PageBreak => Event::PageBreak,
             FeEvent::TaskListMarker(marker) => Event::TaskListMarker(marker),
 
             FeEvent::Command(command) => command.into(),

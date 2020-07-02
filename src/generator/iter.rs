@@ -90,6 +90,7 @@ impl<'a> Iter<'a> {
             | FeEventKind::Label
             | FeEventKind::SoftBreak
             | FeEventKind::HardBreak
+            | FeEventKind::PageBreak
             | FeEventKind::TaskListMarker
             | FeEventKind::Command => return Ok(()),
         }

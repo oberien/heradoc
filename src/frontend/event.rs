@@ -30,6 +30,7 @@ pub enum Event<'a> {
     Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
+    PageBreak,
     TaskListMarker(TaskListMarker),
 
     Command(Command),

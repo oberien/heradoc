@@ -20,7 +20,7 @@ use crate::generator::event::{
 };
 use crate::generator::Stack;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
@@ -68,7 +68,7 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LatexGen;
 
 impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
@@ -78,7 +78,7 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
@@ -89,7 +89,7 @@ impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BiberReferencesGen;
 
 impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
@@ -116,7 +116,7 @@ impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct UrlGen;
 
 impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
@@ -130,7 +130,7 @@ impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct InterLinkGen;
 
 impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
@@ -144,7 +144,7 @@ impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
@@ -198,7 +198,7 @@ fn includegraphics(out: &mut impl Write, label: Option<WithRange<Cow<'_, str>>>,
     Ok(())
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SvgGen;
 
 impl<'a> MediumCodeGenUnit<Svg<'a>> for SvgGen {
@@ -219,7 +219,7 @@ impl<'a> MediumCodeGenUnit<Svg<'a>> for SvgGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct LabelGen;
 
 impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
@@ -230,7 +230,7 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PdfGen;
 
 impl SimpleCodeGenUnit<Pdf> for PdfGen {
@@ -242,7 +242,7 @@ impl SimpleCodeGenUnit<Pdf> for PdfGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SoftBreakGen;
 
 impl SimpleCodeGenUnit<()> for SoftBreakGen {
@@ -254,7 +254,7 @@ impl SimpleCodeGenUnit<()> for SoftBreakGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct HardBreakGen;
 
 impl MediumCodeGenUnit<()> for HardBreakGen {
@@ -274,7 +274,17 @@ impl MediumCodeGenUnit<()> for HardBreakGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
+pub struct PageBreakGen;
+
+impl SimpleCodeGenUnit<()> for PageBreakGen {
+    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+        writeln!(out, "\\newpage")?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct TaskListMarkerGen;
 
 impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
@@ -288,7 +298,7 @@ impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TableOfContentsGen;
 
 impl SimpleCodeGenUnit<()> for TableOfContentsGen {
@@ -298,7 +308,7 @@ impl SimpleCodeGenUnit<()> for TableOfContentsGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BibliographyGen;
 
 impl SimpleCodeGenUnit<()> for BibliographyGen {
@@ -310,7 +320,7 @@ impl SimpleCodeGenUnit<()> for BibliographyGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ListOfTablesGen;
 
 impl SimpleCodeGenUnit<()> for ListOfTablesGen {
@@ -322,7 +332,7 @@ impl SimpleCodeGenUnit<()> for ListOfTablesGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ListOfFiguresGen;
 
 impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
@@ -334,7 +344,7 @@ impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ListOfListingsGen;
 
 impl SimpleCodeGenUnit<()> for ListOfListingsGen {
@@ -346,7 +356,7 @@ impl SimpleCodeGenUnit<()> for ListOfListingsGen {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct AppendixGen;
 
 impl SimpleCodeGenUnit<()> for AppendixGen {

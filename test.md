@@ -33,6 +33,8 @@ Reference to [#test-heading].
     
 [include examples/functionality/hrule.md]
 
+[include examples/functionality/pagebreak.md]
+
 [include examples/functionality/quotes.md]
 
 [include examples/functionality/tables.md]
