@@ -786,7 +786,7 @@ dependencies = [
  "structopt 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "strum 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "strum_macros 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "svgbob 0.5.0-alpha.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "svgbob 0.5.0-alpha.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "typed-arena 1.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1928,19 +1928,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "sauron"
-version = "0.22.2"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cfg-if 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "sauron_vdom 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sauron_vdom 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 1.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "sauron_vdom"
-version = "0.22.2"
+version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "log 0.4.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2195,7 +2195,7 @@ dependencies = [
 
 [[package]]
 name = "svgbob"
-version = "0.5.0-alpha.1"
+version = "0.5.0-alpha.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "itertools 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2203,7 +2203,7 @@ dependencies = [
  "nalgebra 0.18.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ncollide2d 0.19.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "pom 3.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "sauron 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sauron 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-width 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -2878,8 +2878,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rustc-demangle 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "4c691c0e608126e00913e33f0ccf3727d5fc84573623b8d65b2df340b5201783"
 "checksum rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
 "checksum ryu 1.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "bfa8506c1de11c9c4e4c38863ccbe02a305c8188e85a05a784c9e11e1c3910c8"
-"checksum sauron 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)" = "775ce85957eb6bb4991fc774d5bed004cd4ae0ec23aedd6820f2a010997d8fce"
-"checksum sauron_vdom 0.22.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3651bdf2f5cc40d5ff0a7e7679afe1affbb418061f597554002f7b2f672e924f"
+"checksum sauron 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2ac3055fbee8a35ca88282102f4d58a50b2465d52689b6fe06ae387c2c1525b6"
+"checksum sauron_vdom 0.24.0 (registry+https://github.com/rust-lang/crates.io-index)" = "65977ca10d0b763d57f2c586199d368dcd6bd422d0ad1ca43e3a20734a8adb7e"
 "checksum schannel 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)" = "87f550b06b6cba9c8b8be3ee73f391990116bf527450d2556e9b9ce263b9a021"
 "checksum scopeguard 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b42e15e59b18a828bbf5c58ea01debb36b9b096346de35d941dcb89009f24a0d"
 "checksum security-framework 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8ef2429d7cefe5fd28bd1d2ed41c944547d4ff84776f5935b456da44593a16df"
@@ -2910,7 +2910,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum structopt-derive 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)" = "53010261a84b37689f9ed7d395165029f9cc7abb9f56bbfe86bee2597ed25107"
 "checksum strum 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f6c3a2071519ab6a48f465808c4c1ffdd00dfc8e93111d02b4fc5abab177676e"
 "checksum strum_macros 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8baacebd7b7c9b864d83a6ba7a246232983e277b86fa5cdec77f565715a4b136"
-"checksum svgbob 0.5.0-alpha.1 (registry+https://github.com/rust-lang/crates.io-index)" = "678bef381e92f17e079a6301793f3b93fd3c1ccae9191ae58198567779bed348"
+"checksum svgbob 0.5.0-alpha.5 (registry+https://github.com/rust-lang/crates.io-index)" = "44bfc246633d2bbfaec823f5278edc631bbcb06ab25055589466d69ba2803bb4"
 "checksum syn 0.12.15 (registry+https://github.com/rust-lang/crates.io-index)" = "c97c05b8ebc34ddd6b967994d5c6e9852fa92f8b82b3858c39451f97346dcce5"
 "checksum syn 0.15.44 (registry+https://github.com/rust-lang/crates.io-index)" = "9ca4b3b69a77cbe1ffc9e198781b7acb0c7365a883670e8f1c1bc66fba79a5c5"
 "checksum syn 1.0.14 (registry+https://github.com/rust-lang/crates.io-index)" = "af6f3550d8dff9ef7dc34d384ac6f107e5d31c8f57d9f28e0081503f547ac8f5"

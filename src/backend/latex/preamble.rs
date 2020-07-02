@@ -109,10 +109,22 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
+/// Allows configuration of the short author field when writing the maketitle info.
+///
+/// Some document types like beamer support a short author field like `\author[short-author]{author}`.
+/// However, this is not supported in standard KOMA, so it should only be used when supported.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ShortAuthor {
+    /// Include the short author field: `\author[short-author]{author}`
+    Yes,
+    /// Don't include the short author field
+    No,
+}
+
 /// Sets up variables for the latex maketitle titlepage.
 ///
 /// It doesn't write the titlepage itself, that is left to the caller.
-pub fn write_maketitle_info(cfg: &Config, out: &mut impl Write) -> Result<()> {
+pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut impl Write) -> Result<()> {
     if let Some(title) = &cfg.title {
         writeln!(out, "\\title{{{}}}", title)?;
     }
@@ -124,8 +136,10 @@ pub fn write_maketitle_info(cfg: &Config, out: &mut impl Write) -> Result<()> {
     }
     if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
         write!(out, "\\author")?;
-        if let Some(author) = &cfg.author {
-            write!(out, "[{}]", author)?;
+        if short_author == ShortAuthor::Yes {
+            if let Some(author) = &cfg.author {
+                write!(out, "[{}]", author)?;
+            }
         }
         write!(out, "{{")?;
         let mut joiner = OutJoiner::new(&mut *out, "\\\\");
