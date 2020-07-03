@@ -319,15 +319,12 @@ pub const AQUOTE: &str = r#"
   {\signed{\usebox\mybox}\end{quote}}
 "#;
 
-// https://tex.stackexchange.com/a/41761
+// https://journals.plos.org/plosntds/article/file?type=supplementary&id=info:doi/10.1371/journal.pntd.0007353.s002&rev=1
 pub const THICKHLINE: &str = r#"
-\makeatletter
-\newcommand{\thickhline}{%
-    \noalign {\ifnum 0=`}\fi \hrule height 1pt
-    \futurelet \reserved@a \@xhline
-}
-\newcolumntype{"}{@{\hskip\tabcolsep\vrule width 1pt\hskip\tabcolsep}}
-\makeatother
+\newlength\savedwidth
+\newcommand\thickhline{\noalign{\global\savedwidth\arrayrulewidth\global\arrayrulewidth 1pt}%
+\hline
+\noalign{\global\arrayrulewidth\savedwidth}}
 "#;
 
 // https://tex.stackexchange.com/a/160022

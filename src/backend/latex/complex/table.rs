@@ -115,7 +115,7 @@ impl<'a> CodeGenUnit<'a, ()> for TableCellGen {
         peek: Option<WithRange<&Event<'a>>>,
     ) -> Result<()> {
         if let Event::Start(Tag::TableCell) = peek.unwrap().0 {
-            write!(gen.get_out(), "&")?;
+            write!(gen.get_out(), " & ")?;
         }
         Ok(())
     }
