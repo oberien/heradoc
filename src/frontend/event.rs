@@ -130,10 +130,13 @@ pub struct Figure<'a> {
 }
 
 #[derive(Debug, Clone)]
+pub struct ColumnWidthPercent(pub f32);
+
+#[derive(Debug, Clone)]
 pub struct Table<'a> {
     pub label: Option<WithRange<Cow<'a, str>>>,
     pub caption: Option<WithRange<Cow<'a, str>>>,
-    pub alignment: Vec<Alignment>,
+    pub columns: Vec<(Alignment, ColumnWidthPercent)>
 }
 
 #[derive(Debug, Clone)]
