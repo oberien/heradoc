@@ -35,6 +35,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     };
     writeln!(out, "\\usepackage[{}]{{babel}}", lang)?;
     writeln!(out, "\\usepackage{{csquotes}}")?;
+    writeln!(out, "\\MakeOuterQuote{{\"}}")?;
 
     // geometry
     write!(out, "\\usepackage[")?;
