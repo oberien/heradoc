@@ -74,7 +74,7 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     writeln!(out, "\\usepackage[pdfusetitle]{{hyperref}}")?;
     writeln!(out, "\\usepackage{{caption}}")?;
     // TODO: cleveref options
-    writeln!(out, "\\usepackage{{cleveref}}")?;
+    writeln!(out, "\\usepackage[{}]{{cleveref}}", lang)?;
     writeln!(out, "\\usepackage{{refcount}}")?;
     writeln!(out, "\\usepackage[titletoc,toc,title]{{appendix}}")?;
     writeln!(out, "\\usepackage{{array}}")?;
