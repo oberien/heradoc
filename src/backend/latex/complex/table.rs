@@ -34,7 +34,7 @@ impl<'a> CodeGenUnit<'a, Table<'a>> for TableGen<'a> {
         for (align, width) in columns {
             // https://tex.stackexchange.com/a/249043
             let width = total_width * (width.0 / 100.0);
-            write!(out, " >{{\\hsize={:.3}\\hsize}}", width);
+            write!(out, " >{{\\hsize={:.3}\\hsize}}", width)?;
             match align {
                 Alignment::None => write!(out, "X |")?,
                 Alignment::Left => write!(out, "L |")?,
