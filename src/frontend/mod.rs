@@ -738,7 +738,7 @@ impl<'a> Frontend<'a> {
                         let cell_text = match &self.parser.peek().unwrap().0 {
                             &CmarkEvent::Start(CmarkTag::TableCell) => self.concat_until_end_inclusive(false),
                             &CmarkEvent::End(CmarkTag::TableHead) | &CmarkEvent::End(CmarkTag::TableRow) => break,
-                            _ => unreachable!(),
+                            e => unreachable!("We are parsing table cells, but got something other than a cell or row-end: {:?}", e),
                         };
                         column_lines[i].extend(cell_text.lines().map(str::to_owned));
                         i += 1;
@@ -746,7 +746,7 @@ impl<'a> Frontend<'a> {
                 }
                 &CmarkEvent::End(CmarkTag::TableHead) | &CmarkEvent::End(CmarkTag::TableRow) => (),
                 &CmarkEvent::End(CmarkTag::Table(_)) => break,
-                _ => unreachable!(),
+                e => unreachable!("We are parsing a table, but got something other than a table-row or the table-end: {:?}", e),
             }
         }
         self.parser.reset_peek();
