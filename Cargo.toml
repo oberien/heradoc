@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 pulldown-cmark = "0.4.0"
-str-concat = "0.1.4"
+str-concat = "0.2.0"
 structopt = "0.2.10"
 void = "1.0.2"
 boolinator = "2.4"
