@@ -1,4 +1,5 @@
-#![forbid(unsafe_code)]
+// FIXME: See #134
+//#![forbid(unsafe_code)]
 // groups
 #![warn(nonstandard_style)]
 #![warn(rust_2018_idioms)]

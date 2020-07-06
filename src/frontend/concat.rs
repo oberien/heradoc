@@ -42,7 +42,8 @@ impl<'a> Iterator for Concat<'a> {
 
             match t {
                 Cow::Borrowed(b) => match next {
-                    Cow::Borrowed(next) => match str_concat::concat(b, next) {
+                    // SAFETY: it's from the same allocation, namely the same file-string
+                    Cow::Borrowed(next) => match unsafe { str_concat::concat(b, next) } {
                         Ok(res) => t = Cow::Borrowed(res),
                         Err(_) => t = Cow::Owned(b.to_string() + next),
                     },
