@@ -31,6 +31,7 @@ use crate::cskvp::Cskvp;
 use crate::diagnostics::Diagnostics;
 use crate::ext::{CowExt, StrExt};
 use crate::resolve::{Command, ResolveSecurity};
+use crate::util::ToUnix;
 
 pub struct Frontend<'a> {
     cfg: &'a Config,
@@ -437,7 +438,8 @@ impl<'a> Frontend<'a> {
                     caption: cskvp.take_caption(),
                     title: cskvp.take_double("title").map(|WithRange(title, _)| title),
                     alt_text: cskvp.take_double("alt_text").map(|WithRange(title, _)| title.into()),
-                    dst: format!("file://{}", path.display()).into(),
+                    dst: format!("file://{}", path.to_unix()
+                        .expect(&format!("non-utf8 path: {:?}", path))).into(),
                     scale: cskvp.take_double("scale"),
                     width: cskvp.take_double("width"),
                     height: cskvp.take_double("height"),

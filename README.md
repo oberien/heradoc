@@ -2,6 +2,30 @@ Heradoc is a markdown to LaTeX converter.
 It is a very biased partial reimplementation of [pandoc](https://pandoc.org/MANUAL.html) with a pinch of
 [hackmd](https://hackmd.io/features?both).
 
+# Building
+
+Rust needs to be installed.
+To find out how to install rust, visit <https://rustup.rs> and follow
+*all* of the instructions.
+
+## Linux / WSL
+
+**The below doesn't work for WSL, but it's a beginning. If anyone wants to try out building heradoc for WSL, feel free to open a PR.**
+
+For ubuntu, ensure that you are using its latest version, to ensure that you have the newest versions of all packages.
+To do that, run `sudo apt update && sudo apt upgrade && do-release-upgrade`.
+
+Install `pkg-config`, `libssl-dev`, `libpango1.0-dev`, `libxml2-dev`, `libcairo2-dev`, `texlive` and `graphviz`.
+The above names are for ubuntu systems.
+For other distributions, those packages may have different names.
+
+## Windows
+
+Install the following programs:
+* texlive: Download the `install-tl-windows.exe` from <https://www.tug.org/texlive/acquire-netinstall.html>
+    * other latex implementations might also work
+* graphviz: Follow the instructions on <https://bobswift.atlassian.net/wiki/spaces/GVIZ/pages/20971549/How+to+install+Graphviz+software#HowtoinstallGraphvizsoftware-GraphvizonWindows>
+
 # Features
 
 - [x] includes of other md files (`[include foo.md]`, `![][foo.md]`)

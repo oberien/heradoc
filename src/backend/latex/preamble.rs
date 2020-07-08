@@ -3,7 +3,7 @@ use std::io::{Result, Write};
 use isolang::Language;
 
 use crate::config::Config;
-use crate::util::OutJoiner;
+use crate::util::{OutJoiner, ToUnix};
 
 /// Writes the documentclass header of latex documents with the given class and options.
 ///
@@ -51,7 +51,8 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
             "\\usepackage[backend=biber,citestyle={},bibstyle={}]{{biblatex}}",
             cfg.citestyle, cfg.bibstyle
         )?;
-        writeln!(out, "\\addbibresource{{{}}}", bibliography.display())?;
+        writeln!(out, "\\addbibresource{{{}}}", bibliography.to_unix()
+            .expect(&format!("non-utf8 path: {:?}", bibliography)))?;
     }
 
     writeln!(out, "\\usepackage{{cmap}}")?;
@@ -198,12 +199,14 @@ pub fn write_manual_titlepage_commands(cfg: &Config, out: &mut impl Write) -> Re
     writeln!(out, "\\newcommand*{{\\getSupervisor}}{{{}}}", get(&cfg.supervisor))?;
     writeln!(out, "\\newcommand*{{\\getAdvisor}}{{{}}}", get(&cfg.advisor))?;
     if let Some(logo_university) = cfg.logo_university.as_ref() {
-        writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{{}}}", logo_university.display())?;
+        writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{{}}}", logo_university.to_unix()
+            .expect(&format!("non-utf8 path: {:?}", logo_university)))?;
     } else {
         writeln!(out, "\\newcommand*{{\\getLogoUniversity}}{{}}")?;
     }
     if let Some(logo_faculty) = cfg.logo_faculty.as_ref() {
-        writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{{}}}", logo_faculty.display())?;
+        writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{{}}}", logo_faculty.to_unix()
+            .expect(&format!("non-utf8 path: {:?}", logo_faculty)))?;
     } else {
         writeln!(out, "\\newcommand*{{\\getLogoFaculty}}{{}}")?;
     }

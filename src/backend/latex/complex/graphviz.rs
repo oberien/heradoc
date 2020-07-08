@@ -10,6 +10,7 @@ use crate::error::{Error, Result};
 use crate::frontend::range::{SourceRange, WithRange};
 use crate::generator::event::{Event, Graphviz};
 use crate::generator::Generator;
+use crate::util::ToUnix;
 
 #[derive(Debug)]
 pub struct GraphvizGen<'a> {
@@ -97,7 +98,8 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
         if let Some(WithRange(height, _)) = height {
             write!(out, "height={},", height)?;
         }
-        writeln!(out, "]{{{}.pdf}}", self.path.display())?;
+        writeln!(out, "]{{{}.pdf}}", self.path.to_unix()
+            .expect(&format!("non-utf8 path: {:?}", self.path)))?;
 
         inline_fig.write_end(out)?;
         Ok(())

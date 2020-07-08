@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 use std::path::{PathBuf, Path};
 use std::fmt;
-use std::ffi::OsString;
-use std::str::FromStr;
 
+#[cfg(not(windows))]
 use librsvg::{Loader, LoadingError, RenderingError, CairoRenderer};
+#[cfg(not(windows))]
 use cairo::{PdfSurface, Context, Rectangle};
 
 pub use crate::frontend::{
@@ -25,7 +25,7 @@ pub use crate::frontend::{
 };
 pub use pulldown_cmark::Alignment;
 
-use crate::frontend::{Event as FeEvent, Size};
+use crate::frontend::Event as FeEvent;
 use crate::frontend::range::WithRange;
 use crate::generator::Events;
 use crate::resolve::Command;
@@ -90,26 +90,40 @@ pub struct Svg<'a> {
     pub height: Option<WithRange<Cow<'a, str>>>,
 }
 
+#[cfg(not(windows))]
 pub enum SvgConversionError {
     UnknownDimensions,
     LoadingError(LoadingError),
     RenderingError(RenderingError),
 }
+#[cfg(windows)]
+pub enum SvgConversionError {
+    SvgConversionNotSupportedOnWindows,
+}
 
 impl fmt::Display for SvgConversionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[cfg(not(windows))]
         match self {
             SvgConversionError::UnknownDimensions => write!(f, "unknown dimensions"),
             SvgConversionError::LoadingError(err) => write!(f, "can't load svg: {}", err),
             SvgConversionError::RenderingError(err) => write!(f, "conversion from svg to pdf failed: {}", err),
         }
+        #[cfg(windows)]
+        match self {
+            SvgConversionError::SvgConversionNotSupportedOnWindows => {
+                write!(f, "svg conversion is not supported on windows, you'll need to manually convert the svg to e.g. a png")
+            }
+        }
     }
 }
+#[cfg(not(windows))]
 impl From<LoadingError> for SvgConversionError {
     fn from(err: LoadingError) -> Self {
         SvgConversionError::LoadingError(err)
     }
 }
+#[cfg(not(windows))]
 impl From<RenderingError> for SvgConversionError {
     fn from(err: RenderingError) -> Self {
         SvgConversionError::RenderingError(err)
@@ -120,7 +134,12 @@ impl<'a> Svg<'a> {
     /// Converts the SVG to a PDF file and returns its path.
     ///
     /// This can be used by backends like latex, which don't support SVGs.
+    #[cfg(not(windows))]
     pub fn to_pdf_path<P: AsRef<Path>>(&self, out_dir: P) -> Result<PathBuf, SvgConversionError> {
+        use std::ffi::OsString;
+        use std::str::FromStr;
+        use crate::frontend::Size;
+
         let pdf_extension = self.path.extension()
             .map(|s| { let mut s = s.to_os_string(); s.push(".pdf"); s })
             .unwrap_or_else(|| OsString::from("pdf"));
@@ -150,6 +169,11 @@ impl<'a> Svg<'a> {
         )?;
         Ok(pdf_path)
     }
+    #[cfg(windows)]
+    pub fn to_pdf_path<P: AsRef<Path>>(&self, _out_dir: P) -> Result<PathBuf, SvgConversionError> {
+        Err(SvgConversionError::SvgConversionNotSupportedOnWindows)
+    }
+
 }
 
 /// Pdf to include at that point inline.

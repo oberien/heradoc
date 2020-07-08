@@ -12,8 +12,8 @@
 > [include https://raw.githubusercontent.com/oberien/heradoc/master/examples/functionality/test-include.md]
 > -- [@foo]
 
-Image from web:
-![](https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/Markdown-mark.svg/208px-Markdown-mark.svg.png)
+Svg from web:
+![](https://upload.wikimedia.org/wikipedia/commons/4/48/Markdown-mark.svg)
 
 Another image from web:
 [include https://placehold.it/100x100.png]
