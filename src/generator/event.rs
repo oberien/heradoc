@@ -1,8 +1,6 @@
 use std::borrow::Cow;
 use std::path::{PathBuf, Path};
 use std::fmt;
-use std::ffi::OsString;
-use std::str::FromStr;
 
 #[cfg(not(windows))]
 use librsvg::{Loader, LoadingError, RenderingError, CairoRenderer};
@@ -27,7 +25,7 @@ pub use crate::frontend::{
 };
 pub use pulldown_cmark::Alignment;
 
-use crate::frontend::{Event as FeEvent, Size};
+use crate::frontend::Event as FeEvent;
 use crate::frontend::range::WithRange;
 use crate::generator::Events;
 use crate::resolve::Command;
@@ -138,6 +136,10 @@ impl<'a> Svg<'a> {
     /// This can be used by backends like latex, which don't support SVGs.
     #[cfg(not(windows))]
     pub fn to_pdf_path<P: AsRef<Path>>(&self, out_dir: P) -> Result<PathBuf, SvgConversionError> {
+        use std::ffi::OsString;
+        use std::str::FromStr;
+        use crate::frontend::Size;
+
         let pdf_extension = self.path.extension()
             .map(|s| { let mut s = s.to_os_string(); s.push(".pdf"); s })
             .unwrap_or_else(|| OsString::from("pdf"));
@@ -168,7 +170,7 @@ impl<'a> Svg<'a> {
         Ok(pdf_path)
     }
     #[cfg(windows)]
-    pub fn to_pdf_path<P: AsRef<Path>>(&self, out_dir: P) -> Result<PathBuf, SvgConversionError> {
+    pub fn to_pdf_path<P: AsRef<Path>>(&self, _out_dir: P) -> Result<PathBuf, SvgConversionError> {
         Err(SvgConversionError::SvgConversionNotSupportedOnWindows)
     }
 

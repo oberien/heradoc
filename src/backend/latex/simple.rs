@@ -19,6 +19,7 @@ use crate::generator::event::{
     Url,
 };
 use crate::generator::Stack;
+use crate::util::ToUnix;
 
 #[derive(Debug, Default)]
 pub struct TextGen;
@@ -182,7 +183,8 @@ fn includegraphics(out: &mut impl Write, label: Option<WithRange<Cow<'_, str>>>,
         write!(out, "height={},", height)?;
     }
 
-    write!(out, "]{{{}}}", path.as_ref().display())?;
+    write!(out, "]{{{}}}", path.as_ref().to_unix()
+        .expect(&format!("non-utf8 path: {:?}", path.as_ref())))?;
 
     if let Some(alt_text) = alt_text {
         write!(out, "{{{}}}", alt_text)?;
@@ -237,7 +239,8 @@ impl SimpleCodeGenUnit<Pdf> for PdfGen {
     fn gen(pdf: WithRange<Pdf>, out: &mut impl Write) -> Result<()> {
         let WithRange(Pdf { path }, _range) = pdf;
 
-        writeln!(out, "\\includepdf[pages=-]{{{}}}", path.display())?;
+        writeln!(out, "\\includepdf[pages=-]{{{}}}", path.to_unix()
+            .expect(&format!("non-utf8 path: {:?}", path)))?;
         Ok(())
     }
 }
