@@ -1,6 +1,7 @@
 use std::str::FromStr;
 use std::fmt;
 
+#[cfg(not(windows))]
 use librsvg::{Length, LengthUnit};
 
 use lexical::ErrorCode;
@@ -104,6 +105,7 @@ impl FromStr for Size {
     }
 }
 
+#[cfg(not(windows))]
 impl From<Length> for Size {
     fn from(len: Length) -> Self {
         let Length { length, unit } = len;
