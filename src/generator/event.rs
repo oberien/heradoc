@@ -142,7 +142,7 @@ impl<'a> Svg<'a> {
             .or_else(|| Size::from(renderer.intrinsic_dimensions().height?).to_f64_opt(72.0, 12.0))
             .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.height))
             .ok_or(SvgConversionError::UnknownDimensions)?;
-        let surface = PdfSurface::new(width, height, &pdf_path);
+        let surface = PdfSurface::new(width, height, &pdf_path).unwrap();
         let cr = Context::new(&surface);
         renderer.render_document(
             &cr,
