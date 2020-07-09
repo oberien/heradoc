@@ -297,7 +297,7 @@ pub struct Config {
 
 impl Config {
     /// tempdir must live as long as Config
-    pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, tempdir: &TempDir) -> Config {
+    pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, cfgfile_folder: Option<PathBuf>, tempdir: &TempDir) -> Config {
         let tempdir_path = tempdir.path().to_owned();
         // verify input file
         match &args.input {
@@ -338,17 +338,11 @@ impl Config {
             },
         };
 
-        let project_root = match &args.input {
-            FileOrStdio::StdIo => {
+        let project_root = cfgfile_folder
+            .or(args.input.folder_canonicalized())
+            .unwrap_or_else(|| {
                 env::current_dir().expect("Can't use stdin without a current working directory")
-            },
-            FileOrStdio::File(file) => file
-                .canonicalize()
-                .expect("error canonicalizing input file path")
-                .parent()
-                .unwrap()
-                .to_owned(),
-        };
+            });
 
         let bibliography = args
             .fileconfig
@@ -589,6 +583,18 @@ impl FileOrStdio {
             FileOrStdio::File(path) => {
                 Box::new(BufWriter::new(File::create(path).expect("can't open output source")))
             },
+        }
+    }
+
+    pub fn folder_canonicalized(&self) -> Option<PathBuf> {
+        match self {
+            FileOrStdio::StdIo => None,
+            FileOrStdio::File(file) => Some(file
+                .canonicalize()
+                .expect("error canonicalizing input file path")
+                .parent()
+                .unwrap()
+                .to_owned())
         }
     }
 }

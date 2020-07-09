@@ -79,31 +79,68 @@ fn main() {
         FileConfig::default()
     };
 
-    let cfgfile =
-        args.configfile.as_ref().map_or_else(|| Path::new("Config.toml"), |p| p.as_path());
-    let file = if cfgfile.is_file() {
-        let content = fs::read_to_string(cfgfile).expect("error reading existing config file");
-        toml::from_str(&content).expect("invalid config")
-    } else {
-        FileConfig::default()
-    };
+    let cfgfile_folder = (|| { match args.configfile.as_ref() {
+        Some(file) => Some(file.to_owned()),
+        None => {
+            // try to find a heradoc.toml in the following order:
+            // 1. next to the input file
+            // 2. somewhere in the parent folders of the input file
+            // 3. in the current directory
+            // 4. somewhere in the parent folders
+            fn find_in_folder_and_parents(mut folder: PathBuf) -> Option<PathBuf> {
+                loop {
+                    let conf = folder.join("heradoc.toml");
+                    if conf.is_file() {
+                        return Some(folder);
+                    }
+                    if !folder.pop() {
+                        return None;
+                    }
+                }
+            }
 
+            if let Some(folder) = args.input.folder_canonicalized() {
+                if let Some(cfgfile_folder) = find_in_folder_and_parents(folder) {
+                    return Some(cfgfile_folder);
+                }
+            }
+            if let Ok(folder) = env::current_dir() {
+                if let Some(cfgfile_folder) = find_in_folder_and_parents(folder) {
+                    return Some(cfgfile_folder);
+                }
+            }
+            return None;
+        }
+    }})();
+
+    let file = match cfgfile_folder.as_ref() {
+        Some(file) => {
+            let content = fs::read_to_string(file.join("heradoc.toml")).expect("error reading existing config file");
+            toml::from_str(&content).expect("invalid config")
+        }
+        None => FileConfig::default(),
+    };
     let tmpdir = TempDir::new("heradoc").expect("can't create tempdir");
-    let cfg = Config::new(args, infile, file, &tmpdir);
+    let cfg = Config::new(args, infile, file, cfgfile_folder, &tmpdir);
     if cfg.out_dir != cfg.temp_dir {
         // While initializing the config, some files may already be downloaded.
         // Thus we must only clear the output directory if it's not a temporary directory.
         clear_dir(&cfg.out_dir).expect("can't clear output directory");
     }
     println!("{:#?}", cfg);
+    let mut output = cfg.output.to_write();
+    if env::current_dir().unwrap() != cfg.project_root {
+        println!("Found config file at {}, using that folder as project root.", cfg.project_root.display());
+        env::set_current_dir(&cfg.project_root).expect("error setting current dir");
+    }
 
     match cfg.output_type {
-        OutType::Latex => gen_latex(&cfg, markdown, cfg.output.to_write()),
+        OutType::Latex => gen_latex(&cfg, markdown, output),
         OutType::Pdf => {
             let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
             let mut pdf = File::open(generated)
                 .expect("unable to open generated pdf");
-            io::copy(&mut pdf, &mut cfg.output.to_write()).expect("can't write to output");
+            io::copy(&mut pdf, &mut output).expect("can't write to output");
         },
         OutType::Mp4 => {
             ensure_mp4_tools_installed();
@@ -112,7 +149,7 @@ fn main() {
             let movie = ffmpeg(generated, &cfg);
             let mut movie = File::open(movie)
                 .expect("unable to open generated movie");
-            io::copy(&mut movie, &mut cfg.output.to_write()).expect("can't write to output");
+            io::copy(&mut movie, &mut output).expect("can't write to output");
         }
     }
 }
