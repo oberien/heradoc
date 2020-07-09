@@ -1,5 +1,5 @@
 use std::io::{Write, Result};
-use std::path::{Path, Component, Prefix};
+use std::path::Path;
 use std::fmt;
 
 pub struct OutJoiner<'a, W: Write> {
@@ -32,11 +32,13 @@ pub trait ToUnix {
 impl ToUnix for Path {
     #[cfg(not(windows))]
     fn to_unix(&self) -> Option<String> {
-        self.to_str().to_owned()
+        self.to_str().map(str::to_owned)
     }
 
     #[cfg(windows)]
     fn to_unix(&self) -> Option<String> {
+        use std::path::{Component, Prefix};
+
         let mut buf = String::new();
         for c in self.components() {
             match c {
