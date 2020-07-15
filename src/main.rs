@@ -79,43 +79,31 @@ fn main() {
         FileConfig::default()
     };
 
-    let cfgfile_folder = (|| { match args.configfile.as_ref() {
-        Some(file) => Some(file.to_owned()),
-        None => {
-            // try to find a heradoc.toml in the following order:
-            // 1. next to the input file
-            // 2. somewhere in the parent folders of the input file
-            // 3. in the current directory
-            // 4. somewhere in the parent folders
-            fn find_in_folder_and_parents(mut folder: PathBuf) -> Option<PathBuf> {
-                loop {
-                    let conf = folder.join("heradoc.toml");
-                    if conf.is_file() {
-                        return Some(folder);
-                    }
-                    if !folder.pop() {
-                        return None;
-                    }
+    // try to find a heradoc.toml
+    // 1. passed via commandline
+    // 2. next to the input file
+    // 3. somewhere in the parent folders of the input file
+    let cfgfile_folder = match args.configfile.as_ref() {
+        Some(file) => Some(file.parent().expect("configfile passed as argument should point to a file and not the root-folder").to_owned()),
+        None => if let Some(mut folder) = args.input.folder_canonicalized() {
+            loop {
+                let conf = folder.join("heradoc.toml");
+                if conf.is_file() {
+                    break Some(folder);
+                }
+                if !folder.pop() {
+                    break None
                 }
             }
-
-            if let Some(folder) = args.input.folder_canonicalized() {
-                if let Some(cfgfile_folder) = find_in_folder_and_parents(folder) {
-                    return Some(cfgfile_folder);
-                }
-            }
-            if let Ok(folder) = env::current_dir() {
-                if let Some(cfgfile_folder) = find_in_folder_and_parents(folder) {
-                    return Some(cfgfile_folder);
-                }
-            }
-            return None;
+        } else {
+            None
         }
-    }})();
+    };
 
     let file = match cfgfile_folder.as_ref() {
-        Some(file) => {
-            let content = fs::read_to_string(file.join("heradoc.toml")).expect("error reading existing config file");
+        Some(folder) => {
+            let file = folder.join("heradoc.conf");
+            let content = fs::read_to_string(&file).expect(&format!("error reading config file at {:?}",file));
             toml::from_str(&content).expect("invalid config")
         }
         None => FileConfig::default(),
@@ -129,7 +117,7 @@ fn main() {
     }
     println!("{:#?}", cfg);
     let mut output = cfg.output.to_write();
-    if env::current_dir().unwrap() != cfg.project_root {
+    if env::current_dir() != Some(cfg.project_root) {
         println!("Found config file at {}, using that folder as project root.", cfg.project_root.display());
         env::set_current_dir(&cfg.project_root).expect("error setting current dir");
     }

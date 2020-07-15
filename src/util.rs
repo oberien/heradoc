@@ -1,5 +1,5 @@
 use std::io::{Write, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf, Component};
 use std::fmt;
 
 pub struct OutJoiner<'a, W: Write> {
@@ -26,6 +26,14 @@ impl<'a, W: Write> OutJoiner<'a, W> {
     }
 }
 
+pub fn strip_root<P: AsRef<Path>>(p: P) -> PathBuf {
+    p.as_ref().components().filter(|p| match p {
+        Component::Prefix(_) => false,
+        Component::RootDir => false,
+        _ => true
+    }).collect()
+}
+
 pub trait ToUnix {
     fn to_unix(&self) -> Option<String>;
 }
@@ -37,7 +45,7 @@ impl ToUnix for Path {
 
     #[cfg(windows)]
     fn to_unix(&self) -> Option<String> {
-        use std::path::{Component, Prefix};
+        use std::path::Prefix;
 
         let mut buf = String::new();
         for c in self.components() {
