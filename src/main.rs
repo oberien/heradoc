@@ -117,7 +117,7 @@ fn main() {
     }
     println!("{:#?}", cfg);
     let mut output = cfg.output.to_write();
-    if env::current_dir() != Some(cfg.project_root) {
+    if matches!(env::current_dir(), Ok(dir) if dir != cfg.project_root) {
         println!("Found config file at {}, using that folder as project root.", cfg.project_root.display());
         env::set_current_dir(&cfg.project_root).expect("error setting current dir");
     }
