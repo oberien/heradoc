@@ -102,7 +102,7 @@ fn main() {
 
     let file = match cfgfile_folder.as_ref() {
         Some(folder) => {
-            let file = folder.join("heradoc.conf");
+            let file = folder.join("heradoc.toml");
             let content = fs::read_to_string(&file).expect(&format!("error reading config file at {:?}",file));
             toml::from_str(&content).expect("invalid config")
         }

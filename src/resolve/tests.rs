@@ -26,7 +26,9 @@ macro_rules! assert_match {
     });
 }
 
-/// Creates the following filestructure in a tempdir for testing purposes
+/// Creates the following filestructure in a tempdir for testing purposes.
+/// project-root: heradoc-test-tempdir
+/// document-root (only for testing): chapters
 ///
 /// ```
 /// heradoc-test-tempdir
@@ -54,7 +56,7 @@ fn prepare() -> (TempDir, SourceRange, Resolver, Diagnostics<'static>) {
     fs::create_dir(tmpdir.path().join("downloads")).expect("can't create downloads directory");
     let range = SourceRange { start: 0, end: 0 };
     let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
-    let resolver = Resolver::new(tmpdir.path().to_owned(), tmpdir.path().join("download"));
+    let resolver = Resolver::new(tmpdir.path().to_owned(), tmpdir.path().join("chapters"), tmpdir.path().join("download"));
     (tmpdir, range, resolver, diagnostics)
 }
 
@@ -62,19 +64,19 @@ fn prepare() -> (TempDir, SourceRange, Resolver, Diagnostics<'static>) {
 fn relative_to_project_root() {
     let (project_root, range, resolver, diagnostics) = prepare();
     let ctx = Context::from_project_root();
-    let ctx2 = Context::from_path("chapters").expect("can't create context");
-    let ctx3 = Context::from_path("chapters/").expect("can't create context");
+    let ctx_chapters = Context::from_path("chapters").expect("can't create context");
+    let ctx_chapters2 = Context::from_path("chapters/").expect("can't create context");
 
     let test = |ctx: Context| {
         let main = resolver
             .resolve(ResolveSecurity::Default, &ctx, "/main.md", range, &diagnostics)
             .expect("failed to resolve `/main.md`");
-        assert_match!(main, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://document/main.md");
+        assert_match!(main, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://project/main.md");
 
         let test = resolver
             .resolve(ResolveSecurity::Default, &ctx, "/test.md", range, &diagnostics)
             .expect("failed to resolve `/test.md`");
-        assert_match!(test, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://document/test.md");
+        assert_match!(test, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://project/test.md");
 
         let image = resolver
             .resolve(ResolveSecurity::Default, &ctx, "/image.png", range, &diagnostics)
@@ -89,12 +91,12 @@ fn relative_to_project_root() {
         let chapter1 = resolver
             .resolve(ResolveSecurity::Default, &ctx, "/chapters/chapter1.md", range, &diagnostics)
             .expect("failed to resolve `/chapters/chapter1.md`");
-        assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter1.md");
+        assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://project/chapters/chapter1.md");
 
         let chapter2 = resolver
             .resolve(ResolveSecurity::Default, &ctx, "/chapters/chapter2.md", range, &diagnostics)
             .expect("failed to resolve `/chapters/chapter2.md`");
-        assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter2.md");
+        assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://project/chapters/chapter2.md");
 
         let image = resolver
             .resolve(ResolveSecurity::Default, &ctx, "/images/image.png", range, &diagnostics)
@@ -103,33 +105,57 @@ fn relative_to_project_root() {
     };
 
     test(ctx);
-    test(ctx2);
-    test(ctx3);
+    test(ctx_chapters);
+    test(ctx_chapters2);
+}
+
+#[test]
+fn relative_to_document_root() {
+    let (project_root, range, resolver, diagnostics) = prepare();
+    let ctx = Context::from_project_root();
+    let ctx_chapters = Context::from_path("chapters").expect("can't create context");
+    let ctx_images = Context::from_path("images").expect("can't create context");
+
+    let test = |ctx: Context| {
+        let chapter1 = resolver
+            .resolve(ResolveSecurity::Default, &ctx, "//document/chapter1.md", range, &diagnostics)
+            .expect("failed to resolve `//document/chapter1.md`");
+        assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapter1.md");
+
+        let chapter2 = resolver
+            .resolve(ResolveSecurity::Default, &ctx, "//document/chapter2.md", range, &diagnostics)
+            .expect("failed to resolve `//document/chapter2.md`");
+        assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapter2.md");
+    };
+
+    test(ctx);
+    test(ctx_chapters);
+    test(ctx_images);
 }
 
 #[test]
 fn relative_to_current_file() {
     let (project_root, range, resolver, diagnostics) = prepare();
     let ctx = Context::from_project_root();
-    let ctx2 = Context::from_path("chapters/").expect("can't create context");
+    let ctx_chapters = Context::from_path("chapters/").expect("can't create context");
 
     let main = resolver
         .resolve(ResolveSecurity::Default, &ctx, "main.md", range, &diagnostics)
         .expect("failed to resolve `main.md`");
     let main2 = resolver
-        .resolve(ResolveSecurity::Default, &ctx2, "../main.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx_chapters, "../main.md", range, &diagnostics)
         .expect("failed to resolve `../main.md`");
-    assert_match!(main, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://document/main.md");
-    assert_match!(main2, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://document/main.md");
+    assert_match!(main, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://project/main.md");
+    assert_match!(main2, Include::Markdown(path, ctx) if path == &project_root.path().join("main.md") && ctx.url.as_str() == "heradoc://project/main.md");
 
     let test = resolver
         .resolve(ResolveSecurity::Default, &ctx, "test.md", range, &diagnostics)
         .expect("failed to resolve `test.md`");
     let test2 = resolver
-        .resolve(ResolveSecurity::Default, &ctx2, "../test.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx_chapters, "../test.md", range, &diagnostics)
         .expect("failed to resolve `test.md`");
-    assert_match!(test, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://document/test.md");
-    assert_match!(test2, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://document/test.md");
+    assert_match!(test, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://project/test.md");
+    assert_match!(test2, Include::Markdown(path, ctx) if path == &project_root.path().join("test.md") && ctx.url.as_str() == "heradoc://project/test.md");
 
     let image = resolver
         .resolve(ResolveSecurity::Default, &ctx, "image.png", range, &diagnostics)
@@ -144,7 +170,7 @@ fn relative_to_current_file() {
         .resolve(ResolveSecurity::Default, &ctx, "pdf.pdf", range, &diagnostics)
         .expect("failed to resolve `pdf.pdf`");
     let pdf2 = resolver
-        .resolve(ResolveSecurity::Default, &ctx2, "../pdf.pdf", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx_chapters, "../pdf.pdf", range, &diagnostics)
         .expect("failed to resolve `../pdf.pdf`");
     assert_match!(pdf, Include::Pdf(path) if path == &project_root.path().join("pdf.pdf"));
     assert_match!(pdf2, Include::Pdf(path) if path == &project_root.path().join("pdf.pdf"));
@@ -153,25 +179,25 @@ fn relative_to_current_file() {
         .resolve(ResolveSecurity::Default, &ctx, "chapters/chapter1.md", range, &diagnostics)
         .expect("failed to resolve `chapters/chapter1.md`");
     let chapter12 = resolver
-        .resolve(ResolveSecurity::Default, &ctx2, "chapter1.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx_chapters, "chapter1.md", range, &diagnostics)
         .expect("failed to resolve `chapter1.md`");
-    assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter1.md");
-    assert_match!(chapter12, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter1.md");
+    assert_match!(chapter1, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://project/chapters/chapter1.md");
+    assert_match!(chapter12, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter1.md") && ctx.url.as_str() == "heradoc://project/chapters/chapter1.md");
 
     let chapter2 = resolver
         .resolve(ResolveSecurity::Default, &ctx, "chapters/chapter2.md", range, &diagnostics)
         .expect("failed to resolve `chapters/chapter2.md`");
     let chapter22 = resolver
-        .resolve(ResolveSecurity::Default, &ctx2, "chapter2.md", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx_chapters, "chapter2.md", range, &diagnostics)
         .expect("failed to resolve `chapter2.md`");
-    assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter2.md");
-    assert_match!(chapter22, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://document/chapters/chapter2.md");
+    assert_match!(chapter2, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://project/chapters/chapter2.md");
+    assert_match!(chapter22, Include::Markdown(path, ctx) if path == &project_root.path().join("chapters/chapter2.md") && ctx.url.as_str() == "heradoc://project/chapters/chapter2.md");
 
     let image = resolver
         .resolve(ResolveSecurity::Default, &ctx, "images/image.png", range, &diagnostics)
         .expect("failed to resolve `images/image.png`");
     let image2 = resolver
-        .resolve(ResolveSecurity::Default, &ctx2, "../images/image.png", range, &diagnostics)
+        .resolve(ResolveSecurity::Default, &ctx_chapters, "../images/image.png", range, &diagnostics)
         .expect("failed to resolve `../images/image.png`");
     assert_match!(image, Include::Image(path) if path == &project_root.path().join("images/image.png"));
     assert_match!(image2, Include::Image(path) if path == &project_root.path().join("images/image.png"));
