@@ -1,7 +1,7 @@
 ```heradoc
 document_type = "article"
 lang = "en"
-titlepage = false
+titlepage = true
 title = "Test Markdown File"
 subtitle = "Showing heradoc's Features"
 author = "Me"

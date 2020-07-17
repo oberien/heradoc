@@ -85,6 +85,33 @@ pub fn write_packages(cfg: &Config, out: &mut impl Write) -> Result<()> {
     // auto-wrap long tables at page boundaries
     writeln!(out, "\\usepackage{{ltablex}}")?;
     writeln!(out, "\\usepackage{{grffile}}")?;
+    let fancy = [
+        ("lhead", &cfg.lhead, &cfg.lhead_even), ("chead", &cfg.chead, &cfg.chead_even), ("rhead", &cfg.rhead, &cfg.rhead_even),
+        ("lfoot", &cfg.lfoot, &cfg.lfoot_even), ("cfoot", &cfg.cfoot, &cfg.cfoot_even), ("rfoot", &cfg.rfoot, &cfg.rfoot_even),
+    ];
+    let mut fancyhdr = Vec::new();
+    for (name, odd, even) in &fancy {
+        if odd.is_none() && even.is_none() {
+            continue;
+        }
+        write!(fancyhdr, "\\{}", name)?;
+        if let Some(even) = even {
+            write!(fancyhdr, "[{}]", even)?;
+        }
+        writeln!(fancyhdr, "{{{}}}", odd.as_ref().map(String::as_ref).unwrap_or(""))?;
+    }
+    if !fancyhdr.is_empty() {
+        writeln!(out, "\\usepackage{{fancyhdr}}")?;
+        writeln!(out, "\\pagestyle{{fancy}}")?;
+        writeln!(out, "\\fancyhf{{}}")?;
+        write!(out, "{}", String::from_utf8(fancyhdr).expect("non-utf8 fancyhdr configuration string"))?;
+        if cfg.header_footer_on_titlepage {
+            // writeln!(out, "\\pagestyle{{fancyplain}}")?;
+            // writeln!(out, "\\makeatletter\\let\\ps@plain\\ps@fancy\\makeatother")?;
+            writeln!(out, "\\fancypagestyle{{plain}}{{\\pagestyle{{fancy}}}}")?;
+            writeln!(out, "\\fancypagestyle{{empty}}{{\\pagestyle{{fancy}}}}")?;
+        }
+    }
     writeln!(out)?;
     Ok(())
 }
@@ -407,10 +434,10 @@ pub const THESIS_COVER: &str = r#"
   \fi
 
   \vspace{5mm}
-  {\huge\MakeUppercase{\getFaculty{}}}\\
+  {\huge\MakeUppercase{\getFaculty{}}}
 
   \vspace{5mm}
-  {\large\MakeUppercase{\getUniversity{}}}\\
+  {\large\MakeUppercase{\getUniversity{}}}
 
   \vspace{20mm}
   {\Large \getThesisType{}}
@@ -443,10 +470,10 @@ pub const THESIS_TITLE: &str = r#"
   \fi
 
   \vspace{5mm}
-  {\huge\MakeUppercase{\getFaculty{}}}\\
+  {\huge\MakeUppercase{\getFaculty{}}}
 
   \vspace{5mm}
-  {\large\MakeUppercase{\getUniversity{}}}\\
+  {\large\MakeUppercase{\getUniversity{}}}
 
   \vspace{20mm}
   {\Large \getThesisType{}}
@@ -510,11 +537,11 @@ pub const REPORT_COVER: &str = r#"
   \ifempty{\getFaculty}
     \vspace*{1em}
   \else
-    {\huge\MakeUppercase{\getFaculty}}\\
+    {\huge\MakeUppercase{\getFaculty}}
   \fi
 
   \vspace{5mm}
-  {\large\MakeUppercase{\getUniversity}}\\
+  {\large\MakeUppercase{\getUniversity}}
 
   \vspace{15mm}
   {\huge\bfseries \getTitle{}}
