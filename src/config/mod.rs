@@ -46,6 +46,17 @@ pub struct CliArgs {
 #[serde(deny_unknown_fields)]
 #[structopt(rename_all = "kebab-case")]
 pub struct FileConfig {
+    /// Defines if this config is the most toplevel one. Setting this to `true` will result in
+    /// other more toplevel configs to be ignored. The project root will be set to the origin
+    /// of this config.
+    #[structopt(long)]
+    #[serde(default)]
+    pub root: bool,
+    /// Setting this to `true` will result in other more toplevel configs to be ignored.
+    /// The project root won't be changed and may still be a toplevel `heradoc.toml`.
+    #[structopt(long)]
+    #[serde(default)]
+    pub ignore_toplevel: bool,
     /// Output type (tex / pdf). If left blank, it's derived from the output file ending.
     /// Defaults to tex for stdout.
     #[structopt(short = "t", long = "to", long = "out-type", long = "output-type")]
@@ -299,7 +310,26 @@ pub struct Config {
 
 impl Config {
     /// tempdir must live as long as Config
-    pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, cfgfile_folder: Option<PathBuf>, tempdir: &TempDir) -> Config {
+    pub fn new(args: CliArgs, mut infile: FileConfig, mut file: FileConfig, mut cfgfile_folder: Option<PathBuf>, tempdir: &TempDir) -> Config {
+        if args.fileconfig.root || args.fileconfig.ignore_toplevel {
+            infile = FileConfig::default();
+            file = FileConfig::default();
+            if args.fileconfig.root {
+                cfgfile_folder = Some(env::current_dir().expect("args specify --root, but working directory not accessible"));
+            }
+        }
+        if infile.root || infile.ignore_toplevel {
+            file = FileConfig::default();
+            if infile.root {
+                // with `None`, the project_root will be the document
+                cfgfile_folder = None;
+            }
+        }
+        // make non-mut
+        let infile = infile;
+        let file = file;
+        let cfgfile_folder = cfgfile_folder;
+
         let tempdir_path = tempdir.path().to_owned();
         // verify input file
         match &args.input {
