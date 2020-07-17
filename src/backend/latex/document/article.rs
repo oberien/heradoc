@@ -67,7 +67,7 @@ impl<'a> Backend<'a> for Article {
         Article
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // TODO: itemizespacing
         preamble::write_documentclass(cfg, out, "scrartcl", "")?;
         preamble::write_packages(cfg, out)?;
@@ -79,7 +79,7 @@ impl<'a> Backend<'a> for Article {
 
         if cfg.title.is_some() {
             // TODO: Warn if title isn't set but something else is
-            preamble::write_maketitle_info(cfg, ShortAuthor::No, out)?;
+            preamble::write_maketitle_info(cfg, ShortAuthor::No, out, diagnostics)?;
             preamble::write_manual_titlepage_commands(cfg, out)?;
             writeln!(out, "\\maketitle")?;
         }

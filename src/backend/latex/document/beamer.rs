@@ -168,7 +168,7 @@ impl<'a> Backend<'a> for Beamer {
         }
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
         // Beamer already loads internally color, hyperref, xcolor. Correct their options.
         preamble::write_documentclass(cfg, out, "beamer", "color={usenames,dvipsnames},xcolor={usenames,dvipsnames},hyperref={pdfusetitle},")?;
         writeln!(out, "\\usetheme{{{}}}", cfg.beamertheme)?;
@@ -185,7 +185,7 @@ impl<'a> Backend<'a> for Beamer {
 
         if cfg.titlepage {
             // TODO: warn if any info is set but titlepage false
-            preamble::write_maketitle_info(cfg, ShortAuthor::Yes, out)?;
+            preamble::write_maketitle_info(cfg, ShortAuthor::Yes, out, diagnostics)?;
             preamble::write_manual_titlepage_commands(cfg, out)?;
             writeln!(out, "\\frame{{\\titlepage}}")?;
         }

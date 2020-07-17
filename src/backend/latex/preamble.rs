@@ -2,8 +2,9 @@ use std::io::{Result, Write};
 
 use isolang::Language;
 
-use crate::config::Config;
+use crate::config::{Config, DocumentType};
 use crate::util::{OutJoiner, ToUnix};
+use crate::diagnostics::Diagnostics;
 
 /// Writes the documentclass header of latex documents with the given class and options.
 ///
@@ -155,7 +156,7 @@ pub enum ShortAuthor {
 /// Sets up variables for the latex maketitle titlepage.
 ///
 /// It doesn't write the titlepage itself, that is left to the caller.
-pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut impl Write) -> Result<()> {
+pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> Result<()> {
     if let Some(title) = &cfg.title {
         writeln!(out, "\\title{{{}}}", title)?;
     }
@@ -163,7 +164,13 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
         writeln!(out, "\\subtitle{{{}}}", subtitle)?;
     }
     if let Some(titlehead) = &cfg.titlehead {
-        writeln!(out, "\\titlehead{{{}}}", titlehead)?;
+        match cfg.document_type {
+            DocumentType::Article | DocumentType::Report | DocumentType::Thesis =>
+                writeln!(out, "\\titlehead{{{}}}", titlehead)?,
+            DocumentType::Beamer => diagnostics
+                .warning("the titlehead config property is not supported by beamer")
+                .emit(),
+        }
     }
     if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
         write!(out, "\\author")?;
