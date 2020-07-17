@@ -43,6 +43,7 @@ pub struct CliArgs {
 
 #[derive(Debug, Default, Deserialize, StructOpt)]
 #[serde(deny_unknown_fields)]
+#[structopt(rename_all = "kebab-case")]
 pub struct FileConfig {
     /// Output type (tex / pdf). If left blank, it's derived from the output file ending.
     /// Defaults to tex for stdout.
@@ -50,30 +51,30 @@ pub struct FileConfig {
     pub output_type: Option<OutType>,
 
     /// Type of the document.
-    #[structopt(long = "document-type", long = "doc-type")]
+    #[structopt(long)]
     pub document_type: Option<DocumentType>,
 
     // TODO: multiple files (VecOrSingle)
     /// Bibliography file in biblatex format. Defaults to references.bib (if it exists).
-    #[structopt(long = "bibliography")]
+    #[structopt(long)]
     pub bibliography: Option<String>,
     /// Citation style. Used for both `citestyle` and `bibstyle`.
-    #[structopt(long = "citationstyle")]
+    #[structopt(long)]
     pub citationstyle: Option<MaybeUnknown<CitationStyle>>,
     /// Style used for citation labels. Takes precedence over `citationstyle`.
-    #[structopt(long = "citestyle")]
+    #[structopt(long)]
     pub citestyle: Option<MaybeUnknown<CitationStyle>>,
     /// Style used for generating the bibliography index. Takes precedence over `citationstyle`.
-    #[structopt(long = "bibstyle")]
+    #[structopt(long)]
     pub bibstyle: Option<MaybeUnknown<CitationStyle>>,
     /// If figures should be used by default for images and similar
-    #[structopt(long = "figures")]
+    #[structopt(long)]
     pub figures: Option<bool>,
 
     /// File template to use. It must contain `HERADOCBODY` on its own line without indentation,
     /// which will be replaced with the rendered body.
     /// If this parameter is used, other header-configuration options will be discarded.
-    #[structopt(long = "template")]
+    #[structopt(long)]
     pub template: Option<String>,
 
     /// Language of document (used for l18n).
@@ -83,84 +84,129 @@ pub struct FileConfig {
     pub lang: Option<String>,
 
     /// Fontsize of the document.
-    #[structopt(long = "fontsize")]
+    #[structopt(long)]
     pub fontsize: Option<String>,
     /// When rendering a book sets whether the book should be one-sided or two-sided
-    #[structopt(long = "oneside")]
+    #[structopt(long)]
     pub oneside: Option<bool>,
     /// Other options passed to `\documentclass`.
-    #[structopt(long = "classoptions")]
+    #[structopt(long)]
     #[serde(default)]
     pub classoptions: Vec<String>,
 
     // titlepage
     /// For article if true, the titlepage will be its own page. Otherwise text will start on the
     /// first page.
-    #[structopt(long = "titlepage")]
+    #[structopt(long)]
     pub titlepage: Option<bool>,
     /// Title of document, used for titlepage
-    #[structopt(long = "title")]
+    #[structopt(long)]
     pub title: Option<String>,
     /// Subitle of document, used for titlepage
-    #[structopt(long = "subtitle")]
+    #[structopt(long)]
     pub subtitle: Option<String>,
     /// Titlehead of the titlepage
-    #[structopt(long = "titlehead")]
+    #[structopt(long)]
     pub titlehead: Option<String>,
     /// Author(s) of document, used for titlepage
-    #[structopt(long = "author")]
+    #[structopt(long)]
     pub author: Option<String>,
     /// Email(s) of authors, used for titlepage
-    #[structopt(long = "email")]
+    #[structopt(long)]
     pub email: Option<String>,
     /// Date of document, used for titlepage
-    #[structopt(long = "date")]
+    #[structopt(long)]
     pub date: Option<String>,
     /// Publisher of document, used for titlepage of article
-    #[structopt(long = "publisher")]
+    #[structopt(long)]
     pub publisher: Option<String>,
     /// Advisor of document, used for titlepage
-    #[structopt(long = "advisor")]
+    #[structopt(long)]
     pub advisor: Option<String>,
     /// Supervisor of document, used for titlepage
-    #[structopt(long = "supervisor")]
+    #[structopt(long)]
     pub supervisor: Option<String>,
     // only for thesis
     /// University Logo, displayed on top of titlepage of theses
-    #[structopt(long = "logo-university")]
+    #[structopt(long)]
     pub logo_university: Option<String>,
     /// Faculty logo, displayed on bottom of titlepage of theses
-    #[structopt(long = "logo-faculty")]
+    #[structopt(long)]
     pub logo_faculty: Option<String>,
     /// University name
-    #[structopt(long = "university")]
+    #[structopt(long)]
     pub university: Option<String>,
     /// Faculty name
-    #[structopt(long = "faculty")]
+    #[structopt(long)]
     pub faculty: Option<String>,
     /// Thesis type (e.g. "Master's Thesis in Informatics")
-    #[structopt(long = "thesis-type")]
+    #[structopt(long)]
     pub thesis_type: Option<String>,
     /// Submission Location of the thesis
-    #[structopt(long = "location")]
+    #[structopt(long)]
     pub location: Option<String>,
     /// Disclaimer for theses
-    #[structopt(long = "disclaimer")]
+    #[structopt(long)]
     pub disclaimer: Option<String>,
     /// Path to markdown file containing the abstract.
     #[structopt(long = "abstract")]
     #[serde(rename = "abstract")]
     pub abstract1: Option<String>,
     /// Path to a second file containing the abstract in a different language.
+    #[structopt(long)]
     pub abstract2: Option<String>,
+
+    // fancyhdr
+    /// Left-aligned header
+    #[structopt(long)]
+    pub lhead: Option<String>,
+    /// Left-aligned header on even pages (used if oneside=false; if not specified, lhead is used for all pages)
+    #[structopt(long)]
+    pub lhead_even: Option<String>,
+    /// Center-aligned header
+    #[structopt(long)]
+    pub chead: Option<String>,
+    /// Center-aligned header on even pages (used if oneside=false; if not specified, chead is used for all pages)
+    #[structopt(long)]
+    pub chead_even: Option<String>,
+    /// Right-aligned header
+    #[structopt(long)]
+    pub rhead: Option<String>,
+    /// Right-aligned header on even pages (used if oneside=false; if not specified, rhead is used for all pages)
+    #[structopt(long)]
+    pub rhead_even: Option<String>,
+    /// Left-aligned footer
+    #[structopt(long)]
+    pub lfoot: Option<String>,
+    /// Left-aligned footer on even pages (used if oneside=false; if not specified, lfoot is used for all pages)
+    #[structopt(long)]
+    pub lfoot_even: Option<String>,
+    /// Center-aligned footer
+    #[structopt(long)]
+    pub cfoot: Option<String>,
+    /// Center-aligned footer on even pages (used if oneside=false; if not specified, cfoot is used for all pages)
+    #[structopt(long)]
+    pub cfoot_even: Option<String>,
+    /// Right-aligned footer
+    #[structopt(long)]
+    pub rfoot: Option<String>,
+    /// Right-aligned footer on even pages (used if oneside=false; if not specified, rfoot is used for all pages)
+    #[structopt(long)]
+    pub rfoot_even: Option<String>,
+    /// If the header and footer should be visible on the titlepage
+    #[structopt(long)]
+    pub header_footer_on_titlepage: Option<bool>,
+
     // only for beamer
     /// If true, inserts titleframes for each section before starting with that section's content frames
+    #[structopt(long)]
     pub sectionframes: Option<bool>,
     /// Theme to use for beamer presentations. Defaults to Madrid.
+    #[structopt(long)]
     pub beamertheme: Option<String>,
 
     /// Custom header includes
-    #[structopt(long = "header-includes")]
+    #[structopt(long)]
     #[serde(default)]
     pub header_includes: Vec<String>,
 
@@ -225,6 +271,20 @@ pub struct Config {
     pub disclaimer: Option<String>,
     pub abstract1: Option<PathBuf>,
     pub abstract2: Option<PathBuf>,
+    // fancyhdr
+    pub lhead: Option<String>,
+    pub lhead_even: Option<String>,
+    pub chead: Option<String>,
+    pub chead_even: Option<String>,
+    pub rhead: Option<String>,
+    pub rhead_even: Option<String>,
+    pub lfoot: Option<String>,
+    pub lfoot_even: Option<String>,
+    pub cfoot: Option<String>,
+    pub cfoot_even: Option<String>,
+    pub rfoot: Option<String>,
+    pub rfoot_even: Option<String>,
+    pub header_footer_on_titlepage: bool,
     // only for beamer
     pub sectionframes: bool,
     pub beamertheme: String,
@@ -421,6 +481,19 @@ impl Config {
             disclaimer: args.fileconfig.disclaimer.or(infile.disclaimer).or(file.disclaimer),
             abstract1,
             abstract2,
+            lhead: args.fileconfig.lhead.or(infile.lhead).or(file.lhead),
+            lhead_even: args.fileconfig.lhead_even.or(infile.lhead_even).or(file.lhead_even),
+            chead: args.fileconfig.chead.or(infile.chead).or(file.chead),
+            chead_even: args.fileconfig.chead_even.or(infile.chead_even).or(file.chead_even),
+            rhead: args.fileconfig.rhead.or(infile.rhead).or(file.rhead),
+            rhead_even: args.fileconfig.rhead_even.or(infile.rhead_even).or(file.rhead_even),
+            lfoot: args.fileconfig.lfoot.or(infile.lfoot).or(file.lfoot),
+            lfoot_even: args.fileconfig.lfoot_even.or(infile.lfoot_even).or(file.lfoot_even),
+            cfoot: args.fileconfig.cfoot.or(infile.cfoot).or(file.cfoot),
+            cfoot_even: args.fileconfig.cfoot_even.or(infile.cfoot_even).or(file.cfoot_even),
+            rfoot: args.fileconfig.rfoot.or(infile.rfoot).or(file.rfoot),
+            rfoot_even: args.fileconfig.rfoot_even.or(infile.rfoot_even).or(file.rfoot_even),
+            header_footer_on_titlepage: args.fileconfig.header_footer_on_titlepage.or(infile.header_footer_on_titlepage).or(file.header_footer_on_titlepage).unwrap_or(false),
             sectionframes: args.fileconfig.sectionframes.or(infile.sectionframes).or(file.sectionframes).unwrap_or(true),
             beamertheme: args.fileconfig.beamertheme.or(infile.beamertheme).or(file.beamertheme).unwrap_or_else(|| "Madrid".to_string()),
             classoptions,
@@ -563,6 +636,7 @@ impl FromStr for OutType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, EnumString)]
 #[serde(rename_all = "lowercase", deny_unknown_fields)]
+#[strum(serialize_all = "kebab_case")]
 pub enum DocumentType {
     Article,
     Report,
