@@ -325,11 +325,13 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
 fn to_include(
     path: PathBuf, context: Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
 ) -> Result<Include> {
-    match path.extension().map(|s| s.to_str().unwrap()) {
+    let ext = path.extension().map(|s| s.to_str().unwrap().to_lowercase());
+    match ext.as_ref().map(String::as_str) {
         Some("md") => Ok(Include::Markdown(path, context)),
         Some("png") | Some("jpg") | Some("jpeg") => Ok(Include::Image(path)),
         Some("svg") => Ok(Include::Svg(path)),
         Some("pdf") => Ok(Include::Pdf(path)),
+        Some("gv") | Some("dot") => Ok(Include::Graphviz(path)),
         Some(ext) => {
             diagnostics
                 .error(format!("unknown file format {:?}", ext))

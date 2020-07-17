@@ -83,6 +83,7 @@ pub enum Include {
     Image(PathBuf),
     Svg(PathBuf),
     Pdf(PathBuf),
+    Graphviz(PathBuf),
 }
 
 /// A direct command to the generator.
