@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::fs;
 use std::io::Write;
 use std::iter::Fuse;
@@ -5,15 +6,15 @@ use std::iter::Fuse;
 use crate::backend::Backend;
 use crate::diagnostics::Input;
 use crate::error::{Error, FatalResult, Result};
-use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude};
+use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude, Graphviz};
 use crate::frontend::range::WithRange;
-use crate::generator::event::{Event, Image, Pdf, Svg};
+use crate::generator::event::{Event, Tag, Image, Pdf, Svg};
 use crate::generator::Generator;
 use crate::resolve::{Include, ContextType, ResolveSecurity};
 
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
-    peek: Option<(WithRange<Event<'a>>, FeEventKind)>,
+    peek: VecDeque<(WithRange<Event<'a>>, FeEventKind)>,
     /// Contains the kind of the last FeEvent returned from `Self::next()`.
     ///
     /// This is used to `skip` correctly over events when an event couldn't be handled correctly.
@@ -23,7 +24,7 @@ pub struct Iter<'a> {
 
 impl<'a> Iter<'a> {
     pub fn new(frontend: Frontend<'a>) -> Self {
-        Iter { frontend: frontend.fuse(), peek: None, last_kind: FeEventKind::Start }
+        Iter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
     }
 
     /// Retrieves and converts the next event that needs to be handled.
@@ -34,7 +35,7 @@ impl<'a> Iter<'a> {
     pub fn next(
         &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> FatalResult<Option<WithRange<Event<'a>>>> {
-        if let Some((peek, kind)) = self.peek.take() {
+        if let Some((peek, kind)) = self.peek.pop_front() {
             self.last_kind = kind;
             return Ok(Some(peek));
         }
@@ -56,16 +57,16 @@ impl<'a> Iter<'a> {
     pub fn peek(
         &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> FatalResult<Option<WithRange<&Event<'a>>>> {
-        if self.peek.is_none() {
+        if self.peek.is_empty() {
             let old_kind = self.last_kind;
             let peek = match self.next(gen)? {
                 Some(peek) => peek,
                 None => return Ok(None),
             };
-            self.peek = Some((peek, self.last_kind));
+            self.peek.push_front((peek, self.last_kind));
             self.last_kind = old_kind;
         }
-        Ok(self.peek.as_ref().map(|(peek, _)| peek.as_ref()))
+        Ok(self.peek.front().map(|(peek, _)| peek.as_ref()))
     }
 
     /// Skips events until the next one that can be handled again.
@@ -193,6 +194,27 @@ impl<'a> Iter<'a> {
                 }))
             },
             Include::Pdf(path) => Ok(Event::Pdf(Pdf { path })),
+            Include::Graphviz(path) => {
+                let content = fs::read_to_string(&path).map_err(|err| {
+                    gen.diagnostics()
+                        .error("can't read graphviz file")
+                        .with_error_section(range, "in this include")
+                        .error(format!("cause: {}", err))
+                        .note(format!("reading from path {}", path.display()))
+                        .emit();
+                    Error::Diagnostic
+                })?;
+                let tag = Tag::Graphviz(Graphviz {
+                    label,
+                    caption,
+                    scale,
+                    width,
+                    height,
+                });
+                self.peek.push_back((WithRange(Event::Text(content.into()), range), self.last_kind));
+                self.peek.push_back((WithRange(Event::End(tag.clone()), range), self.last_kind));
+                Ok(Event::Start(tag))
+            }
         }
     }
 }
