@@ -553,12 +553,13 @@ impl<'a> Frontend<'a> {
                 let WithRange(next_element, next_range) = self.parser.next().unwrap();
                 self.handle_cskvp(cskvp, next_element, next_range)
             },
-            &WithRange(_, next_range) => {
+            WithRange(evt, next_range) => {
                 if !cskvp.has_label() {
                     self.diagnostics
                         .error("found element config, but there wasn't an element ot apply it to")
                         .with_error_section(cskvp.range(), "found element config here")
-                        .with_info_section(next_range, "but it can't be applied to this element")
+                        .with_info_section(*next_range, "but it can't be applied to this element")
+                        .note(format!("that element is of type {:?}, which doesn't support configs", evt))
                         .emit();
                 } else {
                     self.buffer
