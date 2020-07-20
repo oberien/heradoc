@@ -19,6 +19,7 @@ mod geometry;
 
 use self::geometry::Geometry;
 use crate::resolve::remote::Remote;
+use crate::util;
 
 // TODO: VecOrSingle to allow `foo = "bar"` instead of `foo = ["bar"]` for single values
 
@@ -45,6 +46,17 @@ pub struct CliArgs {
 #[serde(deny_unknown_fields)]
 #[structopt(rename_all = "kebab-case")]
 pub struct FileConfig {
+    /// Defines if this config is the most toplevel one. Setting this to `true` will result in
+    /// other more toplevel configs to be ignored. The project root will be set to the origin
+    /// of this config.
+    #[structopt(long)]
+    #[serde(default)]
+    pub root: bool,
+    /// Setting this to `true` will result in other more toplevel configs to be ignored.
+    /// The project root won't be changed and may still be a toplevel `heradoc.toml`.
+    #[structopt(long)]
+    #[serde(default)]
+    pub ignore_toplevel: bool,
     /// Output type (tex / pdf). If left blank, it's derived from the output file ending.
     /// Defaults to tex for stdout.
     #[structopt(short = "t", long = "to", long = "out-type", long = "output-type")]
@@ -229,6 +241,7 @@ pub struct Config {
     /// result of choosing this path randomly.  TODO: Make this restriction explicit.
     pub temp_dir: PathBuf,
     pub input: FileOrStdio,
+    pub document_folder: PathBuf,
     pub project_root: PathBuf,
     pub output_type: OutType,
 
@@ -297,7 +310,26 @@ pub struct Config {
 
 impl Config {
     /// tempdir must live as long as Config
-    pub fn new(args: CliArgs, infile: FileConfig, file: FileConfig, tempdir: &TempDir) -> Config {
+    pub fn new(args: CliArgs, mut infile: FileConfig, mut file: FileConfig, mut cfgfile_folder: Option<PathBuf>, tempdir: &TempDir) -> Config {
+        if args.fileconfig.root || args.fileconfig.ignore_toplevel {
+            infile = FileConfig::default();
+            file = FileConfig::default();
+            if args.fileconfig.root {
+                cfgfile_folder = Some(env::current_dir().expect("args specify --root, but working directory not accessible"));
+            }
+        }
+        if infile.root || infile.ignore_toplevel {
+            file = FileConfig::default();
+            if infile.root {
+                // with `None`, the project_root will be the document
+                cfgfile_folder = None;
+            }
+        }
+        // make non-mut
+        let infile = infile;
+        let file = file;
+        let cfgfile_folder = cfgfile_folder;
+
         let tempdir_path = tempdir.path().to_owned();
         // verify input file
         match &args.input {
@@ -338,35 +370,28 @@ impl Config {
             },
         };
 
-        let project_root = match &args.input {
-            FileOrStdio::StdIo => {
+        let document_folder = args.input.folder_canonicalized()
+            .unwrap_or_else(|| {
                 env::current_dir().expect("Can't use stdin without a current working directory")
-            },
-            FileOrStdio::File(file) => file
-                .canonicalize()
-                .expect("error canonicalizing input file path")
-                .parent()
-                .unwrap()
-                .to_owned(),
-        };
+            });
+        let project_root = cfgfile_folder.unwrap_or_else(|| document_folder.clone());
 
         let bibliography = args
             .fileconfig
             .bibliography
             .or(infile.bibliography)
             .or(file.bibliography)
-            .map(PathBuf::from)
             .or_else(|| {
                 if Path::new("references.bib").is_file() {
-                    Some(PathBuf::from("references.bib"))
+                    Some("references.bib".to_string())
                 } else {
                     None
                 }
             });
-        let bibliography = resolve_file(&project_root, &tempdir_path, bibliography, "bibliography");
+        let bibliography = resolve_file(&document_folder, &project_root, &tempdir_path, bibliography, "bibliography");
         let template =
-            args.fileconfig.template.or(infile.template).or(file.template).map(PathBuf::from);
-        let template = resolve_file(&project_root, &tempdir_path, template, "template");
+            args.fileconfig.template.or(infile.template).or(file.template);
+        let template = resolve_file(&document_folder, &project_root, &tempdir_path, template, "template");
 
         let lang = args.fileconfig.lang.or(infile.lang).or(file.lang);
         let lang = match lang {
@@ -394,23 +419,21 @@ impl Config {
             .fileconfig
             .logo_university
             .or(infile.logo_university)
-            .or(file.logo_university)
-            .map(PathBuf::from);
+            .or(file.logo_university);
         let logo_university =
-            resolve_file(&project_root, &tempdir_path, logo_university, "logo_university");
+            resolve_file(&document_folder, &project_root, &tempdir_path, logo_university, "logo_university");
         let logo_faculty = args
             .fileconfig
             .logo_faculty
             .or(infile.logo_faculty)
-            .or(file.logo_faculty)
-            .map(PathBuf::from);
-        let logo_faculty = resolve_file(&project_root, &tempdir_path, logo_faculty, "logo_faculty");
+            .or(file.logo_faculty);
+        let logo_faculty = resolve_file(&document_folder, &project_root, &tempdir_path, logo_faculty, "logo_faculty");
         let abstract1 =
-            args.fileconfig.abstract1.or(infile.abstract1).or(file.abstract1).map(PathBuf::from);
-        let abstract1 = resolve_file(&project_root, &tempdir_path, abstract1, "abstract");
+            args.fileconfig.abstract1.or(infile.abstract1).or(file.abstract1);
+        let abstract1 = resolve_file(&document_folder, &project_root, &tempdir_path, abstract1, "abstract");
         let abstract2 =
-            args.fileconfig.abstract2.or(infile.abstract2).or(file.abstract2).map(PathBuf::from);
-        let abstract2 = resolve_file(&project_root, &tempdir_path, abstract2, "abstract2");
+            args.fileconfig.abstract2.or(infile.abstract2).or(file.abstract2);
+        let abstract2 = resolve_file(&document_folder, &project_root, &tempdir_path, abstract2, "abstract2");
 
         let document_type = args
             .fileconfig
@@ -424,6 +447,7 @@ impl Config {
             out_dir: args.out_dir.unwrap_or_else(|| tempdir.path().to_owned()),
             temp_dir: tempdir_path,
             input: args.input,
+            document_folder,
             project_root,
             output_type,
             document_type,
@@ -505,34 +529,36 @@ impl Config {
 
 /// Tries to resolve given input.
 ///
-/// First the requested file will tried to be located relative to the input file.
-/// Then the requested file will tried to be located relative to the current working directory.
-/// Finally, if it's a URL, the content will be downloaded and a path to the downloaded file
-/// returned.
-fn resolve_file<P: AsRef<Path>>(
-    project_root: &Path, temp_dir: &Path, path: Option<P>, cfgoption: &str,
+/// 1. if it's relative, it's resolved relative to the input file
+/// 2. if it's absolute, it's resolved relative to the project root
+/// 3. if it's a URL, the content will be downloaded and a path to the downloaded file returned.
+fn resolve_file<P: AsRef<str>>(
+    document_folder: &Path, project_root: &Path, temp_dir: &Path, to_resolve: Option<P>, cfgoption_name: &str,
 ) -> Option<PathBuf> {
     // TODO: error handling
-    let path = match path {
-        Some(path) => path,
-        None => return None,
-    };
-    // relative to input file
-    let file = project_root.join(&path);
-    if file.exists() && file.is_file() {
-        return Some(file);
-    }
+    let to_resolve = to_resolve?;
+    let to_resolve = to_resolve.as_ref();
+    let path = Path::new(to_resolve);
 
-    // relative to current working directory
-    let file = env::current_dir().unwrap().join(&path);
-    if file.exists() && file.is_file() {
-        return Some(file);
+    // relative to input file
+    if path.is_relative() {
+        let file = document_folder.join(&path);
+        if file.exists() && file.is_file() {
+            return Some(file);
+        }
+    }
+    // relative to project root
+    if path.is_absolute() {
+        let file = project_root.join(util::strip_root(path));
+        if file.exists() && file.is_file() {
+            return Some(file);
+        }
     }
 
     // try to download
     let remote = Remote::new(temp_dir.to_owned()).unwrap();
-    match remote.http(&Url::parse(path.as_ref().to_str().unwrap()).unwrap()) {
-        Err(_) => panic!("{} file doesn't exist or isn't a url: {:?}", cfgoption, path.as_ref()),
+    match remote.http(&Url::parse(to_resolve).unwrap()) {
+        Err(_) => panic!("{} file doesn't exist or isn't a url: {:?}", cfgoption_name, to_resolve),
         Ok(downloaded) => Some(downloaded.path().to_owned()),
     }
 }
@@ -589,6 +615,18 @@ impl FileOrStdio {
             FileOrStdio::File(path) => {
                 Box::new(BufWriter::new(File::create(path).expect("can't open output source")))
             },
+        }
+    }
+
+    pub fn folder_canonicalized(&self) -> Option<PathBuf> {
+        match self {
+            FileOrStdio::StdIo => None,
+            FileOrStdio::File(file) => Some(file
+                .canonicalize()
+                .expect("error canonicalizing input file path")
+                .parent()
+                .unwrap()
+                .to_owned())
         }
     }
 }

@@ -38,6 +38,7 @@ struct Meta<'a, 'd> {
     url: Url,
     context: &'a Context,
     project_root: &'a Path,
+    document_root: &'a Path,
     permissions: &'a Permissions,
     range: SourceRange,
     diagnostics: &'a Diagnostics<'d>,
@@ -49,12 +50,21 @@ enum TargetInner {
     ///
     /// Ex: `![](//TOC)`
     Implementation(String),
-    /// Local file inside the project root or the context directory.
+    /// Local file relative to the document root.
     ///
     /// The `PathBuf` must be relative.
     ///
-    /// Ex: `![](/foo.md)`, `![](foo.md)`
-    LocalRelative(PathBuf),
+    /// Ex: `![](//document/foo.md)`
+    LocalDocumentRelative(PathBuf),
+    /// Local file relative to the project root.
+    ///
+    /// The `PathBuf` must be relative.
+    /// When the path to resolve is file-relative, we can get its project-relative path
+    /// by joining it on the context's url (which points to the current file).
+    /// Therefore, file-relative is also project-relative at the same time.
+    ///
+    /// Ex: `![](foo.md)`, `![](/foo.md)`, `![](/images/bar.png)`
+    LocalProjectRelative(PathBuf),
     /// Any file with an absolute path.
     ///
     /// Ex: `![](file:///foo.md)`
@@ -72,16 +82,16 @@ impl<'a, 'd> Target<'a, 'd> {
     /// to the respective Include.
     /// Local relative files are resolved relative to the project_root.
     pub fn new(
-        url: &str, context: &'a Context, project_root: &'a Path, permissions: &'a Permissions,
-        range: SourceRange, diagnostics: &'a Diagnostics<'d>,
+        to_resolve: &str, context: &'a Context, project_root: &'a Path, document_root: &'a Path,
+        permissions: &'a Permissions, range: SourceRange, diagnostics: &'a Diagnostics<'d>,
     ) -> Result<Target<'a, 'd>> {
-        let url = match context.url.join(url) {
+        let url = match context.url.join(to_resolve) {
             Ok(url) => url,
             Err(err) => {
                 diagnostics
                     .error("couldn't resolve file")
                     .with_error_section(range, "defined here")
-                    .note(format!("tried to resolve {}", url))
+                    .note(format!("tried to resolve {}", to_resolve))
                     .note(format!("malformed reference: {}", err))
                     .emit();
                 return Err(Error::Diagnostic);
@@ -89,7 +99,8 @@ impl<'a, 'd> Target<'a, 'd> {
         };
         let inner = match url.scheme() {
             "heradoc" => match url.domain() {
-                Some("document") => TargetInner::LocalRelative(url.path_segments().unwrap().collect()),
+                Some("project") => TargetInner::LocalProjectRelative(url.path_segments().unwrap().collect()),
+                Some("document") => TargetInner::LocalDocumentRelative(url.path_segments().unwrap().collect()),
                 Some(domain) => TargetInner::Implementation(domain.to_string()),
                 None => {
                     diagnostics
@@ -119,6 +130,7 @@ impl<'a, 'd> Target<'a, 'd> {
                 url,
                 context,
                 project_root,
+                document_root,
                 permissions,
                 range,
                 diagnostics,
@@ -148,11 +160,13 @@ impl<'a, 'd> Target<'a, 'd> {
             inner @ TargetInner::Implementation(_) => inner,
             inner @ TargetInner::Remote(_) => inner,
             TargetInner::LocalAbsolute(abs) => TargetInner::LocalAbsolute(canonicalize(abs)?),
-            TargetInner::LocalRelative(rel) => {
-                assert!(rel.is_relative(), "TargetInner::LocalRelative not relative before canonicalizing: {:?}", rel);
-                let relative_to_project_root = meta.project_root.join(rel);
-                let canonicalized = canonicalize(relative_to_project_root)?;
-                TargetInner::LocalRelative(canonicalized)
+            TargetInner::LocalDocumentRelative(rel) => {
+                assert!(rel.is_relative(), "TargetInner::LocalDocumentRelative not relative before canonicalizing: {:?}", rel);
+                TargetInner::LocalDocumentRelative(canonicalize(meta.document_root.join(rel))?)
+            },
+            TargetInner::LocalProjectRelative(rel) => {
+                assert!(rel.is_relative(), "TargetInner::LocalProjectRelative not relative before canonicalizing: {:?}", rel);
+                TargetInner::LocalProjectRelative(canonicalize(meta.project_root.join(rel))?)
             },
         };
         Ok(TargetCanonicalized {
@@ -181,11 +195,13 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
         let TargetCanonicalized { inner, meta } = self;
         match (meta.context.typ(), &inner) {
             (ContextType::LocalRelative, TargetInner::Implementation(_))
-            | (ContextType::LocalRelative, TargetInner::LocalRelative(_))
+            | (ContextType::LocalRelative, TargetInner::LocalProjectRelative(_))
+            | (ContextType::LocalRelative, TargetInner::LocalDocumentRelative(_))
             | (ContextType::LocalRelative, TargetInner::Remote(_)) => (),
 
             (ContextType::LocalAbsolute, TargetInner::Implementation(_)) => (),
-            (ContextType::LocalAbsolute, TargetInner::LocalRelative(_))
+            (ContextType::LocalAbsolute, TargetInner::LocalProjectRelative(_))
+            | (ContextType::LocalAbsolute, TargetInner::LocalDocumentRelative(_))
             | (ContextType::LocalAbsolute, TargetInner::Remote(_)) => {
                 meta.diagnostics
                     .error("permission denied")
@@ -248,6 +264,18 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
 impl<'a, 'd> TargetChecked<'a, 'd> {
     pub fn into_include(self, remote: &Remote) -> Result<Include> {
         let TargetChecked { inner, meta } = self;
+        let check_still_relative = |path: &Path, root: &Path, name: &str| -> Result<()> {
+            match path.strip_prefix(root) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    meta.diagnostics
+                        .bug(format!("Local {}-relative path resolved to non-{}-relative path", name, name))
+                        .error(format!("cause: {}", e))
+                        .emit();
+                    Err(Error::Diagnostic)
+                }
+            }
+        };
         match inner {
             TargetInner::Implementation(command) => {
                 match Command::from_str(&command) {
@@ -261,21 +289,17 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                     }
                 }
             },
-            TargetInner::LocalRelative(path) => {
+            TargetInner::LocalDocumentRelative(path) => {
+                // Making doubly sure for future changes.
+                // Number of times this error was hit during changes: 0
+                check_still_relative(&path, meta.document_root, "document-root")?;
+                to_include(path, Context::from_url(meta.url), meta.range, meta.diagnostics)
+            },
+            TargetInner::LocalProjectRelative(path) => {
                 // Making doubly sure for future changes.
                 // Number of times this error was hit during changes: 1
-                match path.strip_prefix(meta.project_root) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        meta.diagnostics
-                            .bug("Local relative path resolved to non-relative path")
-                            .error(format!("cause: {}", e))
-                            .emit();
-                        return Err(Error::Diagnostic);
-                    }
-                }
-                let context = Context::from_url(meta.url);
-                to_include(path, context, meta.range, meta.diagnostics)
+                check_still_relative(&path, meta.project_root, "project-root")?;
+                to_include(path, Context::from_url(meta.url), meta.range, meta.diagnostics)
             },
             TargetInner::LocalAbsolute(path) => {
                 let context = Context::from_url(meta.url);
