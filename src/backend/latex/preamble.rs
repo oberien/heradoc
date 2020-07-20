@@ -163,10 +163,19 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
     if let Some(subtitle) = &cfg.subtitle {
         writeln!(out, "\\subtitle{{{}}}", subtitle)?;
     }
-    if let Some(titlehead) = &cfg.titlehead {
+    if cfg.titlehead.is_some() || cfg.logo_university.is_some() {
         match cfg.document_type {
-            DocumentType::Article | DocumentType::Report | DocumentType::Thesis =>
-                writeln!(out, "\\titlehead{{{}}}", titlehead)?,
+            DocumentType::Article | DocumentType::Report | DocumentType::Thesis => {
+                writeln!(out, "\\titlehead{{")?;
+                let mut joiner = OutJoiner::new(&mut *out, "\\\\");
+                if let Some(titlehead) = &cfg.titlehead {
+                    joiner.join(format_args!("\\raggedright {}", titlehead))?;
+                }
+                if let Some(logo_university) = &cfg.logo_university {
+                    joiner.join(format_args!("\\vspace{{5mm}}\\centering\\includegraphics[height=20mm]{{{}}}", logo_university.to_unix().expect("can't convert univerity logo path to unix")))?;
+                }
+                writeln!(out, "}}")?;
+            }
             DocumentType::Beamer => diagnostics
                 .warning("the titlehead config property is not supported by beamer")
                 .emit(),
@@ -185,10 +194,10 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
             joiner.join(format_args!("{}", author))?;
         }
         if let Some(supervisor) = &cfg.supervisor {
-            joiner.join(format_args!("{{\\footnotesize Supervisor: {}}}", supervisor))?;
+            joiner.join(format_args!("Supervisor: {}", supervisor))?;
         }
         if let Some(advisor) = &cfg.advisor {
-            joiner.join(format_args!("{{\\footnotesize Advisor: {}}}", advisor))?;
+            joiner.join(format_args!("Advisor: {}", advisor))?;
         }
         writeln!(out, "}}")?;
     }
@@ -198,19 +207,22 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
     if let Some(email) = &cfg.email {
         writeln!(out, "\\email{{{}}}", email)?;
     }
-    if cfg.university.is_some() || cfg.faculty.is_some() {
-        write!(out, "\\affiliation{{")?;
-        let mut joiner = OutJoiner::new(&mut *out, "\\\\");
+    if cfg.university.is_some() || cfg.faculty.is_some() || cfg.publisher.is_some() || cfg.logo_faculty.is_some() {
+        let mut publishers = Vec::new();
+        let mut joiner = OutJoiner::new(&mut publishers, "\\\\");
         if let Some(university) = &cfg.university {
             joiner.join(format_args!("{}", university))?;
         }
         if let Some(faculty) = &cfg.faculty {
             joiner.join(format_args!("{}", faculty))?;
         }
-        writeln!(out, "}}")?;
-    }
-    if let Some(publisher) = &cfg.publisher {
-        writeln!(out, "\\publishers{{{}}}", publisher)?;
+        if let Some(publisher) = &cfg.publisher {
+            joiner.join(format_args!("{}", publisher))?;
+        }
+        if let Some(logo_faculty) = &cfg.logo_faculty {
+            joiner.join(format_args!("\\vspace{{5mm}}\\includegraphics[height=20mm]{{{}}}", logo_faculty.to_unix().expect("can't convert faculty logo path to unix")))?;
+        }
+        writeln!(out, "\\publishers{{{}}}", String::from_utf8(publishers).expect("invalid UTF-8 publishers"))?;
     }
     writeln!(out)?;
 
