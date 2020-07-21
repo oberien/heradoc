@@ -209,6 +209,10 @@ pub struct FileConfig {
     #[structopt(long)]
     pub header_footer_on_titlepage: Option<bool>,
 
+    /// Removes space between lists
+    #[structopt(long)]
+    pub tightlist: Option<bool>,
+
     // only for beamer
     /// If true, inserts titleframes for each section before starting with that section's content frames
     #[structopt(long)]
@@ -301,6 +305,8 @@ pub struct Config {
     pub rfoot: Option<String>,
     pub rfoot_even: Option<String>,
     pub header_footer_on_titlepage: bool,
+
+    pub tightlist: bool,
     // only for beamer
     pub sectionframes: bool,
     pub frameheadings: bool,
@@ -522,6 +528,7 @@ impl Config {
             rfoot: args.fileconfig.rfoot.or(infile.rfoot).or(file.rfoot),
             rfoot_even: args.fileconfig.rfoot_even.or(infile.rfoot_even).or(file.rfoot_even),
             header_footer_on_titlepage: args.fileconfig.header_footer_on_titlepage.or(infile.header_footer_on_titlepage).or(file.header_footer_on_titlepage).unwrap_or(false),
+            tightlist: args.fileconfig.tightlist.or(infile.tightlist).or(file.tightlist).unwrap_or(true),
             sectionframes: args.fileconfig.sectionframes.or(infile.sectionframes).or(file.sectionframes).unwrap_or(true),
             frameheadings: args.fileconfig.frameheadings.or(infile.frameheadings).or(file.frameheadings).unwrap_or(true),
             beamertheme: args.fileconfig.beamertheme.or(infile.beamertheme).or(file.beamertheme).unwrap_or_else(|| "Madrid".to_string()),

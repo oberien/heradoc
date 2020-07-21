@@ -12,10 +12,13 @@ pub struct ListGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ListGen {
     fn new(
-        _cfg: &'a Config, _: WithRange<()>,
+        cfg: &'a Config, _: WithRange<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{itemize}}")?;
+        if cfg.tightlist {
+            writeln!(gen.get_out(), "\\setlength{{\\itemsep}}{{0pt}}\\setlength{{\\parskip}}{{0pt}}")?;
+        }
         Ok(ListGen)
     }
 
