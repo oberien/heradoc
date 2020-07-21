@@ -162,9 +162,8 @@ fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
     let res = match cfg.document_type {
         DocumentType::Article => backend::generate(cfg, Article::new(), &Arena::new(), markdown, out, stderr),
         DocumentType::Beamer => match cfg.output_type {
-            OutType::Pdf => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
+            OutType::Pdf | OutType::Latex => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
             OutType::Mp4 => backend::generate(cfg, SlidesFfmpegEspeak::new(), &Arena::new(), markdown, out, stderr),
-            _ => unreachable!(),
         },
         DocumentType::Report => backend::generate(cfg, Report::new(), &Arena::new(), markdown, out, stderr),
         DocumentType::Thesis => backend::generate(cfg, Thesis::new(), &Arena::new(), markdown, out, stderr),
