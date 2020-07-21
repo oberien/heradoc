@@ -80,8 +80,10 @@ impl Beamer {
                 2 => {
                     // Mark all slides as fragile, this is slower but we can use verbatim etc.
                     writeln!(out, "\\begin{{frame}}[fragile]")?;
-                    writeln!(out, "\\frametitle{{\\insertsection}}")?;
-                    writeln!(out, "\\framesubtitle{{\\insertsubsection}}")?;
+                    if cfg.frameheadings {
+                        writeln!(out, "\\frametitle{{\\insertsection}}")?;
+                        writeln!(out, "\\framesubtitle{{\\insertsubsection}}")?;
+                    }
                     levels.push(FrameEvent::BeginFrame);
                 },
                 3 => {

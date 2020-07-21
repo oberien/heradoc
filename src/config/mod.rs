@@ -213,6 +213,9 @@ pub struct FileConfig {
     /// If true, inserts titleframes for each section before starting with that section's content frames
     #[structopt(long)]
     pub sectionframes: Option<bool>,
+    /// If false, doesn't add frame-titles and frame-subtitles to frames
+    #[structopt(long)]
+    pub frameheadings: Option<bool>,
     /// Theme to use for beamer presentations. Defaults to Madrid.
     #[structopt(long)]
     pub beamertheme: Option<String>,
@@ -300,6 +303,7 @@ pub struct Config {
     pub header_footer_on_titlepage: bool,
     // only for beamer
     pub sectionframes: bool,
+    pub frameheadings: bool,
     pub beamertheme: String,
 
     pub header_includes: Vec<String>,
@@ -519,6 +523,7 @@ impl Config {
             rfoot_even: args.fileconfig.rfoot_even.or(infile.rfoot_even).or(file.rfoot_even),
             header_footer_on_titlepage: args.fileconfig.header_footer_on_titlepage.or(infile.header_footer_on_titlepage).or(file.header_footer_on_titlepage).unwrap_or(false),
             sectionframes: args.fileconfig.sectionframes.or(infile.sectionframes).or(file.sectionframes).unwrap_or(true),
+            frameheadings: args.fileconfig.frameheadings.or(infile.frameheadings).or(file.frameheadings).unwrap_or(true),
             beamertheme: args.fileconfig.beamertheme.or(infile.beamertheme).or(file.beamertheme).unwrap_or_else(|| "Madrid".to_string()),
             classoptions,
             header_includes,
