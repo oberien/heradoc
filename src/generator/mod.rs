@@ -67,7 +67,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             cfg,
             default_out,
             stack: Vec::new(),
-            resolver: Resolver::new(cfg.project_root.clone(), cfg.document_folder.clone(), cfg.temp_dir.clone()),
+            resolver: Resolver::new(cfg.project_root.clone(), cfg.document_folder.clone(), cfg.cache_dir.clone()),
             template,
             stderr,
         }
