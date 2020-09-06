@@ -15,6 +15,7 @@ mod convert_cow;
 mod event;
 pub mod range;
 mod refs;
+mod rustdoc;
 mod size;
 mod table_layout;
 
