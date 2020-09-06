@@ -165,7 +165,7 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
     }
     if cfg.titlehead.is_some() || cfg.logo_university.is_some() {
         match cfg.document_type {
-            DocumentType::Article | DocumentType::Report | DocumentType::Thesis => {
+            DocumentType::Article | DocumentType::Report | DocumentType::Thesis | DocumentType::RustDoc => {
                 writeln!(out, "\\titlehead{{")?;
                 let mut joiner = OutJoiner::new(&mut *out, "\\\\");
                 if let Some(titlehead) = &cfg.titlehead {

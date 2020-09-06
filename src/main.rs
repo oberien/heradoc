@@ -165,6 +165,10 @@ fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
             OutType::Pdf | OutType::Latex => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
             OutType::Mp4 => backend::generate(cfg, SlidesFfmpegEspeak::new(), &Arena::new(), markdown, out, stderr),
         },
+        DocumentType::RustDoc => {
+            let input = markdown;
+            backend::generate_rust_docs(cfg, Report::new(), &Arena::new(), input, out, stderr)
+        }
         DocumentType::Report => backend::generate(cfg, Report::new(), &Arena::new(), markdown, out, stderr),
         DocumentType::Thesis => backend::generate(cfg, Thesis::new(), &Arena::new(), markdown, out, stderr),
     };

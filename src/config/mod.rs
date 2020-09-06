@@ -494,7 +494,7 @@ impl Config {
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
             figures: args.fileconfig.figures.or(infile.figures).or(file.figures).unwrap_or_else(
                 || match document_type {
-                    DocumentType::Article | DocumentType::Beamer => false,
+                    DocumentType::Article | DocumentType::Beamer | DocumentType::RustDoc => false,
                     DocumentType::Thesis | DocumentType::Report => true,
                 },
             ),
@@ -706,6 +706,7 @@ pub enum DocumentType {
     Report,
     Thesis,
     Beamer,
+    RustDoc,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Display, EnumString)]
