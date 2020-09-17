@@ -23,8 +23,17 @@ For other distributions, those packages may have different names.
 
 Install the following programs:
 * texlive: Download the `install-tl-windows.exe` from <https://www.tug.org/texlive/acquire-netinstall.html>
+    * if downloading with that installer is incredibly slow / takes incredibly long, abort installation and try using a different mirror
     * other latex implementations might also work
-* graphviz: Follow the instructions on <https://bobswift.atlassian.net/wiki/spaces/GVIZ/pages/20971549/How+to+install+Graphviz+software#HowtoinstallGraphvizsoftware-GraphvizonWindows>
+* graphviz:
+    * **during installation, select *Add Graphviz to the system PATH for all users* **
+    * download and execute the installer from <https://www2.graphviz.org/Packages/stable/windows/10/cmake/Release/x64/>
+    * make sure Graphviz is installed by running `dot.exe` from a *fresh* cmd
+    * if the error message `There is no layout engine support for "dot"` appears:
+        * open cmd as administrator (search for `cmd` in the start menu, right-click and select "Run as Administrator")
+        * run `dot -c`
+* in cmd run `cargo install --path .` within the `heradoc` folder to build and install heradoc for the current user
+* to convert a file from markdown to pdf, run `heradoc file.md` in cmd
 
 # Features
 
