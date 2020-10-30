@@ -26,13 +26,13 @@ Install the following programs:
     * if downloading with that installer is incredibly slow / takes incredibly long, abort installation and try using a different mirror
     * other latex implementations might also work
 * graphviz:
-    * **during installation, select *Add Graphviz to the system PATH for all users* **
+    * **during installation, select *Add Graphviz to the system PATH for all users***
     * download and execute the installer from <https://www2.graphviz.org/Packages/stable/windows/10/cmake/Release/x64/>
     * make sure Graphviz is installed by running `dot.exe` from a *fresh* cmd
     * if the error message `There is no layout engine support for "dot"` appears:
         * open cmd as administrator (search for `cmd` in the start menu, right-click and select "Run as Administrator")
         * run `dot -c`
-* in cmd run `cargo install --path .` within the `heradoc` folder to build and install heradoc for the current user
+* in cmd, navigate to the folder into which you cloned this `heradoc` repository and run `cargo install --path .` (note the dot) build and install heradoc for the current user
 * to convert a file from markdown to pdf, run `heradoc file.md` in cmd
 
 # Features
