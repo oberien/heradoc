@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::env;
 use std::fmt;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write, BufWriter};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -35,9 +35,12 @@ pub struct CliArgs {
     /// Input markdown file. Use `-` for stdin.
     #[structopt()]
     pub input: FileOrStdio,
-    /// Config file with additional configuration. Defaults to `Config.toml` if it exists.
+    /// Config file with additional configuration. Defaults to `heradoc.toml` if it exists.
     #[structopt(long = "config", long = "cfg", parse(from_os_str))]
     pub configfile: Option<PathBuf>,
+    /// Make includes in the output file relative to the given path. Defaults to the output-directory.
+    #[structopt(long = "relative-to")]
+    pub relative_to: Option<PathBuf>,
     #[structopt(flatten)]
     pub fileconfig: FileConfig,
 }
@@ -251,6 +254,7 @@ pub struct Config {
     pub document_folder: PathBuf,
     pub project_root: PathBuf,
     pub output_type: OutType,
+    pub relative_to: RelativeTo,
 
     pub document_type: DocumentType,
 
@@ -379,6 +383,28 @@ impl Config {
                 FileOrStdio::File(filename)
             },
         };
+        let relative_to = match output_type {
+            OutType::Latex => {
+                // create output file to make sure it exists
+                output.touch();
+                match args.relative_to {
+                    Some(path) if path == Path::new("") => RelativeTo::Absolute,
+                    _ => {
+                        let path = args.relative_to
+                            .or_else(|| output.folder_canonicalized())
+                            .unwrap_or(env::current_dir().unwrap());
+                        let path = if !path.is_absolute() {
+                            path.canonicalize().expect("can't canonicalize relative_to path")
+                        } else {
+                            path
+                        };
+                        RelativeTo::RelativeTo(path)
+                    },
+
+                }
+            }
+            OutType::Pdf | OutType::Mp4 => RelativeTo::Absolute,
+        };
 
         let document_folder = args.input.folder_canonicalized()
             .unwrap_or_else(|| {
@@ -398,10 +424,10 @@ impl Config {
                     None
                 }
             });
-        let bibliography = resolve_file(&document_folder, &project_root, &tempdir_path, bibliography, "bibliography");
+        let bibliography = resolve_file(&document_folder, &project_root, &tempdir_path, &relative_to, bibliography, "bibliography");
         let template =
             args.fileconfig.template.or(infile.template).or(file.template);
-        let template = resolve_file(&document_folder, &project_root, &tempdir_path, template, "template");
+        let template = resolve_file(&document_folder, &project_root, &tempdir_path, &relative_to, template, "template");
 
         let lang = args.fileconfig.lang.or(infile.lang).or(file.lang);
         let lang = match lang {
@@ -431,19 +457,19 @@ impl Config {
             .or(infile.logo_university)
             .or(file.logo_university);
         let logo_university =
-            resolve_file(&document_folder, &project_root, &tempdir_path, logo_university, "logo_university");
+            resolve_file(&document_folder, &project_root, &tempdir_path, &relative_to, logo_university, "logo_university");
         let logo_faculty = args
             .fileconfig
             .logo_faculty
             .or(infile.logo_faculty)
             .or(file.logo_faculty);
-        let logo_faculty = resolve_file(&document_folder, &project_root, &tempdir_path, logo_faculty, "logo_faculty");
+        let logo_faculty = resolve_file(&document_folder, &project_root, &tempdir_path, &relative_to, logo_faculty, "logo_faculty");
         let abstract1 =
             args.fileconfig.abstract1.or(infile.abstract1).or(file.abstract1);
-        let abstract1 = resolve_file(&document_folder, &project_root, &tempdir_path, abstract1, "abstract");
+        let abstract1 = resolve_file(&document_folder, &project_root, &tempdir_path, &relative_to, abstract1, "abstract");
         let abstract2 =
             args.fileconfig.abstract2.or(infile.abstract2).or(file.abstract2);
-        let abstract2 = resolve_file(&document_folder, &project_root, &tempdir_path, abstract2, "abstract2");
+        let abstract2 = resolve_file(&document_folder, &project_root, &tempdir_path, &relative_to, abstract2, "abstract2");
 
         let document_type = args
             .fileconfig
@@ -460,6 +486,7 @@ impl Config {
             document_folder,
             project_root,
             output_type,
+            relative_to,
             document_type,
             bibliography,
             template,
@@ -545,7 +572,7 @@ impl Config {
 /// 2. if it's absolute, it's resolved relative to the project root
 /// 3. if it's a URL, the content will be downloaded and a path to the downloaded file returned.
 fn resolve_file<P: AsRef<str>>(
-    document_folder: &Path, project_root: &Path, temp_dir: &Path, to_resolve: Option<P>, cfgoption_name: &str,
+    document_folder: &Path, project_root: &Path, temp_dir: &Path, relative_to: &RelativeTo, to_resolve: Option<P>, cfgoption_name: &str,
 ) -> Option<PathBuf> {
     // TODO: error handling
     let to_resolve = to_resolve?;
@@ -556,14 +583,14 @@ fn resolve_file<P: AsRef<str>>(
     if path.is_relative() {
         let file = document_folder.join(&path);
         if file.exists() && file.is_file() {
-            return Some(file);
+            return Some(relative_to.make_relative(file));
         }
     }
     // relative to project root
     if path.is_absolute() {
         let file = project_root.join(util::strip_root(path));
         if file.exists() && file.is_file() {
-            return Some(file);
+            return Some(relative_to.make_relative(file));
         }
     }
 
@@ -630,12 +657,23 @@ impl FileOrStdio {
         }
     }
 
+    pub fn touch(&self) {
+        match self {
+            FileOrStdio::StdIo => (),
+            FileOrStdio::File(path) => drop(OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(path)
+                .unwrap()),
+        }
+    }
+
     pub fn folder_canonicalized(&self) -> Option<PathBuf> {
         match self {
             FileOrStdio::StdIo => None,
             FileOrStdio::File(file) => Some(file
                 .canonicalize()
-                .expect("error canonicalizing input file path")
+                .expect("error canonicalizing input or output file path")
                 .parent()
                 .unwrap()
                 .to_owned())
@@ -733,4 +771,19 @@ pub enum CitationStyle {
     ChicagoAuthordate,
     Mla,
     Apa,
+}
+
+#[derive(Debug, Clone)]
+pub enum RelativeTo {
+    Absolute,
+    RelativeTo(PathBuf),
+}
+
+impl RelativeTo {
+    pub fn make_relative<P: AsRef<Path>>(&self, path: P) -> PathBuf {
+        match self {
+            RelativeTo::Absolute => path.as_ref().to_owned(),
+            RelativeTo::RelativeTo(base) => pathdiff::diff_paths(path, base).unwrap(),
+        }
+    }
 }

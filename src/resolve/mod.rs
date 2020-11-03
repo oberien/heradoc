@@ -22,6 +22,7 @@ use self::target::Target;
 use crate::diagnostics::Diagnostics;
 use crate::error::Result;
 use crate::frontend::range::SourceRange;
+use crate::config::RelativeTo;
 
 const BASE_URL: &'static str = "heradoc://project/";
 
@@ -29,6 +30,7 @@ pub struct Resolver {
     permissions: Permissions,
     project_root: PathBuf,
     document_root: PathBuf,
+    relative_to: RelativeTo,
     remote: Remote,
 }
 
@@ -51,11 +53,12 @@ pub struct Permissions {
 }
 
 impl Resolver {
-    pub fn new(project_root: PathBuf, document_root: PathBuf, tempdir: PathBuf) -> Self {
+    pub fn new(project_root: PathBuf, document_root: PathBuf, tempdir: PathBuf, relative_to: RelativeTo) -> Self {
         Resolver {
             permissions: Permissions { allowed_absolute_folders: vec![project_root.clone()] },
             project_root,
             document_root,
+            relative_to,
             remote: Remote::new(tempdir).unwrap(),
         }
     }
@@ -65,7 +68,7 @@ impl Resolver {
         &self, resolve_security: ResolveSecurity, context: &Context, url: &str, range: SourceRange,
         diagnostics: &Diagnostics<'_>,
     ) -> Result<Include> {
-        let target = Target::new(url, context, &self.project_root, &self.document_root, &self.permissions, range, diagnostics)?;
+        let target = Target::new(url, context, &self.project_root, &self.document_root, &self.relative_to, &self.permissions, range, diagnostics)?;
         let include = match resolve_security {
             ResolveSecurity::Default =>
                 target.canonicalize()?.check_access()?.into_include(&self.remote)?,

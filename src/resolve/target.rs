@@ -8,6 +8,7 @@ use crate::error::{Error, Result};
 use crate::frontend::range::SourceRange;
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include, Permissions, ContextType};
+use crate::config::RelativeTo;
 
 /// Target pointed to by URL before the permission check.
 #[must_use]
@@ -39,6 +40,7 @@ struct Meta<'a, 'd> {
     context: &'a Context,
     project_root: &'a Path,
     document_root: &'a Path,
+    relative_to: &'a RelativeTo,
     permissions: &'a Permissions,
     range: SourceRange,
     diagnostics: &'a Diagnostics<'d>,
@@ -83,7 +85,8 @@ impl<'a, 'd> Target<'a, 'd> {
     /// Local relative files are resolved relative to the project_root.
     pub fn new(
         to_resolve: &str, context: &'a Context, project_root: &'a Path, document_root: &'a Path,
-        permissions: &'a Permissions, range: SourceRange, diagnostics: &'a Diagnostics<'d>,
+        relative_to: &'a RelativeTo, permissions: &'a Permissions, range: SourceRange,
+        diagnostics: &'a Diagnostics<'d>,
     ) -> Result<Target<'a, 'd>> {
         let url = match context.url.join(to_resolve) {
             Ok(url) => url,
@@ -131,6 +134,7 @@ impl<'a, 'd> Target<'a, 'd> {
                 context,
                 project_root,
                 document_root,
+                relative_to,
                 permissions,
                 range,
                 diagnostics,
@@ -162,11 +166,13 @@ impl<'a, 'd> Target<'a, 'd> {
             TargetInner::LocalAbsolute(abs) => TargetInner::LocalAbsolute(canonicalize(abs)?),
             TargetInner::LocalDocumentRelative(rel) => {
                 assert!(rel.is_relative(), "TargetInner::LocalDocumentRelative not relative before canonicalizing: {:?}", rel);
-                TargetInner::LocalDocumentRelative(canonicalize(meta.document_root.join(rel))?)
+                let path = canonicalize(meta.document_root.join(rel))?;
+                TargetInner::LocalDocumentRelative(meta.relative_to.make_relative(path))
             },
             TargetInner::LocalProjectRelative(rel) => {
                 assert!(rel.is_relative(), "TargetInner::LocalProjectRelative not relative before canonicalizing: {:?}", rel);
-                TargetInner::LocalProjectRelative(canonicalize(meta.project_root.join(rel))?)
+                let path = canonicalize(meta.project_root.join(rel))?;
+                TargetInner::LocalProjectRelative(meta.relative_to.make_relative(path))
             },
         };
         Ok(TargetCanonicalized {
@@ -292,13 +298,21 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
             TargetInner::LocalDocumentRelative(path) => {
                 // Making doubly sure for future changes.
                 // Number of times this error was hit during changes: 0
-                check_still_relative(&path, meta.document_root, "document-root")?;
+                let path_to_check = match meta.relative_to {
+                    RelativeTo::Absolute => path.clone(),
+                    RelativeTo::RelativeTo(base) => base.join(&path),
+                };
+                check_still_relative(&path_to_check, meta.document_root, "document-root")?;
                 to_include(path, Context::from_url(meta.url), meta.range, meta.diagnostics)
             },
             TargetInner::LocalProjectRelative(path) => {
                 // Making doubly sure for future changes.
                 // Number of times this error was hit during changes: 1
-                check_still_relative(&path, meta.project_root, "project-root")?;
+                let path_to_check = match meta.relative_to {
+                    RelativeTo::Absolute => path.clone(),
+                    RelativeTo::RelativeTo(base) => base.join(&path),
+                };
+                check_still_relative(&path_to_check, meta.project_root, "project-root")?;
                 to_include(path, Context::from_url(meta.url), meta.range, meta.diagnostics)
             },
             TargetInner::LocalAbsolute(path) => {
