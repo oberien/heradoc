@@ -569,8 +569,12 @@ fn resolve_file<P: AsRef<str>>(
 
     // try to download
     let remote = Remote::new(temp_dir.to_owned()).unwrap();
-    match remote.http(&Url::parse(to_resolve).unwrap()) {
-        Err(_) => panic!("{} file doesn't exist or isn't a url: {:?}", cfgoption_name, to_resolve),
+    let url = match Url::parse(to_resolve) {
+        Err(url_err) => panic!("{} file ({}) is not an url: {:?}", cfgoption_name, to_resolve, url_err),
+        Ok(url) => url,
+    };
+    match remote.http(&url) {
+        Err(err) => panic!("{} file ({}) doesn't exist or isn't accessible: {:?}", cfgoption_name, to_resolve, err),
         Ok(downloaded) => Some(downloaded.path().to_owned()),
     }
 }
