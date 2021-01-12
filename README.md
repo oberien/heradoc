@@ -45,7 +45,7 @@ Install the following programs:
 - [x] generate links for sections (non-alphanumerics replaced with `-`, all lowercase)
 - [x] Footnotes (currently the footnote is on the page where the footnote definition is placed, not its first reference)
 - [x] biber support: `[@foo]` references biber
-- [x] inline latex
+- [x] inline latex: `\ \LaTeX` in text, ```` ```inlinelatex\n\LaTeX\n``` ```` as block
     + still render markdown between `\begin` and `\end` etc, which pandoc doesn't
     + not if HTML as backend
 - [x] Table of Contents: `[TOC]`, `![][//TOC]`
