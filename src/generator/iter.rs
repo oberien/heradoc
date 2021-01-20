@@ -8,12 +8,15 @@ use crate::diagnostics::Input;
 use crate::error::{Error, FatalResult, Result};
 use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude, Graphviz};
 use crate::frontend::range::WithRange;
+use crate::frontend::rustdoc::{Crate, Rustdoc};
 use crate::generator::event::{Event, Tag, Image, Pdf, Svg};
 use crate::generator::Generator;
 use crate::resolve::{Include, ContextType, ResolveSecurity};
 
+type FeEvents<'a> = dyn Iterator<Item=WithRange<FeEvent<'a>>> + 'a;
+
 pub struct MarkdownIter<'a> {
-    frontend: Fuse<Frontend<'a>>,
+    frontend: Fuse<Box<FeEvents<'a>>>,
     peek: VecDeque<(WithRange<Event<'a>>, FeEventKind)>,
     /// Contains the kind of the last FeEvent returned from `Self::next()`.
     ///
@@ -24,6 +27,15 @@ pub struct MarkdownIter<'a> {
 
 impl<'a> MarkdownIter<'a> {
     pub fn new(frontend: Frontend<'a>) -> Self {
+        let frontend: Box<FeEvents<'a>> = Box::new(frontend);
+        MarkdownIter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
+    }
+
+    pub fn with_rustdoc(rustdoc: Rustdoc<'a>) -> Self {
+        let frontend: Box<FeEvents<'a>> = Box::new(rustdoc.map(|event| {
+            WithRange(event, (0..0).into())
+        }));
+
         MarkdownIter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
     }
 
@@ -180,6 +192,10 @@ impl<'a> MarkdownIter<'a> {
                     width,
                     height,
                 }))
+            },
+            Include::Rustdoc(path) => {
+                let events = gen.get_rustdoc(Crate::Local(path))?;
+                Ok(Event::IncludeRustdoc(Box::new(events)))
             },
             Include::Svg(path) => {
                 Ok(Event::Svg(Svg {

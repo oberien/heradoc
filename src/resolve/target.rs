@@ -73,6 +73,15 @@ enum TargetInner {
     ///
     /// Ex: `![](https://foo.bar/baz.md)`
     Remote(Url),
+    /// An URL with the custom rustdoc scheme.
+    ///
+    /// There must be a cargo project and a `Cargo.toml` at the target directory. It will point to
+    /// the first crate in the workspace for now. Planned is to use the domain for selecting the
+    /// target crate in the future, including maybe retrieving a particular version from the
+    /// registry?
+    ///
+    /// Ex: `![](rustdoc:path/to/Cargo.toml)`
+    Rustdoc(PathBuf),
 }
 
 impl<'a, 'd> Target<'a, 'd> {
@@ -107,6 +116,27 @@ impl<'a, 'd> Target<'a, 'd> {
                         .error("no heradoc implementation domain provided")
                         .with_error_section(range, "defined here")
                         .note("the domain must be either `document` for includes or an implementation command")
+                        .emit();
+                    return Err(Error::Diagnostic);
+                }
+            },
+            "rustdoc" => match url.domain() {
+                None => match url.to_file_path() {
+                    Ok(path) => TargetInner::Rustdoc(path),
+                    Err(()) => {
+                        diagnostics
+                            .error("error converting path to cargo project")
+                            .with_info_section(range, "defined here")
+                            .help("this could be due to a malformed path")
+                            .emit();
+                        return Err(Error::Diagnostic);
+                    }
+                }
+                Some(domain) => {
+                    diagnostics
+                        .error("rustdoc URLs must not provide a domain")
+                        .with_error_section(range, "defined here")
+                        .note(format!("uses the domain `{}`", domain))
                         .emit();
                     return Err(Error::Diagnostic);
                 }
@@ -160,6 +190,7 @@ impl<'a, 'd> Target<'a, 'd> {
             inner @ TargetInner::Implementation(_) => inner,
             inner @ TargetInner::Remote(_) => inner,
             TargetInner::LocalAbsolute(abs) => TargetInner::LocalAbsolute(canonicalize(abs)?),
+            TargetInner::Rustdoc(abs) => TargetInner::Rustdoc(canonicalize(abs)?),
             TargetInner::LocalDocumentRelative(rel) => {
                 assert!(rel.is_relative(), "TargetInner::LocalDocumentRelative not relative before canonicalizing: {:?}", rel);
                 TargetInner::LocalDocumentRelative(canonicalize(meta.document_root.join(rel))?)
@@ -197,12 +228,14 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             (ContextType::LocalRelative, TargetInner::Implementation(_))
             | (ContextType::LocalRelative, TargetInner::LocalProjectRelative(_))
             | (ContextType::LocalRelative, TargetInner::LocalDocumentRelative(_))
-            | (ContextType::LocalRelative, TargetInner::Remote(_)) => (),
+            | (ContextType::LocalRelative, TargetInner::Remote(_))
+            | (ContextType::LocalRelative, TargetInner::Rustdoc(_)) => (),
 
             (ContextType::LocalAbsolute, TargetInner::Implementation(_)) => (),
             (ContextType::LocalAbsolute, TargetInner::LocalProjectRelative(_))
             | (ContextType::LocalAbsolute, TargetInner::LocalDocumentRelative(_))
-            | (ContextType::LocalAbsolute, TargetInner::Remote(_)) => {
+            | (ContextType::LocalAbsolute, TargetInner::Remote(_)) 
+            | (ContextType::LocalAbsolute, TargetInner::Rustdoc(_)) => {
                 meta.diagnostics
                     .error("permission denied")
                     .with_error_section(meta.range, "trying to include this")
@@ -336,6 +369,9 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                     Some(ContentType::Pdf) => Ok(Include::Pdf(path)),
                     None => to_include(path, context, meta.range, meta.diagnostics),
                 }
+            },
+            TargetInner::Rustdoc(path) => {
+                Ok(Include::Rustdoc(path))
             },
         }
     }

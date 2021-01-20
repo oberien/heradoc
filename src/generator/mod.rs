@@ -11,6 +11,7 @@ use crate::config::{Config, FileOrStdio};
 use crate::diagnostics::{Diagnostics, Input};
 use crate::frontend::Frontend;
 use crate::frontend::range::{SourceRange, WithRange};
+use crate::frontend::rustdoc::{Crate, Rustdoc};
 use crate::resolve::{Context, Include, Resolver, ResolveSecurity};
 
 mod code_gen_units;
@@ -81,6 +82,12 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Events { events, diagnostics, context }
     }
 
+    pub fn get_rustdoc(&mut self, target: Crate) -> FatalResult<Rustdoc<'a>> {
+        let target = target.generate(self.diagnostics())?;
+        let diagnostics = Arc::new(Diagnostics::new("", Input::Stdin, Arc::clone(&self.stderr)));
+        Ok(Rustdoc::new(self.cfg, target, diagnostics))
+    }
+
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
         let context = Context::from_project_root();
 
@@ -107,8 +114,34 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
 
     pub fn generate_body(&mut self, events: Events<'a>) -> FatalResult<()> {
         self.stack.push(StackElement::Context(events.context, events.diagnostics));
-        let mut events = events.events;
+        self.generate_markdown(events.events)?;
+        match self.stack.pop() {
+            Some(StackElement::Context(..)) => (),
+            element => panic!(
+                "Expected context as stack element after body generation is finished, got {:?}",
+                element
+            ),
+        }
+        Ok(())
+    }
 
+    pub fn generate_rustdoc(&mut self, events: Rustdoc<'a>) -> FatalResult<()> {
+        // TODO: we should push some context..
+        // self.stack.push(StackElement::Context());
+        self.generate_markdown(MarkdownIter::with_rustdoc(events))?;
+        /* Re-enable when we push a context
+        match self.stack.pop() {
+            Some(StackElement::Context(..)) => (),
+            element => panic!(
+                "Expected context as stack element after body generation is finished, got {:?}",
+                element
+            ),
+        }
+        */
+        Ok(())
+    }
+
+    fn generate_markdown(&mut self, mut events: MarkdownIter<'a>) -> FatalResult<()> {
         while let Some(WithRange(event, range)) = events.next(self)? {
             let peek = events.peek(self)?;
             match self.visit_event(WithRange(event, range), self.cfg, peek) {
@@ -116,13 +149,6 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Err(Error::Diagnostic) => events.skip(self)?,
                 Err(Error::Fatal(fatal)) => return Err(fatal),
             }
-        }
-        match self.stack.pop() {
-            Some(StackElement::Context(..)) => (),
-            element => panic!(
-                "Expected context as stack element after body generation is finished, got {:?}",
-                element
-            ),
         }
         Ok(())
     }
@@ -148,6 +174,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Event::InlineHtml(html) => B::Text::new(config, WithRange(html, range), self)?.finish(self, peek)?,
             Event::Latex(latex) => B::Latex::new(config, WithRange(latex, range), self)?.finish(self, peek)?,
             Event::IncludeMarkdown(events) => self.generate_body(*events)?,
+            Event::IncludeRustdoc(events) => self.generate_rustdoc(*events)?,
             Event::FootnoteReference(fnote) => {
                 B::FootnoteReference::new(config, WithRange(fnote, range), self)?.finish(self, peek)?
             },

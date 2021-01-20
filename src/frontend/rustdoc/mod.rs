@@ -16,6 +16,7 @@ mod types;
 
 use types::{Item, ItemEnum};
 
+#[derive(Debug)]
 pub struct Rustdoc<'a> {
     cfg: &'a Config,
     diagnostics: Arc<Diagnostics<'a>>,
@@ -25,6 +26,7 @@ pub struct Rustdoc<'a> {
     appender: RustdocAppender<'a>,
 }
 
+#[derive(Debug)]
 struct RustdocAppender<'a> {
     /// Stack of started, but not yet finished, portions of the documentation.
     stack: Vec<Traversal>,

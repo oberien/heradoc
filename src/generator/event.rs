@@ -22,6 +22,7 @@ pub use crate::frontend::{
     Table,
     TaskListMarker,
     Url,
+    rustdoc::Rustdoc,
 };
 pub use pulldown_cmark::Alignment;
 
@@ -40,6 +41,7 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
     IncludeMarkdown(Box<Events<'a>>),
+    IncludeRustdoc(Box<Rustdoc<'a>>),
     FootnoteReference(FootnoteReference<'a>),
     BiberReferences(Vec<BiberReference<'a>>),
     /// Url without content

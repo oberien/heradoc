@@ -84,6 +84,7 @@ pub enum Include {
     Svg(PathBuf),
     Pdf(PathBuf),
     Graphviz(PathBuf),
+    Rustdoc(PathBuf),
 }
 
 /// A direct command to the generator.
