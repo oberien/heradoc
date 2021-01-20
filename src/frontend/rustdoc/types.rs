@@ -4,10 +4,26 @@
 //! These types are the public API exposed through the `--output-format json` flag. The [`Crate`]
 //! struct is the root of the JSON blob and all other items are contained within.
 
+/// Parser cargo metadata json output, format 1.
+#[derive(Deserialize)]
+pub struct WorkspaceMetadata {
+    pub packages: Vec<CrateMetadata>,
+    pub target_directory: String,
+}
+
+#[derive(Deserialize)]
+pub struct CrateMetadata {
+    pub name: String,
+    pub version: String,
+    pub description: String,
+    pub authors: Vec<String>,
+    pub readme: String,
+}
+
 use std::path::PathBuf;
 
 use std::collections::HashMap;
-use serde::{Deserialize};
+use serde::Deserialize;
 
 /// A `Crate` is the root of the emitted JSON blob. It contains all type/documentation information
 /// about the language items in the local crate, as well as info about external items to allow

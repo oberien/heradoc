@@ -12,7 +12,7 @@ use crate::generator::event::{Event, Tag, Image, Pdf, Svg};
 use crate::generator::Generator;
 use crate::resolve::{Include, ContextType, ResolveSecurity};
 
-pub struct Iter<'a> {
+pub struct MarkdownIter<'a> {
     frontend: Fuse<Frontend<'a>>,
     peek: VecDeque<(WithRange<Event<'a>>, FeEventKind)>,
     /// Contains the kind of the last FeEvent returned from `Self::next()`.
@@ -22,9 +22,9 @@ pub struct Iter<'a> {
     last_kind: FeEventKind,
 }
 
-impl<'a> Iter<'a> {
+impl<'a> MarkdownIter<'a> {
     pub fn new(frontend: Frontend<'a>) -> Self {
-        Iter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
+        MarkdownIter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
     }
 
     /// Retrieves and converts the next event that needs to be handled.

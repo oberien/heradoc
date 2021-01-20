@@ -23,7 +23,7 @@ pub use self::stack::Stack;
 use self::code_gen_units::StackElement;
 use self::event::Event;
 use crate::error::{Error, FatalResult, Result};
-use crate::generator::iter::Iter;
+use crate::generator::iter::MarkdownIter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
@@ -37,7 +37,7 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
 }
 
 pub struct Events<'a> {
-    events: Iter<'a>,
+    events: MarkdownIter<'a>,
     diagnostics: Arc<Diagnostics<'a>>,
     context: Context,
 }
@@ -45,7 +45,7 @@ pub struct Events<'a> {
 impl<'a> fmt::Debug for Events<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Events")
-            .field("events", &"Iter")
+            .field("events", &"MarkdownIter")
             .field("diagnostics", &self.diagnostics)
             .field("context", &self.context)
             .finish()
@@ -77,7 +77,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         let markdown = self.arena.alloc(markdown);
         let diagnostics = Arc::new(Diagnostics::new(markdown, input, Arc::clone(&self.stderr)));
         let frontend = Frontend::new(self.cfg, markdown, Arc::clone(&diagnostics));
-        let events = Iter::new(frontend);
+        let events = MarkdownIter::new(frontend);
         Events { events, diagnostics, context }
     }
 
