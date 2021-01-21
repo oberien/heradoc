@@ -121,7 +121,7 @@ impl<'a, 'd> Target<'a, 'd> {
                 }
             },
             "rustdoc" => match url.domain() {
-                None => match url.to_file_path() {
+                None | Some("") => match url.to_file_path() {
                     Ok(path) => TargetInner::Rustdoc(path),
                     Err(()) => {
                         diagnostics

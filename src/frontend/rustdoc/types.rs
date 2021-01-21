@@ -9,15 +9,19 @@
 pub struct WorkspaceMetadata {
     pub packages: Vec<CrateMetadata>,
     pub target_directory: String,
+    pub workspace_members: Vec<String>,
 }
 
 #[derive(Deserialize)]
 pub struct CrateMetadata {
     pub name: String,
-    pub version: String,
-    pub description: String,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
     pub authors: Vec<String>,
-    pub readme: String,
+    #[serde(default)]
+    pub readme: Option<String>,
 }
 
 use std::path::PathBuf;

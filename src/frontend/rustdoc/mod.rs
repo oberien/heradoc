@@ -71,6 +71,7 @@ impl Crate {
             Crate::Local(path) => {
                 let metadata = Command::new("cargo")
                     .args(&["metadata", "--format-version", "1"])
+                    .current_dir(&path)
                     .output()?;
 
                 if !metadata.status.success() {
@@ -101,9 +102,19 @@ impl Crate {
 
                 let mut target = PathBuf::from(meta.target_directory);
                 target.push("doc");
-                target.push(format!("{}.json", meta.packages[0].name));
+                let krate = meta.workspace_members[0].split(" ").next().unwrap();
+                target.push(format!("{}.json", krate));
 
-                let file = File::open(target)?;
+                let file = match File::open(&target) {
+                    Ok(file) => file,
+                    Err(err) => {
+                        diag
+                            .error("Failed to open rustdoc output data")
+                            .note(target.display().to_string())
+                            .emit();
+                        return Err(Fatal::Output(err));
+                    }
+                };
 
                 match serde_json::from_reader(file) {
                     Ok(krate) => Ok(krate),
@@ -207,7 +218,7 @@ impl<'a> RustdocAppender<'a> {
         let label = self.label_for_id(&krate.root, krate).unwrap();
         let header = frontend::Header {
             label: WithRange(Cow::Owned(label), (0..0).into()),
-            level: 0,
+            level: 1,
         };
 
         self.buffered.push_back(Event::Start(Tag::Header(header.clone())));
