@@ -105,9 +105,22 @@ impl Crate {
                 let format = Command::new("cargo")
                     .args(&["+nightly", "rustdoc", "-p"])
                     .arg(&krate)
-                    .args(&["--", "--no-deps", "--output-format", "json"])
+                    .args(&["--", "--output-format", "json"])
                     .current_dir(&path)
                     .output()?;
+
+                if !format.status.success() {
+                    diag
+                        .error("Compiling rustdoc failed")
+                        .note(String::from_utf8_lossy(&metadata.stdout))
+                        .note(String::from_utf8_lossy(&metadata.stderr))
+                        .note(format!("Compiling `{}` in `{}`", krate, path.display()))
+                        .emit();
+                    return Err(Fatal::Output(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Metadata call failed",
+                    )));
+                }
 
                 target.push({
                     // FIXME: support actually renamed library targets?
@@ -321,7 +334,6 @@ impl<'a> RustdocAppender<'a> {
         }
 
         let meta = Self::codify_visibility(&item.visibility);
-        let struct_name = self.name_for_item_at_path(&summary.path);
 
         let mut def: String = item.attrs
             .iter()
@@ -329,13 +341,19 @@ impl<'a> RustdocAppender<'a> {
             .interleave_shortest(std::iter::repeat("\n"))
             .collect();
 
-        self.append_header_for_inner_item("Struct", item, summary);
+        let (header_title, title) = match item.kind {
+            types::ItemKind::Union => ("Union", "union"),
+            types::ItemKind::Struct => ("Struct", "struct"),
+            _ => unreachable!("Unexpected struct kind"),
+        };
 
-        write!(&mut def, "{}struct {}", meta, name)
+        self.append_header_for_inner_item(header_title, item, summary);
+
+        write!(&mut def, "{}{} {}", meta, title, name)
             .expect("Writing to string succeeds");
         let (start_tag, end_tag) = match struct_.struct_type {
-            types::StructType::Plain => ("{\n", "\n}"),
-            types::StructType::Tuple => ("(\n", "\n)"),
+            types::StructType::Plain => ("{\n", "}"),
+            types::StructType::Tuple => ("(\n", ")"),
             types::StructType::Unit => ("", ";"),
         };
 
@@ -358,6 +376,7 @@ impl<'a> RustdocAppender<'a> {
                     def.push_str(": ");
                 }
                 def.push_str(&type_name);
+                def.push_str(",\n");
                 field_documentation.push((name, field, type_name, docs));
             } else {
                 // FIXME: should not occur.
@@ -518,7 +537,7 @@ impl<'a> RustdocAppender<'a> {
 
         writeln!(&mut def, "{}enum {} {{", meta, enum_name)
             .expect("Writing to string succeeds");
-        self.append_header_for_inner_item("Union", item, summary);
+        self.append_header_for_inner_item("Enum", item, summary);
 
         let mut variant_documentation = vec![];
         for variant_id in &enum_.variants {
@@ -529,7 +548,8 @@ impl<'a> RustdocAppender<'a> {
                 docs,
                 ..
             }) = krate.index.get(variant_id) {
-                let meta = Self::codify_visibility(visibility);
+                // Enum items do not have visibility for now..
+                let _ = Self::codify_visibility(visibility);
                 // FIXME: Different variant kinds.
                 writeln!(&mut def, "    {},", name)
                     .expect("Writing to string succeeds");

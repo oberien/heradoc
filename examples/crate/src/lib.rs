@@ -24,6 +24,11 @@ pub enum AnEnum {
     },
 }
 
+pub union TestUnion {
+    pub a: (),
+    pub b: usize,
+}
+
 /// A normal function.
 pub fn function_item(param: usize) -> ReturnType {
     ReturnType
