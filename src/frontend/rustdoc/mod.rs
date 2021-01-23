@@ -98,15 +98,22 @@ impl Crate {
                     }
                 };
 
-                let format = Command::new("cargo")
-                    .args(&["+nightly", "rustdoc", "--", "--no-deps", "--output-format", "json"])
-                    .current_dir(&path)
-                    .output()?;
-
                 let mut target = PathBuf::from(meta.target_directory);
                 target.push("doc");
                 let krate = meta.workspace_members[0].split(' ').next().unwrap();
-                target.push(format!("{}.json", krate));
+
+                let format = Command::new("cargo")
+                    .args(&["+nightly", "rustdoc", "-p"])
+                    .arg(&krate)
+                    .args(&["--", "--no-deps", "--output-format", "json"])
+                    .current_dir(&path)
+                    .output()?;
+
+                target.push({
+                    // FIXME: support actually renamed library targets?
+                    let lib_name = format!("{}.json", krate);
+                    lib_name.replace("-", "_")
+                });
 
                 let file = match File::open(&target) {
                     Ok(file) => file,
@@ -304,6 +311,9 @@ impl<'a> RustdocAppender<'a> {
         let summary = krate.paths.get(&item.id)
             // FIXME: this should fail and diagnose the rendering process, not panic.
             .expect("Bad item ID");
+        let name = item.name
+            .as_ref()
+            .expect("Struct without a name");
 
         // Avoid allocating too much below..
         if struct_.fields.len() >= 1_000_000 {
@@ -316,13 +326,20 @@ impl<'a> RustdocAppender<'a> {
         let mut def: String = item.attrs
             .iter()
             .map(String::as_str)
-            .interleave(std::iter::repeat("\n"))
+            .interleave_shortest(std::iter::repeat("\n"))
             .collect();
 
-        writeln!(&mut def, "{}struct {} {{", meta, struct_name)
-            .expect("Writing to string succeeds");
         self.append_header_for_inner_item("Struct", item, summary);
 
+        write!(&mut def, "{}struct {}", meta, name)
+            .expect("Writing to string succeeds");
+        let (start_tag, end_tag) = match struct_.struct_type {
+            types::StructType::Plain => ("{\n", "\n}"),
+            types::StructType::Tuple => ("(\n", "\n)"),
+            types::StructType::Unit => ("", ";"),
+        };
+
+        def.push_str(start_tag);
         let mut field_documentation = vec![];
         for field_id in &struct_.fields {
             if let Some(Item {
@@ -334,8 +351,13 @@ impl<'a> RustdocAppender<'a> {
             }) = krate.index.get(field_id) {
                 let meta = Self::codify_visibility(visibility);
                 let type_name = Self::codify_type(krate, field);
-                writeln!(&mut def, "    {}{}: {}", meta, name, type_name)
-                    .expect("Writing to string succeeds");
+                def.push_str("    ");
+                def.push_str(&meta);
+                if let types::StructType::Tuple = struct_.struct_type {} else {
+                    def.push_str(name);
+                    def.push_str(": ");
+                }
+                def.push_str(&type_name);
                 field_documentation.push((name, field, type_name, docs));
             } else {
                 // FIXME: should not occur.
@@ -345,7 +367,7 @@ impl<'a> RustdocAppender<'a> {
         if struct_.fields_stripped {
             def.push_str("    // some fields omitted\n");
         }
-        def.push('}');
+        def.push_str(end_tag);
 
         self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
@@ -491,7 +513,7 @@ impl<'a> RustdocAppender<'a> {
         let mut def: String = item.attrs
             .iter()
             .map(String::as_str)
-            .interleave(std::iter::repeat("\n"))
+            .interleave_shortest(std::iter::repeat("\n"))
             .collect();
 
         writeln!(&mut def, "{}enum {} {{", meta, enum_name)
@@ -509,7 +531,8 @@ impl<'a> RustdocAppender<'a> {
             }) = krate.index.get(variant_id) {
                 let meta = Self::codify_visibility(visibility);
                 // FIXME: Different variant kinds.
-                writeln!(&mut def, "    {}", name);
+                writeln!(&mut def, "    {},", name)
+                    .expect("Writing to string succeeds");
                 variant_documentation.push((name, variant, docs));
             } else {
                 // FIXME: should not occur.
@@ -628,7 +651,7 @@ impl<'a> RustdocAppender<'a> {
                 format!("*{} {}", qualifier, Self::codify_type(krate, type_))
             }
             BorrowedRef { lifetime, mutable, type_ } => {
-                let lifetime = lifetime.as_ref().map_or("", |st| st.as_str());
+                let lifetime = lifetime.as_ref().map_or_else(String::new, |st| format!("{} ", st));
                 let qualifier = if *mutable { "mut " } else { "" };
                 let type_ = Self::codify_type(krate, type_);
                 format!("&{}{}{}", lifetime, qualifier, type_)
@@ -680,7 +703,7 @@ impl<'a> RustdocAppender<'a> {
         } else if in_len < 120 {
             (true, false, true)
         } else {
-            (true, true, true)
+            (true, true, false)
         };
 
         let mut decl = String::from("(");
@@ -700,7 +723,7 @@ impl<'a> RustdocAppender<'a> {
             }
         }
         if list_break {
-            decl.push_str("\n");
+            decl.push('\n');
         }
         decl.push(')');
         if out_break {
@@ -728,7 +751,7 @@ impl<'a> RustdocAppender<'a> {
 
         let header = frontend::Header {
             label: WithRange(Cow::Owned(label.clone()), (0..0).into()),
-            level: 3,
+            level: 2,
         };
 
         let meta = Self::codify_visibility(&item.visibility);
