@@ -6,6 +6,8 @@ use std::sync::Arc;
 use std::path::PathBuf;
 use std::process::Command;
 
+use itertools::Itertools as _;
+
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
 use crate::error::{Fatal, FatalResult};
@@ -97,7 +99,7 @@ impl Crate {
                 };
 
                 let format = Command::new("cargo")
-                    .args(&["+nightly", "rustdoc", "--", "--output-format", "json"])
+                    .args(&["+nightly", "rustdoc", "--", "--no-deps", "--output-format", "json"])
                     .current_dir(&path)
                     .output()?;
 
@@ -163,6 +165,20 @@ impl<'a> Rustdoc<'a> {
                 Item { inner: ItemEnum::StructItem(inner), .. } => {
                     self.appender.struct_(krate, item, inner);
                 },
+                Item { inner: ItemEnum::EnumItem(inner), .. } => {
+                    self.appender.enum_(krate, item, inner);
+                },
+                Item { inner: ItemEnum::ConstantItem(inner), .. } => {
+                    self.appender.constant(krate, item, inner);
+                },
+                Item { inner: ItemEnum::StaticItem(inner), .. } => {
+                    self.appender.static_(krate, item, inner);
+                },
+                Item { inner: ItemEnum::FunctionItem(inner), .. } => {
+                    self.appender.function(krate, item, inner);
+                },
+                Item { kind: types::ItemKind::Primitive, .. }
+                | Item { kind: types::ItemKind::Keyword, .. } => {},
                 _ => eprintln!("Unimplemented {:?}", item),
             }
         } else {
@@ -242,14 +258,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Start(Tag::Header(header.clone())));
         self.buffered.push_back(Event::Text({
             let qualifier = if module.is_crate { "Crate" } else { "Module" };
-            let meta = match &item.visibility {
-                types::Visibility::Public => "pub ".to_string(),
-                types::Visibility::Default => "".to_string(),
-                types::Visibility::Crate => "pub(crate) ".to_string(),
-                types::Visibility::Restricted  { parent: _, path } => {
-                    format!("pub({}) ", path)
-                },
-            };
+            let meta = Self::codify_visibility(&item.visibility);
             let module_name = self.name_for_item_at_path(&summary.path);
             Cow::Owned(format!("{} {}{}", qualifier, meta, module_name))
         }));
@@ -295,30 +304,24 @@ impl<'a> RustdocAppender<'a> {
         let summary = krate.paths.get(&item.id)
             // FIXME: this should fail and diagnose the rendering process, not panic.
             .expect("Bad item ID");
-        let label = self.label_for_item_at_path(&summary.path);
 
         // Avoid allocating too much below..
         if struct_.fields.len() >= 1_000_000 {
             panic!("Number of fields too large, considering opening a pull request to turn this into an iterative procedure.");
         }
 
-        let header = frontend::Header {
-            label: WithRange(Cow::Owned(label.clone()), (0..0).into()),
-            level: 3,
-        };
-
         let meta = Self::codify_visibility(&item.visibility);
         let struct_name = self.name_for_item_at_path(&summary.path);
-        let mut def = item.attrs.join("\n");
+
+        let mut def: String = item.attrs
+            .iter()
+            .map(String::as_str)
+            .interleave(std::iter::repeat("\n"))
+            .collect();
+
         writeln!(&mut def, "{}struct {} {{", meta, struct_name)
             .expect("Writing to string succeeds");
-
-        self.buffered.push_back(Event::Start(Tag::Header(header.clone())));
-        self.buffered.push_back(Event::Text({
-            Cow::Owned(format!("Struct {}{}", meta, struct_name))
-        }));
-        // TODO: generics?
-        self.buffered.push_back(Event::End(Tag::Header(header.clone())));
+        self.append_header_for_inner_item("Struct", item, summary);
 
         let mut field_documentation = vec![];
         for field_id in &struct_.fields {
@@ -344,14 +347,9 @@ impl<'a> RustdocAppender<'a> {
         }
         def.push('}');
 
-        let def_block_tag = frontend::CodeBlock {
-            label: None,
-            caption: None,
-            language: Some(WithRange(Cow::Borrowed("rust"), (0..0).into())),
-        };
-        self.buffered.push_back(Event::Start(Tag::CodeBlock(def_block_tag.clone())));
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
-        self.buffered.push_back(Event::End(Tag::CodeBlock(def_block_tag.clone())));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
         // FIXME: we would like a level-4 header..
         if !field_documentation.is_empty() {
@@ -388,6 +386,176 @@ impl<'a> RustdocAppender<'a> {
         }
     }
 
+    fn constant(&mut self, krate: &types::Crate, item: &Item, constant: &types::Constant) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+        self.append_header_for_inner_item("Constant", item, summary);
+
+        let meta = Self::codify_visibility(&item.visibility);
+        let mut def = format!("{}const ", meta);
+        match &item.name {
+            Some(name) => def.push_str(name),
+            // FIXME: error handling.
+            _ => panic!("Const without a name"),
+        }
+        def.push_str(": ");
+        def.push_str(&Self::codify_type(krate, &constant.type_));
+        def.push_str(" = ");
+        // TODO: what about constant.value??
+        def.push_str(&constant.expr);
+        def.push(';');
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
+    fn static_(&mut self, krate: &types::Crate, item: &Item, constant: &types::Static) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+        self.append_header_for_inner_item("Static", item, summary);
+
+        let meta = Self::codify_visibility(&item.visibility);
+        let mut def = format!("{}static ", meta);
+        if constant.mutable {
+            def.push_str("mut ");
+        }
+        match &item.name {
+            Some(name) => def.push_str(name),
+            // FIXME: error handling.
+            _ => panic!("Static without a name"),
+        }
+        def.push_str(": ");
+        def.push_str(&Self::codify_type(krate, &constant.type_));
+        // TODO: or don't ignore `expr`?
+        def.push(';');
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
+    fn function(&mut self, krate: &types::Crate, item: &Item, function: &types::Function) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+        let name = item.name
+            .as_ref()
+            .expect("Unnamed method");
+        self.append_header_for_inner_item("Function", item, summary);
+
+        let meta = Self::codify_visibility(&item.visibility);
+        let abi = Self::codify_abi(&function.abi);
+        let signature = Self::codify_fn_decl(krate, &function.decl);
+        // FIXME: generics, bounds.
+        let def = format!("{}{}fn {}{}", meta, abi, name, signature);
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
+    fn enum_(&mut self, krate: &types::Crate, item: &Item, enum_: &types::Enum) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+
+        // Avoid allocating too much below..
+        if enum_.variants.len() >= 1_000_000 {
+            panic!("Number of variants too large, considering opening a pull request to turn this into an iterative procedure.");
+        }
+
+        let meta = Self::codify_visibility(&item.visibility);
+        let enum_name = self.name_for_item_at_path(&summary.path);
+
+        let mut def: String = item.attrs
+            .iter()
+            .map(String::as_str)
+            .interleave(std::iter::repeat("\n"))
+            .collect();
+
+        writeln!(&mut def, "{}enum {} {{", meta, enum_name)
+            .expect("Writing to string succeeds");
+        self.append_header_for_inner_item("Union", item, summary);
+
+        let mut variant_documentation = vec![];
+        for variant_id in &enum_.variants {
+            if let Some(Item {
+                inner: ItemEnum::VariantItem(variant),
+                name: Some(name),
+                visibility,
+                docs,
+                ..
+            }) = krate.index.get(variant_id) {
+                let meta = Self::codify_visibility(visibility);
+                // FIXME: Different variant kinds.
+                writeln!(&mut def, "    {}", name);
+                variant_documentation.push((name, variant, docs));
+            } else {
+                // FIXME: should not occur.
+            }
+        }
+
+        if enum_.variants_stripped {
+            def.push_str("    // some variants omitted\n");
+        }
+        def.push('}');
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        // FIXME: we would like a level-4 header..
+        if !variant_documentation.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Start(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::Text(Cow::Borrowed("Variants")));
+            self.buffered.push_back(Event::End(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
+        for (name, _variant, docs) in variant_documentation {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+
+            self.buffered.push_back(Event::Start(Tag::InlineCode));
+            // FIXME: struct variants, including links.
+            self.buffered.push_back(Event::Text(Cow::Owned(name.clone())));
+            self.buffered.push_back(Event::End(Tag::InlineCode));
+
+            self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
+            // FIXME: treat as recursive markdown?
+            self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
+
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
     fn label_for_id(&self, path: &types::Id, krate: &types::Crate) -> Option<String> {
         match krate.paths.get(path) {
             Some(summary) => Some(self.label_for_item_at_path(&summary.path)),
@@ -403,6 +571,13 @@ impl<'a> RustdocAppender<'a> {
             types::Visibility::Restricted  { parent: _, path } => {
                 format!("pub({}) ", path)
             },
+        }
+    }
+
+    fn codify_abi(abi: &str) -> String {
+        match abi {
+            "\"Rust\"" => String::new(),
+            other => format!("extern {} ", other),
         }
     }
 
@@ -468,6 +643,73 @@ impl<'a> RustdocAppender<'a> {
         }
     }
 
+    fn codify_fn_decl(krate: &types::Crate, decl: &types::FnDecl) -> String {
+        let inputs: Vec<_> = decl.inputs
+            .iter()
+            .map(|(name, type_)| {
+                format!("{}: {}", name, Self::codify_type(krate, type_))
+            })
+            .collect();
+
+        let in_len: usize = inputs.iter().map(|st| st.chars().count()).sum();
+
+        let output = if let Some(type_) = &decl.output {
+            format!(" -> {}", Self::codify_type(krate, type_))
+        } else {
+            "".into()
+        };
+
+        let out_len: usize = output.chars().count();
+
+        // FIXME: this simplistic model counts unicode code points.
+        // It would be more accurate to use something else.
+
+        // We have three styles:
+        // * (arg, arg, arg) -> Output
+        // * (arg, arg, arg)
+        //     -> Output
+        // * (
+        //       arg1,
+        //       arg2,
+        //   ) -> Output
+        // *
+        // Break around (), break between args, break before output.
+        let (list_break, arg_break, out_break) = if in_len + out_len < 80 {
+            // Same line for everything, arguments and output
+            (false, false, false)
+        } else if in_len < 120 {
+            (true, false, true)
+        } else {
+            (true, true, true)
+        };
+
+        let mut decl = String::from("(");
+        if list_break {
+            decl.push_str("\n    ");
+        }
+        let mut inputs = inputs.into_iter();
+        if let Some(first) = inputs.next() {
+            decl.push_str(&first);
+            for rest in inputs {
+                if arg_break {
+                    decl.push_str(",\n    ");
+                } else {
+                    decl.push_str(", ");
+                }
+                decl.push_str(&rest);
+            }
+        }
+        if list_break {
+            decl.push_str("\n");
+        }
+        decl.push(')');
+        if out_break {
+            decl.push_str("\n ");
+        }
+        decl.push_str(&output);
+        decl
+    }
+
     fn name_for_item_at_path(&self, path: &[String]) -> String {
         path.join("::")
     }
@@ -475,4 +717,38 @@ impl<'a> RustdocAppender<'a> {
     fn label_for_item_at_path(&self, path: &[String]) -> String {
         path.join("-")
     }
+
+    fn append_header_for_inner_item(
+        &mut self,
+        kind: &str,
+        item: &Item,
+        summary: &types::ItemSummary,
+    ) {
+        let label = self.label_for_item_at_path(&summary.path);
+
+        let header = frontend::Header {
+            label: WithRange(Cow::Owned(label.clone()), (0..0).into()),
+            level: 3,
+        };
+
+        let meta = Self::codify_visibility(&item.visibility);
+        self.buffered.push_back(Event::Start(Tag::Header(header.clone())));
+        self.buffered.push_back(Event::Text({
+            let const_name = self.name_for_item_at_path(&summary.path);
+            Cow::Owned(format!("{} {}{}", kind,  meta, const_name))
+        }));
+        self.buffered.push_back(Event::End(Tag::Header(header.clone())));
+    }
+
+    const RUST_CODE_BLOCK: frontend::CodeBlock<'static> = frontend::CodeBlock {
+        label: None,
+        caption: None,
+        language: Some(WithRange(
+            Cow::Borrowed("rust"),
+            crate::frontend::range::SourceRange {
+                start: 0,
+                end: 0,
+            }
+        )),
+    };
 }
