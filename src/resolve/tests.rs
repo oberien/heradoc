@@ -54,6 +54,7 @@ fn prepare() -> (TempDir, SourceRange, Resolver, Diagnostics<'static>) {
     let _ = File::create(tmpdir.path().join("chapters/chapter2.md")).expect("Can't create chapters/chapter2.md");
     let _ = File::create(tmpdir.path().join("images/image.png")).expect("Can't create images/image.png");
     fs::create_dir(tmpdir.path().join("downloads")).expect("can't create downloads directory");
+    fs::create_dir(tmpdir.path().join("crate")).expect("can't create crate directory");
     let range = SourceRange { start: 0, end: 0 };
     let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
     let resolver = Resolver::new(tmpdir.path().to_owned(), tmpdir.path().join("chapters"), tmpdir.path().join("download"));
@@ -252,6 +253,29 @@ fn commands() {
         .resolve(ResolveSecurity::Default, &ctx, "//listoflistings", range, &diagnostics)
         .expect("failed to resolve `//listoflistings`");
     assert_match!(listings, Include::Command(Command::ListOfListings));
+}
+
+#[test]
+fn rustdoc() {
+    let (project_root, range, resolver, diagnostics) = prepare();
+    let ctx = Context::from_path("chapters/").expect("can't create context");
+    let abs_path = project_root.path().join("crate");
+
+    let relative = resolver
+        .resolve(ResolveSecurity::Default, &ctx, "rustdoc:../crate", range, &diagnostics)
+        .expect("Success resolving `rustdoc:../crate`");
+    let project = resolver
+        .resolve(ResolveSecurity::Default, &ctx, "rustdoc:/crate", range, &diagnostics)
+        .expect("Success resolving `rustdoc:/crate`");
+
+    let absolute = format!("rustdoc://{}", abs_path.display());
+    let absolute = resolver
+        .resolve(ResolveSecurity::Default, &ctx, &absolute, range, &diagnostics)
+        .expect("Success resolving `rustdoc:///path/crate`");
+
+    assert_match!(relative, Include::Rustdoc(path) if *path == abs_path);
+    assert_match!(project, Include::Rustdoc(path) if *path == abs_path);
+    assert_match!(absolute, Include::Rustdoc(path) if *path == abs_path);
 }
 
 #[test]

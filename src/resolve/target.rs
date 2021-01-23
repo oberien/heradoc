@@ -80,8 +80,10 @@ enum TargetInner {
     /// target crate in the future, including maybe retrieving a particular version from the
     /// registry?
     ///
-    /// Ex: `![](rustdoc:path/to/Cargo.toml)`
+    /// Ex: `![](rustdoc:/path/to/Cargo.toml)`
     Rustdoc(PathBuf),
+    /// An URL with rustdoc scheme but relative to our workspace.
+    RustdocRelative(PathBuf),
 }
 
 impl<'a, 'd> Target<'a, 'd> {
@@ -120,16 +122,42 @@ impl<'a, 'd> Target<'a, 'd> {
                     return Err(Error::Diagnostic);
                 }
             },
-            "rustdoc" => match url.domain() {
-                None | Some("") => match url.to_file_path() {
-                    Ok(path) => TargetInner::Rustdoc(path),
-                    Err(()) => {
-                        diagnostics
-                            .error("error converting path to cargo project")
-                            .with_info_section(range, "defined here")
-                            .help("this could be due to a malformed path")
-                            .emit();
-                        return Err(Error::Diagnostic);
+            "rustdoc" => match url.host_str() {
+                None => {
+                    match context.url.join(url.path()) {
+                        Ok(url) => TargetInner::RustdocRelative(url.path_segments().unwrap().collect()),
+                        Err(err) => {// There is no extra information.
+                            diagnostics
+                                .error("error interpreting relative file path of rustdoc source")
+                                .with_info_section(range, "defined here")
+                                .note(format!("malformed reference: {}", err))
+                                .emit();
+                            return Err(Error::Diagnostic);
+                        }
+                    }
+                }
+                Some("") => {
+                    let mut url = url.clone();
+                    // There are a few special cases for file:
+                    // We want to use them here as well.
+                    // url.set_host(None);
+                    url.set_scheme("file")
+                        .expect("Can update to file scheme because rustdoc is not a special scheme.");
+                    // !!! FIXME: Workaround for https://github.com/servo/rust-url/issues/553
+                    // For some reason an internal state is not updated so we still have
+                    // inconsistent information referring to a remote.
+                    let url = Url::parse(url.as_str())
+                        .expect("Roundtrip with updated host");
+                    match url.to_file_path() {
+                        Ok(path) => TargetInner::Rustdoc(path),
+                        Err(()) => {
+                            diagnostics
+                                .error("error converting path to cargo project")
+                                .with_info_section(range, "defined here")
+                                .help("this could be due to a malformed path")
+                                .emit();
+                            return Err(Error::Diagnostic);
+                        }
                     }
                 }
                 Some(domain) => {
@@ -191,6 +219,10 @@ impl<'a, 'd> Target<'a, 'd> {
             inner @ TargetInner::Remote(_) => inner,
             TargetInner::LocalAbsolute(abs) => TargetInner::LocalAbsolute(canonicalize(abs)?),
             TargetInner::Rustdoc(abs) => TargetInner::Rustdoc(canonicalize(abs)?),
+            TargetInner::RustdocRelative(rel) => {
+                assert!(rel.is_relative(), "TargetInner::RustdocRelative not relative before canonicalizing: {:?}", rel);
+                TargetInner::RustdocRelative(canonicalize(meta.project_root.join(rel))?)
+            },
             TargetInner::LocalDocumentRelative(rel) => {
                 assert!(rel.is_relative(), "TargetInner::LocalDocumentRelative not relative before canonicalizing: {:?}", rel);
                 TargetInner::LocalDocumentRelative(canonicalize(meta.document_root.join(rel))?)
@@ -229,13 +261,15 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             | (ContextType::LocalRelative, TargetInner::LocalProjectRelative(_))
             | (ContextType::LocalRelative, TargetInner::LocalDocumentRelative(_))
             | (ContextType::LocalRelative, TargetInner::Remote(_))
-            | (ContextType::LocalRelative, TargetInner::Rustdoc(_)) => (),
+            | (ContextType::LocalRelative, TargetInner::Rustdoc(_))
+            | (ContextType::LocalRelative, TargetInner::RustdocRelative(_)) => (),
 
             (ContextType::LocalAbsolute, TargetInner::Implementation(_)) => (),
             (ContextType::LocalAbsolute, TargetInner::LocalProjectRelative(_))
             | (ContextType::LocalAbsolute, TargetInner::LocalDocumentRelative(_))
             | (ContextType::LocalAbsolute, TargetInner::Remote(_)) 
-            | (ContextType::LocalAbsolute, TargetInner::Rustdoc(_)) => {
+            | (ContextType::LocalAbsolute, TargetInner::Rustdoc(_)) 
+            | (ContextType::LocalAbsolute, TargetInner::RustdocRelative(_)) => {
                 meta.diagnostics
                     .error("permission denied")
                     .with_error_section(meta.range, "trying to include this")
@@ -370,7 +404,7 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                     None => to_include(path, context, meta.range, meta.diagnostics),
                 }
             },
-            TargetInner::Rustdoc(path) => {
+            TargetInner::Rustdoc(path) | TargetInner::RustdocRelative(path) => {
                 Ok(Include::Rustdoc(path))
             },
         }
