@@ -38,6 +38,12 @@ pub struct WithGenerics<A, B: Clone> {
     _kay: core::marker::PhantomData<(A, B)>,
 }
 
+/// A trait demonstrating advanced bounds.
+pub trait WhatThe<F>: Clone
+where
+    F: std::fmt::Debug
+{}
+
 /// An amazing trait item with a few features.
 pub trait ThisIsATrait: Clone {
     /// An associated constant.

@@ -644,8 +644,55 @@ impl<'a> RustdocAppender<'a> {
             .interleave_shortest(std::iter::repeat("\n"))
             .collect();
 
-        write!(&mut def, "{}{}{}trait {} ", vis, safe, auto, trait_name)
+        write!(&mut def, "{}{}{}trait {}", vis, safe, auto, trait_name)
             .expect("Writing to string succeeds");
+
+        let generic_params = trait_.generics.params
+            .iter()
+            .map(|param| self.codify_generic_param(krate, param))
+            .intersperse(String::from(", "));
+
+        if !trait_.generics.params.is_empty() {
+            def.push('<');
+            def.push_str(&generic_params.collect::<String>());
+            def.push('>');
+        }
+
+        let mut bounds = trait_.bounds
+            .iter()
+            .map(|bound| self.codify_generic_bound(krate, bound));
+
+        if let Some(first) = bounds.next() {
+            if trait_.bounds.len() > 2 {
+                def.push_str("\n  : ");
+                def.push_str(&first);
+                let bounds = bounds
+                    .intersperse(String::from("\n  + "))
+                    .collect::<String>();
+                def.push_str(&bounds);
+            } else {
+                def.push_str(": ");
+                def.push_str(&first);
+                for rest in bounds {
+                    def.push_str(" + ");
+                    def.push_str(&rest);
+                }
+            }
+        }
+
+        let predicates = trait_.generics.where_predicates
+            .iter()
+            .map(|pred| self.codify_generic_predicate(krate, pred))
+            .intersperse(String::from(",\n    "));
+
+        if !trait_.generics.where_predicates.is_empty() {
+            def.push_str("\nwhere\n    ");
+            def.push_str(&predicates.collect::<String>());
+            def.push_str("\n");
+        } else {
+            def.push(' ');
+        }
+
         self.append_header_for_inner_item("Trait", item, summary);
 
         // TODO: print replication of definition.
@@ -766,6 +813,7 @@ impl<'a> RustdocAppender<'a> {
 
     fn impl_(&mut self, krate: &types::Crate, item: &Item, impl_: &types::Impl) {
         let mut impl_header = String::from("impl");
+        impl_header.push_str(&self.codify_generics(krate, &impl_.generics));
         // FIXME: generics
         impl_header.push(' ');
         if let Some(trait_) = &impl_.trait_ {
@@ -858,6 +906,7 @@ impl<'a> RustdocAppender<'a> {
                     let meta = Self::codify_visibility(visibility);
                     let mut def = format!("  {}{}fn ", meta, &method.header);
                     def.push_str(name);
+                    def.push_str(&self.codify_generics(krate, &method.generics));
                     // FIXME: generics
                     def.push_str(&self.codify_fn_decl(krate, &method.decl));
 
