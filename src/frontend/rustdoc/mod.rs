@@ -378,7 +378,7 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let type_name = Self::codify_type(krate, field);
+                    let type_name = self.codify_type(krate, field);
                     def.push_str("    ");
                     def.push_str(&meta);
                     if let types::StructType::Tuple = struct_.struct_type {} else {
@@ -442,9 +442,7 @@ impl<'a> RustdocAppender<'a> {
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
 
-        for impl_ in struct_.impls.iter().rev() {
-            self.stack.push(Traversal::Item(impl_.clone()));
-        }
+        self.append_impls(krate, item, &struct_.impls);
     }
 
     fn constant(&mut self, krate: &types::Crate, item: &Item, constant: &types::Constant) {
@@ -461,7 +459,7 @@ impl<'a> RustdocAppender<'a> {
             _ => panic!("Const without a name"),
         }
         def.push_str(": ");
-        def.push_str(&Self::codify_type(krate, &constant.type_));
+        def.push_str(&self.codify_type(krate, &constant.type_));
         def.push_str(" = ");
         // TODO: what about constant.value??
         def.push_str(&constant.expr);
@@ -495,7 +493,7 @@ impl<'a> RustdocAppender<'a> {
             _ => panic!("Static without a name"),
         }
         def.push_str(": ");
-        def.push_str(&Self::codify_type(krate, &constant.type_));
+        def.push_str(&self.codify_type(krate, &constant.type_));
         // TODO: or don't ignore `expr`?
         def.push(';');
 
@@ -521,7 +519,7 @@ impl<'a> RustdocAppender<'a> {
 
         let meta = Self::codify_visibility(&item.visibility);
         let abi = Self::codify_abi(&function.abi);
-        let signature = Self::codify_fn_decl(krate, &function.decl);
+        let signature = self.codify_fn_decl(krate, &function.decl);
         // FIXME: generics, bounds.
         let def = format!("{}{}{}fn {}{}", meta, &function.header, abi, name, signature);
 
@@ -618,9 +616,7 @@ impl<'a> RustdocAppender<'a> {
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
 
-        for impl_ in enum_.impls.iter().rev() {
-            self.stack.push(Traversal::Item(impl_.clone()));
-        }
+        self.append_impls(krate, item, &enum_.impls);
     }
 
     fn trait_(&mut self, krate: &types::Crate, item: &Item, trait_: &types::Trait) {
@@ -666,15 +662,15 @@ impl<'a> RustdocAppender<'a> {
                     let mut bounds = bounds.iter();
                     if let Some(first) = bounds.next() {
                         def.push_str(": ");
-                        def.push_str(&self.codify_bound(krate, first));
+                        def.push_str(&self.codify_generic_bound(krate, first));
                         for rest in bounds {
                             def.push_str(" + ");
-                            def.push_str(&self.codify_bound(krate, rest));
+                            def.push_str(&self.codify_generic_bound(krate, rest));
                         }
                     }
                     if let Some(type_) = default {
                         def.push_str(" = ");
-                        def.push_str(&Self::codify_type(krate, type_));
+                        def.push_str(&self.codify_type(krate, type_));
                     }
                     def.push_str(";\n");
 
@@ -689,7 +685,7 @@ impl<'a> RustdocAppender<'a> {
                     def.push_str("    ");
                     def.push_str(name);
                     def.push_str(": ");
-                    let type_ = Self::codify_type(krate, type_);
+                    let type_ = self.codify_type(krate, type_);
                     def.push_str(&type_);
                     if let Some(default) = &default {
                         def.push_str(" = ");
@@ -710,7 +706,7 @@ impl<'a> RustdocAppender<'a> {
                     def.push_str("fn ");
                     def.push_str(name);
                     // FIXME: generics
-                    let type_ = Self::codify_fn_decl(krate, &method.decl);
+                    let type_ = self.codify_fn_decl(krate, &method.decl);
                     def.push_str(&type_);
                     // FIXME(rustdoc): show if it is defaulted?; as alternative for this terminator if so.
                     def.push_str(";\n");
@@ -773,10 +769,10 @@ impl<'a> RustdocAppender<'a> {
             if impl_.negative {
                 impl_header.push('!');
             }
-            impl_header.push_str(&Self::codify_type(krate, trait_));
+            impl_header.push_str(&self.codify_type(krate, trait_));
             impl_header.push_str(" for ");
         }
-        impl_header.push_str(&Self::codify_type(krate, &impl_.for_));
+        impl_header.push_str(&self.codify_type(krate, &impl_.for_));
 
         self.buffered.push_back(Event::Start(Tag::Paragraph));
         self.buffered.push_back(Event::Start(Tag::InlineCode));
@@ -805,7 +801,7 @@ impl<'a> RustdocAppender<'a> {
                     let mut def = format!("  {}type ", meta);
                     def.push_str(name);
                     def.push_str(" = ");
-                    def.push_str(&Self::codify_type(krate, &typedef.type_));
+                    def.push_str(&self.codify_type(krate, &typedef.type_));
                     def.push_str(";\n");
 
                     impl_items.push((name, def, docs));
@@ -821,7 +817,7 @@ impl<'a> RustdocAppender<'a> {
                     let mut def = format!("  {}const ", meta);
                     def.push_str(name);
                     def.push_str(": ");
-                    def.push_str(&Self::codify_type(krate, &const_.type_));
+                    def.push_str(&self.codify_type(krate, &const_.type_));
                     def.push_str(" = ");
                     def.push_str(&const_.expr);
                     def.push_str(";\n");
@@ -842,7 +838,7 @@ impl<'a> RustdocAppender<'a> {
                     let mut def = format!("  {}const ", meta);
                     def.push_str(name);
                     def.push_str(": ");
-                    def.push_str(&Self::codify_type(krate, type_));
+                    def.push_str(&self.codify_type(krate, type_));
                     def.push_str(" = ");
                     def.push_str(const_def);
                     def.push_str(";\n");
@@ -860,7 +856,7 @@ impl<'a> RustdocAppender<'a> {
                     let mut def = format!("  {}{}fn ", meta, &method.header);
                     def.push_str(name);
                     // FIXME: generics
-                    def.push_str(&Self::codify_fn_decl(krate, &method.decl));
+                    def.push_str(&self.codify_fn_decl(krate, &method.decl));
 
                     impl_items.push((name, def, docs));
                 }
@@ -902,7 +898,7 @@ impl<'a> RustdocAppender<'a> {
         let mut def = format!("{}type ", meta);
         def.push_str(name);
         def.push_str(" = ");
-        def.push_str(&Self::codify_type(krate, &typedef.type_));
+        def.push_str(&self.codify_type(krate, &typedef.type_));
         def.push(';');
 
         self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
@@ -941,22 +937,36 @@ impl<'a> RustdocAppender<'a> {
         }
     }
 
-    fn codify_type(krate: &types::Crate, type_: &types::Type) -> String {
+    fn codify_type(&self, krate: &types::Crate, type_: &types::Type) -> String {
         #[allow(clippy::enum_glob_use)]
         use types::Type::*;
         match type_ {
             ResolvedPath { name, args, param_names, .. } => {
+                // FIXME: when name is empty, then the type should be named through its path!
+                // That happens in things such as:
+                // ```
+                // impl<P> Deref for Type<P> {
+                //     type Target = <P as Trait>::SomeType;
+                // }
+                // ```
+                //
+                // Here the Target is described as a QualifiedPath and the `trait_` attribute
+                // refers to the `Trait` via a ResolvedPath without a name.
                 let name = name.clone();
                 match args.as_ref().map(|a| &**a) {
                     None => {},
                     Some(types::GenericArgs::AngleBracketed { args, bindings }) => {
+                        self.diagnostics
+                            .warning("Encountered generic type arguments, those are unimplemented")
+                            .emit();
                         // Wait, do we need to map TypeBinding to args via names?
                         // FIXME: handle them, important for showing structs.
                         // todo!("Unhandled generic arguments to type");
                     }
                     Some(types::GenericArgs::Parenthesized { .. }) => {
-                        // FIXME: handle as error, probably?
-                        todo!("Can this occur?");
+                        self.diagnostics
+                            .warning("Encountered parenthesized type arguments, those are unimplemented")
+                            .emit();
                     }
                 }
                 name
@@ -968,53 +978,76 @@ impl<'a> RustdocAppender<'a> {
                     None => return "()".into(),
                     Some(first) => first,
                 };
-                let mut name = format!("({}", Self::codify_type(krate, first));
+                let mut name = format!("({}", self.codify_type(krate, first));
                 for type_ in items {
                     name.push(',');
-                    name.push_str(&Self::codify_type(krate, type_));
+                    name.push_str(&self.codify_type(krate, type_));
                 }
                 name.push(')');
                 name
             },
-            Slice(inner) => format!("[{}]", Self::codify_type(krate, inner)),
+            Slice(inner) => format!("[{}]", self.codify_type(krate, inner)),
             Array { type_, len } => {
-                format!("[{}; {}]", Self::codify_type(krate, type_), len)
+                format!("[{}; {}]", self.codify_type(krate, type_), len)
             },
             // ImplTrait..
             Never => "!".into(),
             Infer => "_".into(),
             RawPointer { mutable, type_ } => {
                 let qualifier = if *mutable { "mut" } else { "const" };
-                format!("*{} {}", qualifier, Self::codify_type(krate, type_))
+                format!("*{} {}", qualifier, self.codify_type(krate, type_))
             }
             BorrowedRef { lifetime, mutable, type_ } => {
                 let lifetime = lifetime.as_ref().map_or_else(String::new, |st| format!("{} ", st));
                 let qualifier = if *mutable { "mut " } else { "" };
-                let type_ = Self::codify_type(krate, type_);
+                let type_ = self.codify_type(krate, type_);
                 format!("&{}{}{}", lifetime, qualifier, type_)
             }
             QualifiedPath { name, self_type, trait_ } => {
-                let self_type = Self::codify_type(krate, self_type);
-                let trait_ = Self::codify_type(krate, trait_);
+                let self_type = self.codify_type(krate, self_type);
+                let trait_ = self.codify_type(krate, trait_);
                 format!("<{} as {}>::{}", self_type, trait_, name)
             }
-            // FIXME: where can we test this best?
-            ImplTrait(_) | FunctionPointer(_) => todo!("Not yet implemented kind of named type encountered"),
+            ImplTrait(bounds) => {
+                let mut bounds = bounds.iter();
+                if let Some(first) = bounds.next() {
+                    let mut bound = String::from("impl ");
+                    bound.push_str(&self.codify_generic_bound(krate, first));
+                    for rest in bounds {
+                        bound.push_str(" + ");
+                        bound.push_str(&self.codify_generic_bound(krate, rest));
+                    }
+                    bound
+                } else {
+                    unreachable!("impl type without any named bounds");
+                }
+            }
+            FunctionPointer(fnptr) => {
+                // FIXME: for<'a> lifetime parameters.
+                let mut base = String::from(if fnptr.is_unsafe { "unsafe " } else { "" });
+                if !fnptr.abi.is_empty() {
+                    base.push_str("extern ");
+                    base.push_str(&fnptr.abi);
+                    base.push(' ');
+                }
+                base.push_str(&self.codify_fn_decl(krate, &fnptr.decl));
+                base
+            }
         }
     }
 
-    fn codify_fn_decl(krate: &types::Crate, decl: &types::FnDecl) -> String {
+    fn codify_fn_decl(&self, krate: &types::Crate, decl: &types::FnDecl) -> String {
         let inputs: Vec<_> = decl.inputs
             .iter()
             .map(|(name, type_)| {
-                format!("{}: {}", name, Self::codify_type(krate, type_))
+                format!("{}: {}", name, self.codify_type(krate, type_))
             })
             .collect();
 
         let in_len: usize = inputs.iter().map(|st| st.chars().count()).sum();
 
         let output = if let Some(type_) = &decl.output {
-            format!(" -> {}", Self::codify_type(krate, type_))
+            format!(" -> {}", self.codify_type(krate, type_))
         } else {
             "".into()
         };
@@ -1070,7 +1103,7 @@ impl<'a> RustdocAppender<'a> {
         decl
     }
 
-    fn codify_bound(&self, krate: &types::Crate, bound: &types::GenericBound) -> String {
+    fn codify_generic_bound(&self, krate: &types::Crate, bound: &types::GenericBound) -> String {
         match bound {
             types::GenericBound::Outlives(lifetime) => lifetime.clone(),
             types::GenericBound::TraitBound { trait_, generic_params, modifier } => {
@@ -1088,7 +1121,7 @@ impl<'a> RustdocAppender<'a> {
                         .emit();
                 }
 
-                Self::codify_type(krate, trait_)
+                self.codify_type(krate, trait_)
             }
         }
     }
@@ -1121,6 +1154,30 @@ impl<'a> RustdocAppender<'a> {
             Cow::Owned(format!("{} {}{}", kind,  meta, const_name))
         }));
         self.buffered.push_back(Event::End(Tag::Header(header.clone())));
+    }
+
+    fn append_impls(
+        &mut self,
+        krate: &types::Crate,
+        item: &Item,
+        impls: &[types::Id],
+    ) {
+        // FIXME: differentiate by kind with headers
+        // let mut intrinsic = vec![];
+        // let mut well_known = vec![];
+        // let mut other_traits = vec![];
+
+        if !impls.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Start(Tag::InlineStrong));
+            self.buffered.push_back(Event::Text(Cow::Borrowed("Implementations")));
+            self.buffered.push_back(Event::End(Tag::InlineStrong));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
+        for impl_ in impls.iter().rev() {
+            self.stack.push(Traversal::Item(impl_.clone()));
+        }
     }
 
     const RUST_CODE_BLOCK: frontend::CodeBlock<'static> = frontend::CodeBlock {
