@@ -201,6 +201,9 @@ impl<'a> Rustdoc<'a> {
                 Item { inner: ItemEnum::TraitItem(inner), .. } => {
                     self.appender.trait_(krate, item, inner);
                 },
+                Item { inner: ItemEnum::ImplItem(inner), .. } => {
+                    self.appender.impl_(krate, item, inner);
+                },
                 Item { kind: types::ItemKind::Primitive, .. }
                 | Item { kind: types::ItemKind::Keyword, .. } => {},
                 _ => eprintln!("Unimplemented {:?}", item),
@@ -428,6 +431,10 @@ impl<'a> RustdocAppender<'a> {
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
+
+        for impl_ in struct_.impls.iter().rev() {
+            self.stack.push(Traversal::Item(impl_.clone()));
+        }
     }
 
     fn constant(&mut self, krate: &types::Crate, item: &Item, constant: &types::Constant) {
@@ -600,6 +607,10 @@ impl<'a> RustdocAppender<'a> {
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
+
+        for impl_ in enum_.impls.iter().rev() {
+            self.stack.push(Traversal::Item(impl_.clone()));
+        }
     }
 
     fn trait_(&mut self, krate: &types::Crate, item: &Item, trait_: &types::Trait) {
@@ -741,6 +752,129 @@ impl<'a> RustdocAppender<'a> {
             self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
+    fn impl_(&mut self, krate: &types::Crate, item: &Item, impl_: &types::Impl) {
+        let mut impl_header = String::from("impl");
+        // FIXME: generics
+        impl_header.push(' ');
+        if let Some(trait_) = &impl_.trait_ {
+            if impl_.negative {
+                impl_header.push('!');
+            }
+            impl_header.push_str(&Self::codify_type(krate, trait_));
+            impl_header.push_str(" for ");
+        }
+        impl_header.push_str(&Self::codify_type(krate, &impl_.for_));
+
+        self.buffered.push_back(Event::Start(Tag::Paragraph));
+        self.buffered.push_back(Event::Start(Tag::InlineCode));
+        self.buffered.push_back(Event::Text(Cow::Owned(impl_header)));
+        self.buffered.push_back(Event::End(Tag::InlineCode));
+        self.buffered.push_back(Event::End(Tag::Paragraph));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
+        let mut impl_items = vec![];
+
+        for item_id in &impl_.items {
+            match krate.index.get(item_id) {
+                Some(Item {
+                    inner: ItemEnum::TypedefItem(typedef),
+                    name: Some(name),
+                    visibility,
+                    docs,
+                    ..
+                }) => {
+                    let meta = Self::codify_visibility(visibility);
+                    let mut def = format!("{}type ", meta);
+                    def.push_str(name);
+                    def.push_str(" = ");
+                    def.push_str(&Self::codify_type(krate, &typedef.type_));
+                    def.push_str(";\n");
+
+                    impl_items.push((name, def, docs));
+                }
+                Some(Item {
+                    inner: ItemEnum::ConstantItem(const_),
+                    name: Some(name),
+                    visibility,
+                    docs,
+                    ..
+                }) => {
+                    let meta = Self::codify_visibility(visibility);
+                    let mut def = format!("{}const ", meta);
+                    def.push_str(name);
+                    def.push_str(": ");
+                    def.push_str(&Self::codify_type(krate, &const_.type_));
+                    def.push_str(" = ");
+                    def.push_str(&const_.expr);
+                    def.push_str(";\n");
+
+                    impl_items.push((name, def, docs));
+                }
+                // FIXME(rustdoc): this is only due to an internal bug in rustdoc where associated
+                // constants ( impl Type { pub const A: usize = 0 ) appear as AssocConstItem
+                // instead which would be more appropriate for a trait.
+                Some(Item {
+                    inner: ItemEnum::AssocConstItem { type_, default: Some(const_def) },
+                    name: Some(name),
+                    visibility,
+                    docs,
+                    ..
+                }) => {
+                    let meta = Self::codify_visibility(visibility);
+                    let mut def = format!("{}const ", meta);
+                    def.push_str(name);
+                    def.push_str(": ");
+                    def.push_str(&Self::codify_type(krate, type_));
+                    def.push_str(" = ");
+                    def.push_str(&const_def);
+                    def.push_str(";\n");
+
+                    impl_items.push((name, def, docs));
+                }
+                Some(Item {
+                    inner: ItemEnum::MethodItem(method),
+                    name: Some(name),
+                    visibility,
+                    docs,
+                    ..
+                }) => {
+                    let meta = Self::codify_visibility(visibility);
+                    let mut def = format!("{}{}fn ", meta, &method.header);
+                    def.push_str(name);
+                    // FIXME: generics
+                    def.push_str(&Self::codify_fn_decl(krate, &method.decl));
+
+                    impl_items.push((name, def, docs));
+                }
+                Some(other) => {
+                    self.diagnostics
+                        .warning(format!("Unhandled impl item: {:?}", other))
+                        .emit();
+                }
+                None => unreachable!("Trait item does not exist?"),
+            }
+        }
+
+        for (name, definition, docs) in impl_items {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Start(Tag::InlineCode));
+            self.buffered.push_back(Event::Text(Cow::Owned(definition)));
+            self.buffered.push_back(Event::End(Tag::InlineCode));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+
+            if !item.docs.is_empty() {
+                self.buffered.push_back(Event::Start(Tag::Paragraph));
+                self.buffered.push_back(Event::Text(item.docs.clone().into()));
+                self.buffered.push_back(Event::End(Tag::Paragraph));
+            }
         }
     }
 

@@ -54,6 +54,33 @@ pub trait ThisIsATrait: Clone {
     }
 }
 
+pub trait EasyToImpl {
+    /// A type that must be declared.
+    type ToDeclare: Clone;
+    /// A constant attribute that needs to be defined.
+    const An_ATTRIBTE: usize;
+    /// A method you do need to impl.
+    fn method_to_impl(&self);
+    /// A provided method you do not need to impl.
+    fn method_not_to_impl(&self) {}
+}
+
+impl KindOfReprC {
+    pub const CONSTANT: usize = 0;
+
+    /// An associated method of KindOfReprC
+    pub fn new() -> Self {
+        KindOfReprC(0)
+    }
+}
+
+/// Implements the EasyToImpl trait for KindOfReprC.
+impl EasyToImpl for KindOfReprC {
+    type ToDeclare = usize;
+    const An_ATTRIBTE: usize = 0;
+    fn method_to_impl(&self) {}
+}
+
 /// A normal function.
 pub fn function_item(param: usize) -> ReturnType {
     ReturnType
