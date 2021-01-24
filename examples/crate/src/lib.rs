@@ -24,9 +24,34 @@ pub enum AnEnum {
     },
 }
 
+/// Really, a simple union, basically MaybeUninit.
 pub union TestUnion {
+    /// Use this to make everything be uninitialized.
     pub a: (),
     pub b: usize,
+}
+
+/// An amazing trait item with a few features.
+pub trait ThisIsATrait: Clone {
+    /// An associated constant.
+    const CONSTANT: usize;
+    /// An associated type.
+    type Type: Copy;
+    /// An ordinary method taking `&self`.
+    fn method(&self, param: usize);
+    /// A generic method with explicit bound.
+    fn generic<T>(&self, t: T) -> usize
+        where T: Copy;
+    /// An ordinary static method.
+    fn static_method(a: usize);
+    /// A method that should have an unsafe qualifier.
+    unsafe fn unsafe_method();
+    /// A method that should have extern "C".
+    extern "C" fn extern_method();
+    /// A method provided by default by the trait.
+    fn provided(&self) -> usize {
+        0
+    }
 }
 
 /// A normal function.

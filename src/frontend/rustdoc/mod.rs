@@ -35,6 +35,7 @@ struct RustdocAppender<'a> {
     stack: Vec<Traversal>,
     /// A buffer of events, yielded before continuing with the stack.
     buffered: VecDeque<Event<'a>>,
+    diagnostics: Arc<Diagnostics<'a>>,
 }
 
 pub enum Crate {
@@ -158,9 +159,9 @@ impl<'a> Rustdoc<'a> {
     pub fn new(cfg: &'a Config, krate: types::Crate, diagnostics: Arc<Diagnostics<'a>>) -> Rustdoc<'a> {
         Rustdoc {
             cfg,
-            diagnostics,
+            diagnostics: Arc::clone(&diagnostics),
             krate,
-            appender: RustdocAppender::default(),
+            appender: RustdocAppender::new(diagnostics),
         }
     }
 }
@@ -197,6 +198,9 @@ impl<'a> Rustdoc<'a> {
                 Item { inner: ItemEnum::FunctionItem(inner), .. } => {
                     self.appender.function(krate, item, inner);
                 },
+                Item { inner: ItemEnum::TraitItem(inner), .. } => {
+                    self.appender.trait_(krate, item, inner);
+                },
                 Item { kind: types::ItemKind::Primitive, .. }
                 | Item { kind: types::ItemKind::Keyword, .. } => {},
                 _ => eprintln!("Unimplemented {:?}", item),
@@ -208,7 +212,7 @@ impl<'a> Rustdoc<'a> {
 
     /// Invoked when we encounter an unexpected item/reference.
     fn invalid_item(&mut self, what: Traversal) {
-        let mut builder = self.diagnostics
+        let mut builder = self.appender.diagnostics
             .bug("Unexpected item in rustdoc json output")
             .note(format!("Traversing {:?}", what));
 
@@ -226,16 +230,15 @@ impl<'a> Rustdoc<'a> {
     }
 }
 
-impl Default for RustdocAppender<'_> {
-    fn default() -> Self {
+impl<'a> RustdocAppender<'a> {
+    fn new(diagnostics: Arc<Diagnostics<'a>>) -> Self {
         RustdocAppender {
             stack: vec![Traversal::Root],
             buffered: VecDeque::new(),
+            diagnostics,
         }
     }
-}
 
-impl<'a> RustdocAppender<'a> {
     fn root(&mut self, krate: &types::Crate) {
         let label = self.label_for_id(&krate.root, krate).unwrap();
         let header = frontend::Header {
@@ -392,6 +395,12 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
         // FIXME: we would like a level-4 header..
         if !field_documentation.is_empty() {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
@@ -417,12 +426,6 @@ impl<'a> RustdocAppender<'a> {
             // FIXME: treat as recursive markdown?
             self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
 
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
-
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }
@@ -500,6 +503,8 @@ impl<'a> RustdocAppender<'a> {
         self.append_header_for_inner_item("Function", item, summary);
 
         let meta = Self::codify_visibility(&item.visibility);
+        // FIXME(rustdoc): `unsafe` qualifier.
+        // FIXME(rustdoc): `const` qualifier.
         let abi = Self::codify_abi(&function.abi);
         let signature = Self::codify_fn_decl(krate, &function.decl);
         // FIXME: generics, bounds.
@@ -568,6 +573,12 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
         // FIXME: we would like a level-4 header..
         if !variant_documentation.is_empty() {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
@@ -591,10 +602,145 @@ impl<'a> RustdocAppender<'a> {
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
+    }
+
+    fn trait_(&mut self, krate: &types::Crate, item: &Item, trait_: &types::Trait) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+
+        // Avoid allocating too much below..
+        if trait_.items.len() >= 1_000_000 {
+            panic!("Number of fields too large, considering opening a pull request to turn this into an iterative procedure.");
+        }
+
+        let vis = Self::codify_visibility(&item.visibility);
+        let safe = if trait_.is_unsafe { "unsafe " } else { "" };
+        let auto = if trait_.is_auto { "auto " } else { "" };
+        let trait_name = item.name.as_ref()
+            .expect("Trait without name");
+
+        let mut def: String = item.attrs
+            .iter()
+            .map(String::as_str)
+            .interleave_shortest(std::iter::repeat("\n"))
+            .collect();
+
+        write!(&mut def, "{}{}{}trait {} ", vis, safe, auto, trait_name)
+            .expect("Writing to string succeeds");
+        self.append_header_for_inner_item("Trait", item, summary);
+
+        // TODO: print replication of definition.
+        let mut trait_items = vec![];
+        // FIXME: bounds
+        def.push_str("{\n");
+        for item_id in &trait_.items {
+            match krate.index.get(item_id) {
+                Some(Item {
+                    inner: ItemEnum::AssocTypeItem { bounds, default },
+                    name: Some(name),
+                    docs,
+                    ..
+                }) => {
+                    def.push_str("    type ");
+                    def.push_str(name);
+                    let mut bounds = bounds.iter();
+                    if let Some(first) = bounds.next() {
+                        def.push_str(": ");
+                        def.push_str(&self.codify_bound(krate, first));
+                        for rest in bounds {
+                            def.push_str(" + ");
+                            def.push_str(&self.codify_bound(krate, rest));
+                        }
+                    }
+                    if let Some(type_) = default {
+                        def.push_str(" = ");
+                        def.push_str(&Self::codify_type(krate, type_));
+                    }
+                    def.push_str(";\n");
+
+                    trait_items.push((name, docs));
+                }
+                Some(Item {
+                    inner: ItemEnum::AssocConstItem { type_, default },
+                    name: Some(name),
+                    docs,
+                    ..
+                }) => {
+                    def.push_str("    ");
+                    def.push_str(name);
+                    def.push_str(": ");
+                    let type_ = Self::codify_type(krate, type_);
+                    def.push_str(&type_);
+                    if let Some(default) = &default {
+                        def.push_str(" = ");
+                        def.push_str(default);
+                    }
+                    def.push_str(";\n");
+
+                    trait_items.push((name, docs));
+                }
+                Some(Item {
+                    inner: ItemEnum::MethodItem(method),
+                    name: Some(name),
+                    docs,
+                    ..
+                }) => {
+                    def.push_str("    ");
+                    def.push_str("fn ");
+                    def.push_str(name);
+                    // FIXME: generics
+                    let type_ = Self::codify_fn_decl(krate, &method.decl);
+                    // FIXME(rustdoc): ABI?!
+                    def.push_str(&type_);
+                    // FIXME(rustdoc): show if it is defaulted?; as alternative for this terminator if so.
+                    def.push_str(";\n");
+
+                    trait_items.push((name, docs));
+                }
+                Some(other) => {
+                    self.diagnostics
+                        .warning(format!("Unhandled trait item: {:?}", other))
+                        .note(format!("In {}", self.name_for_item_at_path(&summary.path)))
+                        .emit();
+                }
+                None => unreachable!("Trait item does not exist?"),
+            }
+        }
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
         if !item.docs.is_empty() {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
             self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
+        // TODO: differentiate between constants, types, required methods, provided methods
+        // FIXME: we would like a level-4 header..
+        if !trait_items.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Start(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::Text(Cow::Borrowed("Associated items")));
+            self.buffered.push_back(Event::End(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+
+        // FIXME: add full declaration with links.
+        for (name, docs) in trait_items {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+
+            self.buffered.push_back(Event::Start(Tag::InlineCode));
+            // FIXME: struct variants, including links.
+            self.buffered.push_back(Event::Text(Cow::Owned(name.clone())));
+            self.buffered.push_back(Event::End(Tag::InlineCode));
+
+            self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
+            // FIXME: treat as recursive markdown?
+            self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
+
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }
@@ -751,6 +897,29 @@ impl<'a> RustdocAppender<'a> {
         }
         decl.push_str(&output);
         decl
+    }
+
+    fn codify_bound(&self, krate: &types::Crate, bound: &types::GenericBound) -> String {
+        match bound {
+            types::GenericBound::Outlives(lifetime) => lifetime.clone(),
+            types::GenericBound::TraitBound { trait_, generic_params, modifier } => {
+                if let types::TraitBoundModifier::None = modifier {} else {
+                    self.diagnostics
+                        .warning("Trait bound modifiers are not implemented")
+                        .note(format!("Printing {:?}", modifier))
+                        .emit();
+                };
+
+                if !generic_params.is_empty() {
+                    self.diagnostics
+                        .warning("Generic parameters are not implemented")
+                        .note(format!("Omitting {} parameters for {:?}", generic_params.len(), trait_))
+                        .emit();
+                }
+
+                Self::codify_type(krate, trait_)
+            }
+        }
     }
 
     fn name_for_item_at_path(&self, path: &[String]) -> String {
