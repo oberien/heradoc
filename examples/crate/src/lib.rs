@@ -34,6 +34,10 @@ pub union TestUnion {
 /// This is a simple typdef, don't worry.
 pub type TypeDef = KindOfReprC;
 
+pub struct WithGenerics<A, B: Clone> {
+    _kay: core::marker::PhantomData<(A, B)>,
+}
+
 /// An amazing trait item with a few features.
 pub trait ThisIsATrait: Clone {
     /// An associated constant.

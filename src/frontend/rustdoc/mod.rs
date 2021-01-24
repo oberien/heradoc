@@ -360,6 +360,7 @@ impl<'a> RustdocAppender<'a> {
 
         write!(&mut def, "{}{} {}", meta, title, name)
             .expect("Writing to string succeeds");
+        def.push_str(&self.codify_generics(krate, &struct_.generics));
         let (start_tag, end_tag) = match struct_.struct_type {
             types::StructType::Plain => ("{\n", "}"),
             types::StructType::Tuple => ("(\n", ")"),
@@ -553,8 +554,10 @@ impl<'a> RustdocAppender<'a> {
             .interleave_shortest(std::iter::repeat("\n"))
             .collect();
 
-        writeln!(&mut def, "{}enum {} {{", meta, enum_name)
+        write!(&mut def, "{}enum {}", meta, enum_name)
             .expect("Writing to string succeeds");
+        def.push_str(&self.codify_generics(krate, &enum_.generics));
+        def.push_str(" {\n");
         self.append_header_for_inner_item("Enum", item, summary);
 
         let mut variant_documentation = vec![];
@@ -952,22 +955,33 @@ impl<'a> RustdocAppender<'a> {
                 //
                 // Here the Target is described as a QualifiedPath and the `trait_` attribute
                 // refers to the `Trait` via a ResolvedPath without a name.
-                let name = name.clone();
+                let mut name = name.clone();
                 match args.as_ref().map(|a| &**a) {
                     None => {},
                     Some(types::GenericArgs::AngleBracketed { args, bindings }) => {
-                        self.diagnostics
-                            .warning("Encountered generic type arguments, those are unimplemented")
-                            .emit();
-                        // Wait, do we need to map TypeBinding to args via names?
-                        // FIXME: handle them, important for showing structs.
-                        // todo!("Unhandled generic arguments to type");
-                    }
+                        let str_args = args
+                            .iter()
+                            .map(|arg| self.codify_generic_arg(krate, arg));
+
+                        let str_bindings = bindings
+                            .iter()
+                            .map(|arg| self.codify_generic_binding(krate, arg));
+
+                        let str_all = str_args
+                            .chain(str_bindings)
+                            .intersperse(String::from(", "));
+
+                        if !args.is_empty() || !bindings.is_empty() {
+                            name.push('<');
+                            name.push_str(&str_all.collect::<String>());
+                            name.push('>');
+                        }
+                    },
                     Some(types::GenericArgs::Parenthesized { .. }) => {
                         self.diagnostics
                             .warning("Encountered parenthesized type arguments, those are unimplemented")
                             .emit();
-                    }
+                    },
                 }
                 name
             },
@@ -1103,11 +1117,120 @@ impl<'a> RustdocAppender<'a> {
         decl
     }
 
+    fn codify_generics(&self, krate: &types::Crate, bound: &types::Generics) -> String {
+        let generics = bound.params
+            .iter()
+            .map(|param| self.codify_generic_param(krate, param))
+            .intersperse(String::from(", "));
+
+        let predicates = bound.where_predicates
+            .iter()
+            .map(|pred| self.codify_generic_predicate(krate, pred))
+            .intersperse(String::from(",\n    "));
+
+        match (bound.params.is_empty(), bound.where_predicates.is_empty()) {
+            (false, false) => format!(
+                "<{}>\nwhere\n    {}",
+                generics.collect::<String>(),
+                predicates.collect::<String>()
+            ),
+            (true, false) => format!("\nwhere\n    {}", predicates.collect::<String>()),
+            (false, true) => format!("<{}>", generics.collect::<String>()),
+            (true, true) => String::new(),
+        }
+    }
+
+    fn codify_generic_param(&self, krate: &types::Crate, param: &types::GenericParamDef) -> String {
+        match &param.kind {
+            types::GenericParamDefKind::Lifetime => param.name.clone(),
+            types::GenericParamDefKind::Type { bounds, default } => {
+                let str_bounds = bounds
+                    .iter()
+                    .map(|bound| self.codify_generic_bound(krate, bound))
+                    .intersperse(String::from(" + "));
+                let mut def = param.name.clone();
+                if !bounds.is_empty() {
+                    def.push_str(": ");
+                    def.push_str(&str_bounds.collect::<String>());
+                }
+                if let Some(default) = default {
+                    def.push_str(" = ");
+                    def.push_str(&self.codify_type(krate, default));
+                }
+                def
+            },
+            types::GenericParamDefKind::Const(const_) => {
+                format!("const {}: {}", &param.name, self.codify_type(krate, const_))
+            },
+        }
+    }
+
+    fn codify_generic_predicate(&self, krate: &types::Crate, predicate: &types::WherePredicate) -> String {
+        match predicate {
+            types::WherePredicate::BoundPredicate { ty, bounds } => {
+                let bound: String = bounds
+                    .iter()
+                    .map(|bound| self.codify_generic_bound(krate, bound))
+                    .intersperse(String::from(" + "))
+                    .collect();
+                format!("{}: {}", self.codify_type(krate, ty), bound)
+            },
+            types::WherePredicate::RegionPredicate { lifetime, bounds } => {
+                let bound: String = bounds
+                    .iter()
+                    .map(|bound| self.codify_generic_bound(krate, bound))
+                    .intersperse(String::from(" + "))
+                    .collect();
+                format!("{}: {}", lifetime, bound)
+            },
+            types::WherePredicate::EqPredicate { lhs: _, rhs: _ } => {
+                self.diagnostics
+                    .warning("Equality bounds are not yet supported and will be ignored")
+                    .emit();
+                String::new()
+            },
+        }
+    }
+
+    fn codify_generic_arg(&self, krate: &types::Crate, arg: &types::GenericArg) -> String {
+        match arg {
+            types::GenericArg::Lifetime(lifetime) => lifetime.clone(),
+            types::GenericArg::Type(type_) => self.codify_type(krate, type_),
+            types::GenericArg::Const(constant) => {
+                format!("{{{}}}", constant.expr)
+            },
+        }
+    }
+
+    fn codify_generic_binding(&self, krate: &types::Crate, binding: &types::TypeBinding) -> String {
+        match &binding.binding {
+            types::TypeBindingKind::Equality(rhs) => {
+                format!("{}={}", &binding.name, &self.codify_type(krate, rhs))
+            }
+            types::TypeBindingKind::Constraint(bounds) => {
+                let str_bounds = bounds
+                    .iter()
+                    .map(|bound| self.codify_generic_bound(krate, bound))
+                    .intersperse(String::from(" + "));
+
+                if bounds.is_empty() {
+                    self.diagnostics
+                        .warning("Generic constraint binding has no bounds?")
+                        .emit();
+                    String::new()
+                } else {
+                    format!("{}: {}", &binding.name, &str_bounds.collect::<String>())
+                }
+            }
+        }
+    }
+
     fn codify_generic_bound(&self, krate: &types::Crate, bound: &types::GenericBound) -> String {
         match bound {
             types::GenericBound::Outlives(lifetime) => lifetime.clone(),
             types::GenericBound::TraitBound { trait_, generic_params, modifier } => {
                 if let types::TraitBoundModifier::None = modifier {} else {
+                    // FIXME: implement this
                     self.diagnostics
                         .warning("Trait bound modifiers are not implemented")
                         .note(format!("Printing {:?}", modifier))
@@ -1115,6 +1238,7 @@ impl<'a> RustdocAppender<'a> {
                 };
 
                 if !generic_params.is_empty() {
+                    // FIXME: implement this
                     self.diagnostics
                         .warning("Generic parameters are not implemented")
                         .note(format!("Omitting {} parameters for {:?}", generic_params.len(), trait_))
