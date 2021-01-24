@@ -31,6 +31,9 @@ pub union TestUnion {
     pub b: usize,
 }
 
+/// This is a simple typdef, don't worry.
+pub type TypeDef = KindOfReprC;
+
 /// An amazing trait item with a few features.
 pub trait ThisIsATrait: Clone {
     /// An associated constant.

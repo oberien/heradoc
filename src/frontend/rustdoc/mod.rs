@@ -204,6 +204,9 @@ impl<'a> Rustdoc<'a> {
                 Item { inner: ItemEnum::ImplItem(inner), .. } => {
                     self.appender.impl_(krate, item, inner);
                 },
+                Item { inner: ItemEnum::TypedefItem(inner), .. } => {
+                    self.appender.typedef(krate, item, inner);
+                },
                 Item { kind: types::ItemKind::Primitive, .. }
                 | Item { kind: types::ItemKind::Keyword, .. } => {},
                 _ => eprintln!("Unimplemented {:?}", item),
@@ -366,26 +369,33 @@ impl<'a> RustdocAppender<'a> {
         def.push_str(start_tag);
         let mut field_documentation = vec![];
         for field_id in &struct_.fields {
-            if let Some(Item {
-                inner: ItemEnum::StructFieldItem(field),
-                name: Some(name),
-                visibility,
-                docs,
-                ..
-            }) = krate.index.get(field_id) {
-                let meta = Self::codify_visibility(visibility);
-                let type_name = Self::codify_type(krate, field);
-                def.push_str("    ");
-                def.push_str(&meta);
-                if let types::StructType::Tuple = struct_.struct_type {} else {
-                    def.push_str(name);
-                    def.push_str(": ");
+            match krate.index.get(field_id) {
+                Some(Item {
+                    inner: ItemEnum::StructFieldItem(field),
+                    name: Some(name),
+                    visibility,
+                    docs,
+                    ..
+                }) => {
+                    let meta = Self::codify_visibility(visibility);
+                    let type_name = Self::codify_type(krate, field);
+                    def.push_str("    ");
+                    def.push_str(&meta);
+                    if let types::StructType::Tuple = struct_.struct_type {} else {
+                        def.push_str(name);
+                        def.push_str(": ");
+                    }
+                    def.push_str(&type_name);
+                    def.push_str(",\n");
+                    field_documentation.push((name, field, type_name, docs));
                 }
-                def.push_str(&type_name);
-                def.push_str(",\n");
-                field_documentation.push((name, field, type_name, docs));
-            } else {
-                // FIXME: should not occur.
+                Some(other) => {
+                    self.diagnostics
+                        .warning(format!("Unhandled variant item: {:?}", other))
+                        .note(format!("In enum {}", self.name_for_item_at_path(&summary.path)))
+                        .emit();
+                }
+                None => unreachable!("Enum item does not exist?"),
             }
         }
 
@@ -407,9 +417,9 @@ impl<'a> RustdocAppender<'a> {
         // FIXME: we would like a level-4 header..
         if !field_documentation.is_empty() {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Start(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::Start(Tag::InlineStrong));
             self.buffered.push_back(Event::Text(Cow::Borrowed("Fields")));
-            self.buffered.push_back(Event::End(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::End(Tag::InlineStrong));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
 
@@ -587,9 +597,9 @@ impl<'a> RustdocAppender<'a> {
         // FIXME: we would like a level-4 header..
         if !variant_documentation.is_empty() {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Start(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::Start(Tag::InlineStrong));
             self.buffered.push_back(Event::Text(Cow::Borrowed("Variants")));
-            self.buffered.push_back(Event::End(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::End(Tag::InlineStrong));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
 
@@ -732,9 +742,9 @@ impl<'a> RustdocAppender<'a> {
         // FIXME: we would like a level-4 header..
         if !trait_items.is_empty() {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Start(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::Start(Tag::InlineStrong));
             self.buffered.push_back(Event::Text(Cow::Borrowed("Associated items")));
-            self.buffered.push_back(Event::End(Tag::InlineEmphasis));
+            self.buffered.push_back(Event::End(Tag::InlineStrong));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
 
@@ -792,7 +802,7 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let mut def = format!("{}type ", meta);
+                    let mut def = format!("  {}type ", meta);
                     def.push_str(name);
                     def.push_str(" = ");
                     def.push_str(&Self::codify_type(krate, &typedef.type_));
@@ -808,7 +818,7 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let mut def = format!("{}const ", meta);
+                    let mut def = format!("  {}const ", meta);
                     def.push_str(name);
                     def.push_str(": ");
                     def.push_str(&Self::codify_type(krate, &const_.type_));
@@ -829,12 +839,12 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let mut def = format!("{}const ", meta);
+                    let mut def = format!("  {}const ", meta);
                     def.push_str(name);
                     def.push_str(": ");
                     def.push_str(&Self::codify_type(krate, type_));
                     def.push_str(" = ");
-                    def.push_str(&const_def);
+                    def.push_str(const_def);
                     def.push_str(";\n");
 
                     impl_items.push((name, def, docs));
@@ -847,7 +857,7 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let mut def = format!("{}{}fn ", meta, &method.header);
+                    let mut def = format!("  {}{}fn ", meta, &method.header);
                     def.push_str(name);
                     // FIXME: generics
                     def.push_str(&Self::codify_fn_decl(krate, &method.decl));
@@ -863,7 +873,7 @@ impl<'a> RustdocAppender<'a> {
             }
         }
 
-        for (name, definition, docs) in impl_items {
+        for (_name, definition, docs) in impl_items {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
             self.buffered.push_back(Event::Start(Tag::InlineCode));
             self.buffered.push_back(Event::Text(Cow::Owned(definition)));
@@ -872,9 +882,37 @@ impl<'a> RustdocAppender<'a> {
 
             if !item.docs.is_empty() {
                 self.buffered.push_back(Event::Start(Tag::Paragraph));
-                self.buffered.push_back(Event::Text(item.docs.clone().into()));
+                self.buffered.push_back(Event::Text(docs.clone().into()));
                 self.buffered.push_back(Event::End(Tag::Paragraph));
             }
+        }
+    }
+
+    fn typedef(&mut self, krate: &types::Crate, item: &Item, typedef: &types::Typedef) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+        let name = item.name
+            .as_ref()
+            .expect("Typedef without name");
+
+        self.append_header_for_inner_item("Typedef", item, summary);
+
+        let meta = Self::codify_visibility(&item.visibility);
+        let mut def = format!("{}type ", meta);
+        def.push_str(name);
+        def.push_str(" = ");
+        def.push_str(&Self::codify_type(krate, &typedef.type_));
+        def.push(';');
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }
 
