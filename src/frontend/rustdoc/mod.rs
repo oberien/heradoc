@@ -503,12 +503,10 @@ impl<'a> RustdocAppender<'a> {
         self.append_header_for_inner_item("Function", item, summary);
 
         let meta = Self::codify_visibility(&item.visibility);
-        // FIXME(rustdoc): `unsafe` qualifier.
-        // FIXME(rustdoc): `const` qualifier.
         let abi = Self::codify_abi(&function.abi);
         let signature = Self::codify_fn_decl(krate, &function.decl);
         // FIXME: generics, bounds.
-        let def = format!("{}{}fn {}{}", meta, abi, name, signature);
+        let def = format!("{}{}{}fn {}{}", meta, &function.header, abi, name, signature);
 
         self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
@@ -687,11 +685,11 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     def.push_str("    ");
+                    def.push_str(&method.header);
                     def.push_str("fn ");
                     def.push_str(name);
                     // FIXME: generics
                     let type_ = Self::codify_fn_decl(krate, &method.decl);
-                    // FIXME(rustdoc): ABI?!
                     def.push_str(&type_);
                     // FIXME(rustdoc): show if it is defaulted?; as alternative for this terminator if so.
                     def.push_str(";\n");
@@ -707,6 +705,7 @@ impl<'a> RustdocAppender<'a> {
                 None => unreachable!("Trait item does not exist?"),
             }
         }
+        def.push('}');
 
         self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
