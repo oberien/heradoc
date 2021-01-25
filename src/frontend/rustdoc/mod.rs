@@ -207,6 +207,12 @@ impl<'a> Rustdoc<'a> {
                 Item { inner: ItemEnum::TypedefItem(inner), .. } => {
                     self.appender.typedef(krate, item, inner);
                 },
+                Item { inner: ItemEnum::ImportItem(inner), .. } => {
+                    self.appender.import(krate, item, inner);
+                },
+                Item { inner: ItemEnum::ExternCrateItem { name, rename }, .. } => {
+                    self.appender.extern_item(krate, item, name, rename.as_ref());
+                },
                 Item { kind: types::ItemKind::Primitive, .. }
                 | Item { kind: types::ItemKind::Keyword, .. } => {},
                 _ => eprintln!("Unimplemented {:?}", item),
@@ -907,7 +913,6 @@ impl<'a> RustdocAppender<'a> {
                     let mut def = format!("  {}{}fn ", meta, &method.header);
                     def.push_str(name);
                     def.push_str(&self.codify_generics(krate, &method.generics));
-                    // FIXME: generics
                     def.push_str(&self.codify_fn_decl(krate, &method.decl));
 
                     impl_items.push((name, def, docs));
@@ -1096,6 +1101,65 @@ impl<'a> RustdocAppender<'a> {
                 base.push_str(&self.codify_fn_decl(krate, &fnptr.decl));
                 base
             }
+        }
+    }
+
+    fn import(&mut self, krate: &types::Crate, item: &types::Item, import: &types::Import) {
+        let summary = krate.paths.get(&item.id)
+            // FIXME: this should fail and diagnose the rendering process, not panic.
+            .expect("Bad item ID");
+
+        self.append_header_for_inner_item("Import", item, summary);
+
+        let mut def = Self::codify_visibility(&item.visibility);
+        def.push_str("use ");
+        def.push_str(&import.span);
+        def.push_str(";");
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
+        }
+    }
+
+    // FIXME(rustdoc) for some reason this also represents re-exports right now.
+    //     pub mod inner { pub struct Outer; }
+    //     pub use inner::Outer;
+    fn extern_item(&mut self, krate: &types::Crate, item: &types::Item, import: &String, rename: Option<&String>) {
+        let header = frontend::Header {
+            label: WithRange(Cow::Borrowed(""), (0..0).into()),
+            level: 2,
+        };
+
+        let meta = Self::codify_visibility(&item.visibility);
+        self.buffered.push_back(Event::Start(Tag::Header(header.clone())));
+        self.buffered.push_back(Event::Text({
+            Cow::Owned(format!("Re-export {}{}", meta, import))
+        }));
+        self.buffered.push_back(Event::End(Tag::Header(header.clone())));
+
+        let mut def = Self::codify_visibility(&item.visibility);
+        def.push_str("use ");
+        def.push_str(&import);
+        if let Some(rename) = rename {
+            def.push_str(" as ");
+            def.push_str(rename);
+        }
+        def.push_str(";");
+
+        self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+        self.buffered.push_back(Event::Text(Cow::Owned(def)));
+        self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
+
+        if !item.docs.is_empty() {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }
 

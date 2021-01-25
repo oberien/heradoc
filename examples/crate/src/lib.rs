@@ -87,6 +87,12 @@ impl KindOfReprC {
     }
 }
 
+pub mod imports {
+    pub use crate::KindOfReprC;
+    /// Glob imports, anyone?
+    pub use crate::AnEnum::*;
+}
+
 /// Implements the EasyToImpl trait for KindOfReprC.
 impl EasyToImpl for KindOfReprC {
     type ToDeclare = usize;
