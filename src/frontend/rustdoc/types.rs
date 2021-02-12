@@ -89,8 +89,9 @@ pub struct Item {
     /// By default all documented items are public, but you can tell rustdoc to output private items
     /// so this field is needed to differentiate.
     pub visibility: Visibility,
-    /// The full markdown docstring of this item.
-    pub docs: String,
+    /// The full markdown docstring of this item. Absent if there is no documentation at all,
+    /// Some("") if there is some documentation but it is empty (EG `#[doc = ""]`).
+    pub docs: Option<String>,
     /// This mapping resolves [intra-doc links](https://github.com/rust-lang/rfcs/blob/master/text/1946-intra-rustdoc-links.md) from the docstring to their IDs
     pub links: HashMap<String, Id>,
     /// Stringified versions of the attributes on this item (e.g. `"#[inline]"`)
@@ -116,8 +117,8 @@ pub struct Deprecation {
     pub note: Option<String>,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum Visibility {
     Public,
     /// For the most part items are private by default. The exceptions are associated items of
@@ -132,8 +133,8 @@ pub enum Visibility {
     },
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericArgs {
     /// <'a, 32, B: Copy, C = u32>
     AngleBracketed { args: Vec<GenericArg>, bindings: Vec<TypeBinding> },
@@ -141,8 +142,8 @@ pub enum GenericArgs {
     Parenthesized { inputs: Vec<Type>, output: Option<Type> },
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericArg {
     Lifetime(String),
     Type(Type),
@@ -164,8 +165,8 @@ pub struct TypeBinding {
     pub binding: TypeBindingKind,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum TypeBindingKind {
     Equality(Type),
     Constraint(Vec<GenericBound>),
@@ -174,8 +175,8 @@ pub enum TypeBindingKind {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize)]
 pub struct Id(pub String);
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum ItemKind {
     Module,
     ExternCrate,
@@ -204,8 +205,8 @@ pub enum ItemKind {
     Keyword,
 }
 
-#[serde(untagged)]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(untagged)]
 pub enum ItemEnum {
     ModuleItem(Module),
     ExternCrateItem {
@@ -215,6 +216,7 @@ pub enum ItemEnum {
     ImportItem(Import),
 
     StructItem(Struct),
+    UnionItem(Union),
     StructFieldItem(Type),
     EnumItem(Enum),
     VariantItem(Variant),
@@ -259,6 +261,14 @@ pub struct Module {
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct Union {
+    pub generics: Generics,
+    pub fields_stripped: bool,
+    pub fields: Vec<Id>,
+    pub impls: Vec<Id>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Struct {
     pub struct_type: StructType,
     pub generics: Generics,
@@ -275,17 +285,17 @@ pub struct Enum {
     pub impls: Vec<Id>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "variant_kind", content = "variant_inner")]
-#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub enum Variant {
     Plain,
     Tuple(Vec<Type>),
     Struct(Vec<Id>),
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum StructType {
     Plain,
     Tuple,
@@ -305,6 +315,7 @@ pub struct Method {
     pub decl: FnDecl,
     pub generics: Generics,
     pub header: String,
+    pub abi: Option<String>,
     pub has_body: bool,
 }
 
@@ -320,24 +331,24 @@ pub struct GenericParamDef {
     pub kind: GenericParamDefKind,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericParamDefKind {
     Lifetime,
     Type { bounds: Vec<GenericBound>, default: Option<Type> },
     Const(Type),
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum WherePredicate {
     BoundPredicate { ty: Type, bounds: Vec<GenericBound> },
     RegionPredicate { lifetime: String, bounds: Vec<GenericBound> },
     EqPredicate { lhs: Type, rhs: Type },
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericBound {
     TraitBound {
         #[serde(rename = "trait")]
@@ -349,17 +360,17 @@ pub enum GenericBound {
     Outlives(String),
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum TraitBoundModifier {
     None,
     Maybe,
     MaybeConst,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "snake_case")]
 #[serde(tag = "kind", content = "inner")]
-#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub enum Type {
     /// Structs, enums, and traits
     ResolvedPath {
@@ -458,8 +469,8 @@ pub struct Impl {
     pub blanket_impl: Option<Type>,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub struct Import {
     /// The full path being imported.
     pub span: String,
@@ -478,8 +489,8 @@ pub struct ProcMacro {
     pub helpers: Vec<String>,
 }
 
-#[serde(rename_all = "snake_case")]
 #[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum MacroKind {
     /// A bang macro `foo!()`.
     Bang,
