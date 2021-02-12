@@ -3,7 +3,7 @@ use std::io::Write;
 
 use crate::backend::{Backend, CodeGenUnit, StatefulCodeGenUnit, latex::Beamer};
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::frontend::range::{WithRange, SourceRange};
 use crate::generator::event::{Event, Header};
 use crate::generator::Generator;
@@ -19,6 +19,15 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let WithRange(Header { label, level }, _range) = header;
+
+        if level > 3 {
+            gen.diagnostics()
+                .error("Latex backed does not support header nesting more than 3 levels.")
+                .emit();
+
+            return Err(Error::Diagnostic);
+        }
+
         write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
         Ok(HeaderGen { label })
     }
