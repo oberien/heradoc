@@ -188,7 +188,7 @@ impl<'a> MarkdownIter<'a> {
                         width,
                         height,
                         adjust_headers,
-                    }, 
+                    },
                     source,
                 } => {
                     synthetic_source = Some(source);
@@ -237,8 +237,8 @@ impl<'a> MarkdownIter<'a> {
                     height,
                 }))
             },
-            Include::Rustdoc(path) => {
-                let events = gen.get_rustdoc(Crate::Local(path))?;
+            Include::Rustdoc(path, context) => {
+                let events = gen.get_rustdoc(Crate::Local(path), context)?;
                 Ok(Event::IncludeRustdoc(Box::new(events)))
             },
             Include::Svg(path) => {

@@ -8,6 +8,14 @@ pub mod abc {
 }
 
 /// A struct with repr annotation.
+///
+/// # Usage
+///
+/// Just throw some struct on the wall:
+/// ```
+/// use example_crate::KindOfReprC;
+/// let x = KindOfReprC;
+/// ```
 #[repr(C)]
 pub struct KindOfReprC(pub u8);
 

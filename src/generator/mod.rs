@@ -37,6 +37,7 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     template: Option<String>,
     stderr: Arc<Mutex<StandardStream>>,
     header_level_adjustment: i32,
+    latest_header_level: i32,
 }
 
 pub struct Events<'a> {
@@ -76,6 +77,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             template,
             stderr,
             header_level_adjustment: 0,
+            latest_header_level: 0 
         }
     }
 
@@ -90,10 +92,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Events { events, diagnostics, context, adjust_header_levels: false }
     }
 
-    pub fn get_rustdoc(&mut self, target: Crate) -> FatalResult<Rustdoc<'a>> {
+    pub fn get_rustdoc(&mut self, target: Crate, context: Context) -> FatalResult<Rustdoc<'a>> {
         let target = target.generate(self.diagnostics())?;
         let diagnostics = Arc::new(Diagnostics::new("", Input::Stdin, Arc::clone(&self.stderr)));
-        Ok(Rustdoc::new(self.cfg, target, diagnostics))
+        Ok(Rustdoc::new(self.cfg, target, diagnostics, context))
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
@@ -121,21 +123,31 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate_body(&mut self, events: Events<'a>) -> FatalResult<()> {
-        let mut headers = 0_i32;
-        if events.adjust_header_levels {
-            for context in self.stack.iter().rev() {
-                match context {
-                    StackElement::Context(..) => break,
-                    StackElement::Header(_) => headers += 1,
-                    _ => {},
-                }
-            }
-        }
+        // Store the level adjustment.
+        let context = StackElement::Context(events.context, events.diagnostics, self.header_level_adjustment);
 
-        self.stack.push(StackElement::Context(events.context, events.diagnostics, self.header_level_adjustment));
-        self.header_level_adjustment += headers;
+        self.header_level_adjustment = self.latest_header_level;
+        self.generate_markdown_in(events.events, context)?;
 
-        self.generate_markdown(events.events)?;
+        Ok(())
+    }
+
+    pub fn generate_rustdoc(&mut self, events: Rustdoc<'a>) -> FatalResult<()> {
+        // TODO: we should push some context..
+        let context = StackElement::Context(
+            events.context().clone(),
+            events.diagnostics(),
+            self.header_level_adjustment);
+        self.generate_markdown_in(MarkdownIter::with_rustdoc(events), context)?;
+
+        Ok(())
+    }
+
+    fn generate_markdown_in(&mut self, events: MarkdownIter<'a>, context: StackElement<'a, B>) -> FatalResult<()> {
+        self.stack.push(context);
+
+        self.generate_markdown(events)?;
+
         match self.stack.pop() {
             Some(StackElement::Context(_, _, header_level_adjustment)) => {
                 self.header_level_adjustment = header_level_adjustment;
@@ -146,22 +158,6 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             ),
         }
 
-        Ok(())
-    }
-
-    pub fn generate_rustdoc(&mut self, events: Rustdoc<'a>) -> FatalResult<()> {
-        // TODO: we should push some context..
-        // self.stack.push(StackElement::Context());
-        self.generate_markdown(MarkdownIter::with_rustdoc(events))?;
-        /* Re-enable when we push a context
-        match self.stack.pop() {
-            Some(StackElement::Context(..)) => (),
-            element => panic!(
-                "Expected context as stack element after body generation is finished, got {:?}",
-                element
-            ),
-        }
-        */
         Ok(())
     }
 
@@ -191,6 +187,9 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Event::End(_) => unreachable!(),
             Event::Start(tag) => {
                 let tag = self.adjust_tag_from_context(tag);
+                if let Tag::Header(header) = &tag {
+                    self.latest_header_level = header.level;
+                }
                 let state = StackElement::new(self.cfg, WithRange(tag, range), self)?;
                 self.stack.push(state);
             },

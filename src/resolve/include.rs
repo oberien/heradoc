@@ -8,7 +8,7 @@ use url::{Url, ParseError};
 use super::BASE_URL;
 
 /// Represents the current context we're including from
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Context {
     /// Full URL to the file / content
     ///
@@ -84,7 +84,7 @@ pub enum Include {
     Svg(PathBuf),
     Pdf(PathBuf),
     Graphviz(PathBuf),
-    Rustdoc(PathBuf),
+    Rustdoc(PathBuf, Context),
 }
 
 /// A direct command to the generator.

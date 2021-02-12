@@ -11,8 +11,9 @@ use itertools::Itertools as _;
 use crate::config::Config;
 use crate::diagnostics::Diagnostics;
 use crate::error::{Fatal, FatalResult};
-use crate::frontend::{self, Event, Tag};
+use crate::frontend::{self, Event, Include, Tag};
 use crate::frontend::range::WithRange;
+use crate::resolve::{Context, Include as ResolvedInclude, ResolveSecurity};
 
 /// Contains the type definitions, all implementing Deserialize.
 mod types;
@@ -31,6 +32,8 @@ pub struct Rustdoc<'a> {
 
 #[derive(Debug)]
 struct RustdocAppender<'a> {
+    context: Context,
+    simulated_source_path: PathBuf,
     /// Stack of started, but not yet finished, portions of the documentation.
     stack: Vec<Traversal>,
     /// A buffer of events, yielded before continuing with the stack.
@@ -146,6 +149,7 @@ impl Crate {
                         diag
                             .error("Cargo metadata failed for crate")
                             .note(String::from_utf8_lossy(&format.stderr))
+                            .note(err.to_string())
                             .emit();
                         Err(Fatal::Output(err.into()))
                     }
@@ -156,13 +160,26 @@ impl Crate {
 }
 
 impl<'a> Rustdoc<'a> {
-    pub fn new(cfg: &'a Config, krate: types::Crate, diagnostics: Arc<Diagnostics<'a>>) -> Rustdoc<'a> {
+    pub fn new(
+        cfg: &'a Config,
+        krate: types::Crate,
+        diagnostics: Arc<Diagnostics<'a>>,
+        context: Context,
+    ) -> Rustdoc<'a> {
         Rustdoc {
             cfg,
             diagnostics: Arc::clone(&diagnostics),
             krate,
-            appender: RustdocAppender::new(diagnostics),
+            appender: RustdocAppender::new(cfg, diagnostics, context),
         }
+    }
+
+    pub fn context(&self) -> &Context {
+        &self.appender.context
+    }
+
+    pub fn diagnostics(&self) -> Arc<Diagnostics<'a>> {
+        self.diagnostics.clone()
     }
 }
 
@@ -243,8 +260,14 @@ impl<'a> Rustdoc<'a> {
 }
 
 impl<'a> RustdocAppender<'a> {
-    fn new(diagnostics: Arc<Diagnostics<'a>>) -> Self {
+    fn new(
+        cfg: &'a Config,
+        diagnostics: Arc<Diagnostics<'a>>,
+        context: Context,
+    ) -> Self {
         RustdocAppender {
+            context,
+            simulated_source_path: cfg.temp_dir.clone(),
             stack: vec![Traversal::Root],
             buffered: VecDeque::new(),
             diagnostics,
@@ -415,11 +438,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
 
         // FIXME: we would like a level-4 header..
         if !field_documentation.is_empty() {
@@ -442,9 +461,11 @@ impl<'a> RustdocAppender<'a> {
             // self.buffered.push_back(Event::End(Tag::InterLink(field_type_link.clone())));
             self.buffered.push_back(Event::End(Tag::InlineCode));
 
-            self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
-            // FIXME: treat as recursive markdown?
-            self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
+            if let Some(docs) = docs {
+                self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
+                // FIXME: treat as recursive markdown?
+                self.append_docs(docs.clone());
+            }
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
@@ -476,11 +497,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
     }
 
     fn static_(&mut self, krate: &types::Crate, item: &Item, constant: &types::Static) {
@@ -508,11 +525,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
     }
 
     fn function(&mut self, krate: &types::Crate, item: &Item, function: &types::Function) {
@@ -534,11 +547,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
     }
 
     fn enum_(&mut self, krate: &types::Crate, item: &Item, enum_: &types::Enum) {
@@ -595,11 +604,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
 
         // FIXME: we would like a level-4 header..
         if !variant_documentation.is_empty() {
@@ -618,9 +623,10 @@ impl<'a> RustdocAppender<'a> {
             self.buffered.push_back(Event::Text(Cow::Owned(name.clone())));
             self.buffered.push_back(Event::End(Tag::InlineCode));
 
-            self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
-            // FIXME: treat as recursive markdown?
-            self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
+            if let Some(docs) = docs {
+                self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
+                self.append_docs(docs.clone());
+            }
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
@@ -784,11 +790,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
 
         // TODO: differentiate between constants, types, required methods, provided methods
         // FIXME: we would like a level-4 header..
@@ -809,9 +811,10 @@ impl<'a> RustdocAppender<'a> {
             self.buffered.push_back(Event::Text(Cow::Owned(name.clone())));
             self.buffered.push_back(Event::End(Tag::InlineCode));
 
-            self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
-            // FIXME: treat as recursive markdown?
-            self.buffered.push_back(Event::Text(Cow::Owned(docs.clone())));
+            if let Some(docs) = docs {
+                self.buffered.push_back(Event::Text(Cow::Borrowed("  ")));
+                self.append_docs(docs.clone())
+            }
 
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
@@ -837,9 +840,9 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::End(Tag::InlineCode));
         self.buffered.push_back(Event::End(Tag::Paragraph));
 
-        if !item.docs.is_empty() {
+        if let Some(docs) = &item.docs {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::Text(docs.clone().into()));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
 
@@ -933,7 +936,7 @@ impl<'a> RustdocAppender<'a> {
             self.buffered.push_back(Event::End(Tag::InlineCode));
             self.buffered.push_back(Event::End(Tag::Paragraph));
 
-            if !item.docs.is_empty() {
+            if let Some(docs) = &docs {
                 self.buffered.push_back(Event::Start(Tag::Paragraph));
                 self.buffered.push_back(Event::Text(docs.clone().into()));
                 self.buffered.push_back(Event::End(Tag::Paragraph));
@@ -962,11 +965,7 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
-            self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
-            self.buffered.push_back(Event::End(Tag::Paragraph));
-        }
+        self.append_item_docs(item);
     }
 
     fn label_for_id(&self, path: &types::Id, krate: &types::Crate) -> Option<String> {
@@ -984,6 +983,40 @@ impl<'a> RustdocAppender<'a> {
             types::Visibility::Restricted  { parent: _, path } => {
                 format!("pub({}) ", path)
             },
+        }
+    }
+
+    fn append_docs(&mut self, docs: String) {
+        // Include recursively as Markdown.
+        let include = ResolvedInclude::Markdown(
+            self.simulated_source_path.clone(),
+            self.context.clone(),
+        );
+
+        let parameter = Include {
+            // Important: Scope sections under it.
+            adjust_headers: true,
+            // Rest of parameters are default.
+            resolve_security: ResolveSecurity::Default,
+            label: None,
+            caption: None,
+            title: None,
+            alt_text: None,
+            // FIXME: need a good way to express this?
+            dst: "/".into(),
+            scale: None,
+            width: None,
+            height: None,
+        };
+        let source = docs.into();
+        self.buffered.push_back(Event::SyntheticInclude(include, parameter, source));
+    }
+
+    fn append_item_docs(&mut self, item: &types::Item) {
+        if let Some(docs) = &item.docs {
+            self.buffered.push_back(Event::Start(Tag::Paragraph));
+            self.append_docs(docs.clone());
+            self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }
 
@@ -1120,9 +1153,9 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
+        if let Some(docs) = &item.docs {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::Text(docs.clone().into()));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }
@@ -1156,9 +1189,9 @@ impl<'a> RustdocAppender<'a> {
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
         self.buffered.push_back(Event::End(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
 
-        if !item.docs.is_empty() {
+        if let Some(docs) = &item.docs {
             self.buffered.push_back(Event::Start(Tag::Paragraph));
-            self.buffered.push_back(Event::Text(item.docs.clone().into()));
+            self.buffered.push_back(Event::Text(docs.clone().into()));
             self.buffered.push_back(Event::End(Tag::Paragraph));
         }
     }

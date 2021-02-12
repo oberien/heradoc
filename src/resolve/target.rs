@@ -405,7 +405,7 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                 }
             },
             TargetInner::Rustdoc(path) | TargetInner::RustdocRelative(path) => {
-                Ok(Include::Rustdoc(path))
+                Ok(Include::Rustdoc(path, Context::from_url(meta.url)))
             },
         }
     }
