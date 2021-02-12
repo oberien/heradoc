@@ -444,6 +444,7 @@ impl<'a> Frontend<'a> {
                     scale: cskvp.take_double("scale"),
                     width: cskvp.take_double("width"),
                     height: cskvp.take_double("height"),
+                    adjust_headers: false,
                 }), svgbob_range));
                 return;
             },
@@ -841,6 +842,7 @@ impl<'a> Frontend<'a> {
                 scale: cskvp.take_double("scale"),
                 width: cskvp.take_double("width"),
                 height: cskvp.take_double("height"),
+                adjust_headers: false,
             }),
             range,
         ))

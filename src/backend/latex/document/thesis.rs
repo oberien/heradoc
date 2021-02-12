@@ -141,7 +141,7 @@ fn gen_abstract(path: PathBuf, abstract_name: &str, cfg: &Config, out: &mut impl
         }
     };
     let input = Input::File(path);
-    let events = gen.get_events(markdown, context, input);
+    let events = gen.get_events(markdown.into(), context, input);
     gen.generate_body(events)?;
     Ok(())
 }

@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::borrow::Cow;
 use std::fs;
 use std::io::Write;
 use std::iter::Fuse;
@@ -23,6 +24,15 @@ pub struct MarkdownIter<'a> {
     /// This is used to `skip` correctly over events when an event couldn't be handled correctly.
     /// For example if this is `Start`, we'll skip until the corresponding `End` event.
     last_kind: FeEventKind,
+}
+
+enum IncludeSource<'a> {
+    Resolve,
+    Image(FeInclude<'a>),
+    Synthetic {
+        parameter: FeInclude<'a>,
+        source: Cow<'a, str>,
+    },
 }
 
 impl<'a> MarkdownIter<'a> {
@@ -100,6 +110,7 @@ impl<'a> MarkdownIter<'a> {
             | FeEventKind::InterLink
             | FeEventKind::Include
             | FeEventKind::ResolveInclude
+            | FeEventKind::SyntheticInclude
             | FeEventKind::Label
             | FeEventKind::SoftBreak
             | FeEventKind::HardBreak
@@ -129,56 +140,89 @@ impl<'a> MarkdownIter<'a> {
         match event {
             FeEvent::Include(image) => {
                 let include = gen.resolve(image.resolve_security, &image.dst, range)?;
-                self.convert_include(WithRange(include, range), Some(image), gen)
+                let source = IncludeSource::Image(image);
+                self.convert_include(WithRange(include, range), source, gen)
             },
             FeEvent::ResolveInclude(include) => {
                 let include = gen.resolve(ResolveSecurity::Default, &include, range)?;
-                self.convert_include(WithRange(include, range), None, gen)
+                self.convert_include(WithRange(include, range), IncludeSource::Resolve, gen)
+            },
+            FeEvent::SyntheticInclude(include, parameter, source) => {
+                let source = IncludeSource::Synthetic { parameter, source };
+                self.convert_include(WithRange(include, range), source, gen)
             },
             e => Ok(e.into()),
         }
     }
 
     fn convert_include(
-        &mut self, WithRange(include, range): WithRange<Include>, image: Option<FeInclude<'a>>,
+        &mut self, WithRange(include, range): WithRange<Include>, source: IncludeSource<'a>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
-        let (label, caption, title, alt_text, scale, width, height) =
-            if let Some(FeInclude {
-                resolve_security: _,
-                label,
-                caption,
-                title,
-                alt_text,
-                dst: _dst,
-                scale,
-                width,
-                height,
-            }) = image
-            {
-                (label, caption, title, alt_text, scale, width, height)
-            } else {
-                Default::default()
+        let mut synthetic_source = None;
+        let (label, caption, title, alt_text, scale, width, height, adjust_headers) =
+            match source {
+                IncludeSource::Image(FeInclude {
+                    resolve_security: _,
+                    label,
+                    caption,
+                    title,
+                    alt_text,
+                    dst: _dst,
+                    scale,
+                    width,
+                    height,
+                    adjust_headers,
+                }) => {
+                    (label, caption, title, alt_text, scale, width, height, adjust_headers)
+                },
+                IncludeSource::Synthetic {
+                    parameter: FeInclude {
+                        resolve_security: _,
+                        label,
+                        caption,
+                        title,
+                        alt_text,
+                        dst: _dst,
+                        scale,
+                        width,
+                        height,
+                        adjust_headers,
+                    }, 
+                    source,
+                } => {
+                    synthetic_source = Some(source);
+                    (label, caption, title, alt_text, scale, width, height, adjust_headers)
+                },
+                IncludeSource::Resolve => {
+                    Default::default()
+                },
             };
         match include {
             Include::Command(command) => Ok(command.into()),
             Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(&path).map_err(|err| {
-                    gen.diagnostics()
-                        .error("error reading markdown include file")
-                        .with_error_section(range, "in this include")
-                        .error(format!("cause: {}", err))
-                        .note(format!("reading from path {}", path.display()))
-                        .emit();
-                    Error::Diagnostic
-                })?;
+                let markdown = if let Some(markdown) = synthetic_source {
+                    markdown
+                } else {
+                    let source = fs::read_to_string(&path).map_err(|err| {
+                        gen.diagnostics()
+                            .error("error reading markdown include file")
+                            .with_error_section(range, "in this include")
+                            .error(format!("cause: {}", err))
+                            .note(format!("reading from path {}", path.display()))
+                            .emit();
+                        Error::Diagnostic
+                    })?;
+                    Cow::Owned(source)
+                };
                 let input = match context.typ() {
                     ContextType::Remote => Input::Url(context.url().clone()),
                     ContextType::LocalRelative | ContextType::LocalAbsolute => {
                         Input::File(path)
                     },
                 };
-                let events = gen.get_events(markdown, context, input);
+                let mut events = gen.get_events(markdown, context, input);
+                events.adjust_header_levels = adjust_headers;
                 Ok(Event::IncludeMarkdown(Box::new(events)))
             },
             Include::Image(path) => {

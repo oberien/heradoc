@@ -40,7 +40,7 @@ pub enum StackElement<'a, B: Backend<'a>> {
     Graphviz(B::Graphviz),
 
     // resolve context
-    Context(Context, Arc<Diagnostics<'a>>),
+    Context(Context, Arc<Diagnostics<'a>>, i32),
 }
 
 use self::StackElement::*;

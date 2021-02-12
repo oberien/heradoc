@@ -199,7 +199,7 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::Url(url) => Event::Url(url),
             FeEvent::InterLink(interlink) => Event::InterLink(interlink),
             FeEvent::Include(_img) => unreachable!("Include is handled by Generator"),
-            FeEvent::ResolveInclude(_include) => {
+            FeEvent::ResolveInclude(_) | FeEvent::SyntheticInclude(..) => {
                 unreachable!("ResolveInclude is handled by Generator")
             },
             FeEvent::Label(label) => Event::Label(label),
