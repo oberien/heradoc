@@ -16,7 +16,7 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
         _cfg: &'a Config, code_block: WithRange<CodeBlock<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let WithRange(CodeBlock { label, caption, language }, _range) = code_block;
+        let WithRange(CodeBlock { label, caption, language, attributes }, _range) = code_block;
 
         let mut out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}[")?;
@@ -34,6 +34,11 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
                 lang => lang
             };
             joiner.join(format_args!("language={{{}}}", language))?;
+        }
+        if !attributes.is_empty() {
+            for (k, v) in attributes {
+                joiner.join(format_args!("{}={{{}}}", k, v.0))?;
+            }
         }
         writeln!(out, "]")?;
 

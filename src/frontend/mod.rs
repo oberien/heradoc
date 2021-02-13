@@ -460,6 +460,7 @@ impl<'a> Frontend<'a> {
                 } else {
                     Some(WithRange(language, language_range))
                 },
+                attributes: cskvp.take_all_double(),
             }),
         };
 
