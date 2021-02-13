@@ -56,7 +56,7 @@ fn prepare() -> (TempDir, SourceRange, Resolver, Diagnostics<'static>) {
     fs::create_dir(tmpdir.path().join("downloads")).expect("can't create downloads directory");
     let range = SourceRange { start: 0, end: 0 };
     let diagnostics = Diagnostics::new("", Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
-    let resolver = Resolver::new(tmpdir.path().to_owned(), tmpdir.path().join("chapters"), tmpdir.path().join("download"));
+    let resolver = Resolver::new(tmpdir.path().to_owned(), tmpdir.path().join("chapters"), tmpdir.path().join("download"), RelativeTo::Absolute);
     (tmpdir, range, resolver, diagnostics)
 }
 
