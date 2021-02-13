@@ -920,6 +920,21 @@ impl<'a> RustdocAppender<'a> {
 
                     impl_items.push((name, def, docs));
                 }
+                Some(Item {
+                    inner: ItemEnum::FunctionItem(function),
+                    name: Some(name),
+                    visibility,
+                    docs,
+                    ..
+                }) => {
+                    let meta = Self::codify_visibility(visibility);
+                    let mut def = format!("  {}{}fn ", meta, &function.header);
+                    def.push_str(name);
+                    def.push_str(&self.codify_generics(krate, &function.generics));
+                    def.push_str(&self.codify_fn_decl(krate, &function.decl));
+
+                    impl_items.push((name, def, docs));
+                }
                 Some(other) => {
                     self.diagnostics
                         .warning(format!("Unhandled impl item: {:?}", other))

@@ -12,10 +12,14 @@ pub mod abc {
 /// # Usage
 ///
 /// Just throw some struct on the wall:
-/// ```
+/// ```rust
 /// use example_crate::KindOfReprC;
 /// let x = KindOfReprC;
 /// ```
+///
+/// ## Deep section
+/// ### Deeper section
+/// #### I'm a dwarf
 #[repr(C)]
 pub struct KindOfReprC(pub u8);
 

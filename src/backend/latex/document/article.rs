@@ -71,6 +71,7 @@ impl<'a> Backend<'a> for Article {
         // TODO: itemizespacing
         preamble::write_documentclass(cfg, out, "scrartcl", "")?;
         preamble::write_packages(cfg, out)?;
+        preamble::write_deep_headers(cfg, out)?;
         preamble::write_fixes(cfg, out)?;
 
         writeln!(out)?;

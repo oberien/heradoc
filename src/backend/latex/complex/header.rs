@@ -21,14 +21,24 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
         let WithRange(Header { label, level }, _range) = header;
 
         if level > 3 {
-            gen.diagnostics()
-                .error("Latex backed does not support header nesting more than 3 levels.")
-                .emit();
+            if level > 6 {
+                gen.diagnostics()
+                    .error("Latex backed does not support header nesting more than 6 levels.")
+                    .emit();
 
-            return Err(Error::Diagnostic);
+                return Err(Error::Diagnostic);
+            }
+
+            const MORE_HEADERS: [&str; 3] = [
+                "heradocsectionfour",
+                "heradocsectionfive",
+                "heradocsectionsix",
+            ];
+
+            write!(gen.get_out(), "\\{}{{", MORE_HEADERS[level as usize - 4])?;
+        } else {
+            write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
         }
-
-        write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
         Ok(HeaderGen { label })
     }
 
