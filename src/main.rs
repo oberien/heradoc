@@ -108,7 +108,7 @@ fn main() {
         }
         None => FileConfig::default(),
     };
-    let tmpdir = TempDir::new("heradoc").expect("can't create tempdir");
+    let tmpdir = std::mem::ManuallyDrop::new(TempDir::new("heradoc").expect("can't create tempdir"));
     let cfg = Config::new(args, infile, file, cfgfile_folder, &tmpdir);
     if cfg.out_dir != cfg.temp_dir {
         // While initializing the config, some files may already be downloaded.

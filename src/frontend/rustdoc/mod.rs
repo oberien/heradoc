@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::fs::File;
 use std::fmt::Write as _;
 use std::sync::Arc;
@@ -538,10 +538,11 @@ impl<'a> RustdocAppender<'a> {
         self.append_header_for_inner_item("Function", item, summary);
 
         let meta = Self::codify_visibility(&item.visibility);
+        let header = self.codify_qualifiers(&function.header);
         let abi = Self::codify_abi(&function.abi);
         let signature = self.codify_fn_decl(krate, &function.decl);
         // FIXME: generics, bounds.
-        let def = format!("{}{}{}fn {}{}", meta, &function.header, abi, name, signature);
+        let def = format!("{}{}{}fn {}{}", meta, header, abi, name, signature);
 
         self.buffered.push_back(Event::Start(Tag::CodeBlock(Self::RUST_CODE_BLOCK)));
         self.buffered.push_back(Event::Text(Cow::Owned(def)));
@@ -764,7 +765,7 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     def.push_str("    ");
-                    def.push_str(&method.header);
+                    def.push_str(&self.codify_qualifiers(&method.header));
                     def.push_str("fn ");
                     def.push_str(name);
                     // FIXME: generics
@@ -913,7 +914,9 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let mut def = format!("  {}{}fn ", meta, &method.header);
+                    let mut def = format!("  {}", meta);
+                    def.push_str(&self.codify_qualifiers(&method.header));
+                    def.push_str(" fn");
                     def.push_str(name);
                     def.push_str(&self.codify_generics(krate, &method.generics));
                     def.push_str(&self.codify_fn_decl(krate, &method.decl));
@@ -928,7 +931,9 @@ impl<'a> RustdocAppender<'a> {
                     ..
                 }) => {
                     let meta = Self::codify_visibility(visibility);
-                    let mut def = format!("  {}{}fn ", meta, &function.header);
+                    let mut def = format!("  {}", meta);
+                    def.push_str(&self.codify_qualifiers(&function.header));
+                    def.push_str(" fn");
                     def.push_str(name);
                     def.push_str(&self.codify_generics(krate, &function.generics));
                     def.push_str(&self.codify_fn_decl(krate, &function.decl));
@@ -1140,7 +1145,7 @@ impl<'a> RustdocAppender<'a> {
             }
             FunctionPointer(fnptr) => {
                 // FIXME: for<'a> lifetime parameters.
-                let mut base = String::from(if fnptr.is_unsafe { "unsafe " } else { "" });
+                let mut base = self.codify_qualifiers(&fnptr.header);
                 if !fnptr.abi.is_empty() {
                     base.push_str("extern ");
                     base.push_str(&fnptr.abi);
@@ -1299,6 +1304,29 @@ impl<'a> RustdocAppender<'a> {
             (false, true) => format!("<{}>", generics.collect::<String>()),
             (true, true) => String::new(),
         }
+    }
+
+    fn codify_qualifiers(&self, quals: &HashSet<types::Qualifiers>) -> String {
+        let mut quals = quals.clone();
+        let mut stringified = String::new();
+
+        if quals.remove(&types::Qualifiers::Async) {
+            stringified.push_str(" async");
+        }
+
+        if quals.remove(&types::Qualifiers::Const) {
+            stringified.push_str(" const");
+        }
+
+        if quals.remove(&types::Qualifiers::Unsafe) {
+            stringified.push_str(" unsafe");
+        }
+
+        if let Some(non_space) = stringified.find(|c| c != ' ') {
+            let _ = stringified.drain(..non_space);
+        }
+
+        stringified
     }
 
     fn codify_generic_param(&self, krate: &types::Crate, param: &types::GenericParamDef) -> String {
