@@ -34,6 +34,10 @@ use serde::Deserialize;
 /// tools to find or link to them.
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct Crate {
+    /// A single version number to be used in the future when making backwards incompatible changes
+    /// to the JSON output.
+    #[serde(rename = "format_version")]
+    pub _compatible_version: CompatibleVersion,
     /// The id of the root [`Module`] item of the local crate.
     pub root: Id,
     /// The version string given to `--crate-version`, if any.
@@ -47,9 +51,25 @@ pub struct Crate {
     pub paths: HashMap<Id, ItemSummary>,
     /// Maps `crate_id` of items to a crate name and html_root_url if it exists.
     pub external_crates: HashMap<u32, ExternalCrate>,
-    /// A single version number to be used in the future when making backwards incompatible changes
-    /// to the JSON output.
-    pub format_version: u32,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct CompatibleVersion(u32);
+
+impl<'de> Deserialize<'de> for CompatibleVersion {
+    fn deserialize<D: serde::de::Deserializer<'de>>(d: D)
+        -> Result<Self, D::Error>
+    {
+        const NIGHTLY_AT_2021_02_19: u32 = 4;
+        match u32::deserialize(d)? {
+            num @ NIGHTLY_AT_2021_02_19 => Ok(CompatibleVersion(num)),
+            other => {
+                use serde::de::{Error, Unexpected};
+                let unexpected = Unexpected::Unsigned(other.into());
+                Err(D::Error::invalid_value(unexpected, &"the exact version 4"))
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
