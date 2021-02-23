@@ -22,6 +22,7 @@ pub use crate::frontend::{
     Table,
     TaskListMarker,
     Url,
+    rustdoc::Rustdoc,
 };
 pub use pulldown_cmark::Alignment;
 
@@ -40,6 +41,7 @@ pub enum Event<'a> {
     InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
     IncludeMarkdown(Box<Events<'a>>),
+    IncludeRustdoc(Box<Rustdoc<'a>>),
     FootnoteReference(FootnoteReference<'a>),
     BiberReferences(Vec<BiberReference<'a>>),
     /// Url without content
@@ -197,7 +199,7 @@ impl<'a> From<FeEvent<'a>> for Event<'a> {
             FeEvent::Url(url) => Event::Url(url),
             FeEvent::InterLink(interlink) => Event::InterLink(interlink),
             FeEvent::Include(_img) => unreachable!("Include is handled by Generator"),
-            FeEvent::ResolveInclude(_include) => {
+            FeEvent::ResolveInclude(_) | FeEvent::SyntheticInclude(..) => {
                 unreachable!("ResolveInclude is handled by Generator")
             },
             FeEvent::Label(label) => Event::Label(label),

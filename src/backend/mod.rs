@@ -43,6 +43,13 @@ pub fn generate<'a>(
     Ok(())
 }
 
+pub fn generate_rust_docs<'a>(
+    cfg: &'a Config, backend: impl Backend<'a>, arena: &'a Arena<String>, what_cargo: String,
+    out: impl Write, stderr: Arc<Mutex<StandardStream>>,
+) -> FatalResult<()> {
+    todo!()
+}
+
 #[rustfmt::skip]
 pub trait Backend<'a>: Sized + Debug {
     // MediumCodeGenUnits are used for leaf-events, which don't contain any further events.

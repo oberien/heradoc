@@ -32,7 +32,7 @@ impl<'a: 'b, 'b, B: Backend<'a> + 'b, W: Write> Stack<'a, 'b, B, W> {
             .iter_mut()
             .rev()
             .filter_map(|state| match state {
-                StackElement::Context(_, diagnostics) => Some(diagnostics),
+                StackElement::Context(_, diagnostics, _) => Some(diagnostics),
                 _ => None,
             })
             .next()

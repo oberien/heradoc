@@ -141,6 +141,31 @@ pub fn write_fixes(cfg: &Config, out: &mut impl Write) -> Result<()> {
     Ok(())
 }
 
+pub fn write_deep_headers(cfg: &Config, out: &mut impl Write) -> Result<()> {
+    fn write_simple_header(name: &str, into: &mut impl Write,  font: &str, level: i32) -> Result<()> {
+        writeln!(into, "{}", "\\makeatletter")?;
+        write!(into, r#"\newcommand\{}"#, name)?;
+        write!(into, "{}{}{}{}", r#"{\@startsection{"#, name, "}{", level)?;
+        write!(into, "{}", r#"}{\z@}%
+                                {-3.5ex \@plus -1ex \@minus -.2ex}%
+                                {2.3ex \@plus.2ex}%
+                                {\sffamily"#)?;
+        write!(into, "{}", font)?;
+        write!(into, "{}", r#"}
+            }
+            \newcommand{"#)?;
+        write!(into, r#"\{}mark"#, name)?;
+        writeln!(into, "{}", r#"}[1]{}"#)?;
+        writeln!(into, "{}", "\\makeatother")?;
+        Ok(())
+    }
+
+    write_simple_header("heradocsectionfour", out, "\\fontsize{14.4pt}{\\f@baselineskip}\\fontseries{b}\\selectfont", 4)?;
+    write_simple_header("heradocsectionfive", out, "\\fontsize{12pt}{\\f@baselineskip}\\fontseries{b}\\selectfont", 5)?;
+    write_simple_header("heradocsectionsix", out, "\\fontsize{12pt}{\\f@baselineskip}\\fontshape{it}\\selectfont", 6)?;
+    Ok(())
+}
+
 /// Allows configuration of the short author field when writing the maketitle info.
 ///
 /// Some document types like beamer support a short author field like `\author[short-author]{author}`.
@@ -165,7 +190,7 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
     }
     if cfg.titlehead.is_some() || cfg.logo_university.is_some() {
         match cfg.document_type {
-            DocumentType::Article | DocumentType::Report | DocumentType::Thesis => {
+            DocumentType::Article | DocumentType::Report | DocumentType::Thesis | DocumentType::RustDoc => {
                 writeln!(out, "\\titlehead{{")?;
                 let mut joiner = OutJoiner::new(&mut *out, "\\\\");
                 if let Some(titlehead) = &cfg.titlehead {

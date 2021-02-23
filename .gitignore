@@ -3,3 +3,5 @@
 
 *.iml
 .idea/
+pdflatex_stderr.log
+pdflatex_stdout.log

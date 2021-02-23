@@ -15,6 +15,7 @@ mod convert_cow;
 mod event;
 pub mod range;
 mod refs;
+pub mod rustdoc;
 mod size;
 mod table_layout;
 
@@ -443,6 +444,7 @@ impl<'a> Frontend<'a> {
                     scale: cskvp.take_double("scale"),
                     width: cskvp.take_double("width"),
                     height: cskvp.take_double("height"),
+                    adjust_headers: false,
                 }), svgbob_range));
                 return;
             },
@@ -840,6 +842,7 @@ impl<'a> Frontend<'a> {
                 scale: cskvp.take_double("scale"),
                 width: cskvp.take_double("width"),
                 height: cskvp.take_double("height"),
+                adjust_headers: false,
             }),
             range,
         ))

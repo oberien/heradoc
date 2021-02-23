@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::borrow::Cow;
 use std::fs;
 use std::io::Write;
 use std::iter::Fuse;
@@ -8,12 +9,15 @@ use crate::diagnostics::Input;
 use crate::error::{Error, FatalResult, Result};
 use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude, Graphviz};
 use crate::frontend::range::WithRange;
+use crate::frontend::rustdoc::{Crate, Rustdoc};
 use crate::generator::event::{Event, Tag, Image, Pdf, Svg};
 use crate::generator::Generator;
 use crate::resolve::{Include, ContextType, ResolveSecurity};
 
-pub struct Iter<'a> {
-    frontend: Fuse<Frontend<'a>>,
+type FeEvents<'a> = dyn Iterator<Item=WithRange<FeEvent<'a>>> + 'a;
+
+pub struct MarkdownIter<'a> {
+    frontend: Fuse<Box<FeEvents<'a>>>,
     peek: VecDeque<(WithRange<Event<'a>>, FeEventKind)>,
     /// Contains the kind of the last FeEvent returned from `Self::next()`.
     ///
@@ -22,9 +26,27 @@ pub struct Iter<'a> {
     last_kind: FeEventKind,
 }
 
-impl<'a> Iter<'a> {
+enum IncludeSource<'a> {
+    Resolve,
+    Image(FeInclude<'a>),
+    Synthetic {
+        parameter: FeInclude<'a>,
+        source: Cow<'a, str>,
+    },
+}
+
+impl<'a> MarkdownIter<'a> {
     pub fn new(frontend: Frontend<'a>) -> Self {
-        Iter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
+        let frontend: Box<FeEvents<'a>> = Box::new(frontend);
+        MarkdownIter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
+    }
+
+    pub fn with_rustdoc(rustdoc: Rustdoc<'a>) -> Self {
+        let frontend: Box<FeEvents<'a>> = Box::new(rustdoc.map(|event| {
+            WithRange(event, (0..0).into())
+        }));
+
+        MarkdownIter { frontend: frontend.fuse(), peek: VecDeque::new(), last_kind: FeEventKind::Start }
     }
 
     /// Retrieves and converts the next event that needs to be handled.
@@ -88,6 +110,7 @@ impl<'a> Iter<'a> {
             | FeEventKind::InterLink
             | FeEventKind::Include
             | FeEventKind::ResolveInclude
+            | FeEventKind::SyntheticInclude
             | FeEventKind::Label
             | FeEventKind::SoftBreak
             | FeEventKind::HardBreak
@@ -117,56 +140,89 @@ impl<'a> Iter<'a> {
         match event {
             FeEvent::Include(image) => {
                 let include = gen.resolve(image.resolve_security, &image.dst, range)?;
-                self.convert_include(WithRange(include, range), Some(image), gen)
+                let source = IncludeSource::Image(image);
+                self.convert_include(WithRange(include, range), source, gen)
             },
             FeEvent::ResolveInclude(include) => {
                 let include = gen.resolve(ResolveSecurity::Default, &include, range)?;
-                self.convert_include(WithRange(include, range), None, gen)
+                self.convert_include(WithRange(include, range), IncludeSource::Resolve, gen)
+            },
+            FeEvent::SyntheticInclude(include, parameter, source) => {
+                let source = IncludeSource::Synthetic { parameter, source };
+                self.convert_include(WithRange(include, range), source, gen)
             },
             e => Ok(e.into()),
         }
     }
 
     fn convert_include(
-        &mut self, WithRange(include, range): WithRange<Include>, image: Option<FeInclude<'a>>,
+        &mut self, WithRange(include, range): WithRange<Include>, source: IncludeSource<'a>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
-        let (label, caption, title, alt_text, scale, width, height) =
-            if let Some(FeInclude {
-                resolve_security: _,
-                label,
-                caption,
-                title,
-                alt_text,
-                dst: _dst,
-                scale,
-                width,
-                height,
-            }) = image
-            {
-                (label, caption, title, alt_text, scale, width, height)
-            } else {
-                Default::default()
+        let mut synthetic_source = None;
+        let (label, caption, title, alt_text, scale, width, height, adjust_headers) =
+            match source {
+                IncludeSource::Image(FeInclude {
+                    resolve_security: _,
+                    label,
+                    caption,
+                    title,
+                    alt_text,
+                    dst: _dst,
+                    scale,
+                    width,
+                    height,
+                    adjust_headers,
+                }) => {
+                    (label, caption, title, alt_text, scale, width, height, adjust_headers)
+                },
+                IncludeSource::Synthetic {
+                    parameter: FeInclude {
+                        resolve_security: _,
+                        label,
+                        caption,
+                        title,
+                        alt_text,
+                        dst: _dst,
+                        scale,
+                        width,
+                        height,
+                        adjust_headers,
+                    },
+                    source,
+                } => {
+                    synthetic_source = Some(source);
+                    (label, caption, title, alt_text, scale, width, height, adjust_headers)
+                },
+                IncludeSource::Resolve => {
+                    Default::default()
+                },
             };
         match include {
             Include::Command(command) => Ok(command.into()),
             Include::Markdown(path, context) => {
-                let markdown = fs::read_to_string(&path).map_err(|err| {
-                    gen.diagnostics()
-                        .error("error reading markdown include file")
-                        .with_error_section(range, "in this include")
-                        .error(format!("cause: {}", err))
-                        .note(format!("reading from path {}", path.display()))
-                        .emit();
-                    Error::Diagnostic
-                })?;
+                let markdown = if let Some(markdown) = synthetic_source {
+                    markdown
+                } else {
+                    let source = fs::read_to_string(&path).map_err(|err| {
+                        gen.diagnostics()
+                            .error("error reading markdown include file")
+                            .with_error_section(range, "in this include")
+                            .error(format!("cause: {}", err))
+                            .note(format!("reading from path {}", path.display()))
+                            .emit();
+                        Error::Diagnostic
+                    })?;
+                    Cow::Owned(source)
+                };
                 let input = match context.typ() {
                     ContextType::Remote => Input::Url(context.url().clone()),
                     ContextType::LocalRelative | ContextType::LocalAbsolute => {
                         Input::File(path)
                     },
                 };
-                let events = gen.get_events(markdown, context, input);
+                let mut events = gen.get_events(markdown, context, input);
+                events.adjust_header_levels = adjust_headers;
                 Ok(Event::IncludeMarkdown(Box::new(events)))
             },
             Include::Image(path) => {
@@ -180,6 +236,10 @@ impl<'a> Iter<'a> {
                     width,
                     height,
                 }))
+            },
+            Include::Rustdoc(path, context) => {
+                let events = gen.get_rustdoc(Crate::Local(path), context)?;
+                Ok(Event::IncludeRustdoc(Box::new(events)))
             },
             Include::Svg(path) => {
                 Ok(Event::Svg(Svg {

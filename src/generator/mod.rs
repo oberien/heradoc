@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt;
 use std::fs;
 use std::io::Write;
@@ -9,8 +10,9 @@ use codespan_reporting::termcolor::StandardStream;
 use crate::backend::{Backend, StatefulCodeGenUnit};
 use crate::config::{Config, FileOrStdio};
 use crate::diagnostics::{Diagnostics, Input};
-use crate::frontend::Frontend;
+use crate::frontend::{Frontend, Tag};
 use crate::frontend::range::{SourceRange, WithRange};
+use crate::frontend::rustdoc::{Crate, Rustdoc};
 use crate::resolve::{Context, Include, Resolver, ResolveSecurity};
 
 mod code_gen_units;
@@ -23,7 +25,7 @@ pub use self::stack::Stack;
 use self::code_gen_units::StackElement;
 use self::event::Event;
 use crate::error::{Error, FatalResult, Result};
-use crate::generator::iter::Iter;
+use crate::generator::iter::MarkdownIter;
 
 pub struct Generator<'a, B: Backend<'a>, W: Write> {
     arena: &'a Arena<String>,
@@ -34,18 +36,22 @@ pub struct Generator<'a, B: Backend<'a>, W: Write> {
     resolver: Resolver,
     template: Option<String>,
     stderr: Arc<Mutex<StandardStream>>,
+    header_level_adjustment: i32,
+    latest_header_level: i32,
 }
 
 pub struct Events<'a> {
-    events: Iter<'a>,
+    events: MarkdownIter<'a>,
     diagnostics: Arc<Diagnostics<'a>>,
     context: Context,
+    /// Whether to generate all events with an adjusted header level.
+    adjust_header_levels: bool,
 }
 
 impl<'a> fmt::Debug for Events<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Events")
-            .field("events", &"Iter")
+            .field("events", &"MarkdownIter")
             .field("diagnostics", &self.diagnostics)
             .field("context", &self.context)
             .finish()
@@ -67,18 +73,29 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             cfg,
             default_out,
             stack: Vec::new(),
-            resolver: Resolver::new(cfg.project_root.clone(), cfg.document_folder.clone(), cfg.temp_dir.clone()),
+            resolver: Resolver::new(cfg.project_root.clone(), cfg.document_folder.clone(), cfg.cache_dir.clone()),
             template,
             stderr,
+            header_level_adjustment: 0,
+            latest_header_level: 0 
         }
     }
 
-    pub fn get_events(&mut self, markdown: String, context: Context, input: Input) -> Events<'a> {
-        let markdown = self.arena.alloc(markdown);
+    pub fn get_events(&mut self, markdown: Cow<'a, str>, context: Context, input: Input) -> Events<'a> {
+        let markdown = match markdown {
+            Cow::Owned(markdown) => self.arena.alloc(markdown),
+            Cow::Borrowed(borrowed) => borrowed,
+        };
         let diagnostics = Arc::new(Diagnostics::new(markdown, input, Arc::clone(&self.stderr)));
         let frontend = Frontend::new(self.cfg, markdown, Arc::clone(&diagnostics));
-        let events = Iter::new(frontend);
-        Events { events, diagnostics, context }
+        let events = MarkdownIter::new(frontend);
+        Events { events, diagnostics, context, adjust_header_levels: false }
+    }
+
+    pub fn get_rustdoc(&mut self, target: Crate, context: Context) -> FatalResult<Rustdoc<'a>> {
+        let target = target.generate(self.diagnostics())?;
+        let diagnostics = Arc::new(Diagnostics::new("", Input::Stdin, Arc::clone(&self.stderr)));
+        Ok(Rustdoc::new(self.cfg, target, diagnostics, context))
     }
 
     pub fn generate(&mut self, markdown: String) -> FatalResult<()> {
@@ -88,7 +105,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             FileOrStdio::File(path) => Input::File(path.clone()),
             FileOrStdio::StdIo => Input::Stdin,
         };
-        let events = self.get_events(markdown, context, input);
+        let events = self.get_events(markdown.into(), context, input);
         if let Some(template) = self.template.take() {
             let body_index =
                 template.find("\nHERADOCBODY\n").expect("HERADOCBODY not found in template");
@@ -106,9 +123,45 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
     }
 
     pub fn generate_body(&mut self, events: Events<'a>) -> FatalResult<()> {
-        self.stack.push(StackElement::Context(events.context, events.diagnostics));
-        let mut events = events.events;
+        // Store the level adjustment.
+        let context = StackElement::Context(events.context, events.diagnostics, self.header_level_adjustment);
 
+        self.header_level_adjustment = self.latest_header_level;
+        self.generate_markdown_in(events.events, context)?;
+
+        Ok(())
+    }
+
+    pub fn generate_rustdoc(&mut self, events: Rustdoc<'a>) -> FatalResult<()> {
+        // TODO: we should push some context..
+        let context = StackElement::Context(
+            events.context().clone(),
+            events.diagnostics(),
+            self.header_level_adjustment);
+        self.generate_markdown_in(MarkdownIter::with_rustdoc(events), context)?;
+
+        Ok(())
+    }
+
+    fn generate_markdown_in(&mut self, events: MarkdownIter<'a>, context: StackElement<'a, B>) -> FatalResult<()> {
+        self.stack.push(context);
+
+        self.generate_markdown(events)?;
+
+        match self.stack.pop() {
+            Some(StackElement::Context(_, _, header_level_adjustment)) => {
+                self.header_level_adjustment = header_level_adjustment;
+            },
+            element => panic!(
+                "Expected context as stack element after body generation is finished, got {:?}",
+                element
+            ),
+        }
+
+        Ok(())
+    }
+
+    fn generate_markdown(&mut self, mut events: MarkdownIter<'a>) -> FatalResult<()> {
         while let Some(WithRange(event, range)) = events.next(self)? {
             let peek = events.peek(self)?;
             match self.visit_event(WithRange(event, range), self.cfg, peek) {
@@ -116,13 +169,6 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
                 Err(Error::Diagnostic) => events.skip(self)?,
                 Err(Error::Fatal(fatal)) => return Err(fatal),
             }
-        }
-        match self.stack.pop() {
-            Some(StackElement::Context(..)) => (),
-            element => panic!(
-                "Expected context as stack element after body generation is finished, got {:?}",
-                element
-            ),
         }
         Ok(())
     }
@@ -140,6 +186,10 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         match event {
             Event::End(_) => unreachable!(),
             Event::Start(tag) => {
+                let tag = self.adjust_tag_from_context(tag);
+                if let Tag::Header(header) = &tag {
+                    self.latest_header_level = header.level;
+                }
                 let state = StackElement::new(self.cfg, WithRange(tag, range), self)?;
                 self.stack.push(state);
             },
@@ -148,6 +198,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Event::InlineHtml(html) => B::Text::new(config, WithRange(html, range), self)?.finish(self, peek)?,
             Event::Latex(latex) => B::Latex::new(config, WithRange(latex, range), self)?.finish(self, peek)?,
             Event::IncludeMarkdown(events) => self.generate_body(*events)?,
+            Event::IncludeRustdoc(events) => self.generate_rustdoc(*events)?,
             Event::FootnoteReference(fnote) => {
                 B::FootnoteReference::new(config, WithRange(fnote, range), self)?.finish(self, peek)?
             },
@@ -177,6 +228,16 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         Ok(())
     }
 
+    /// Adjust the tag based on the context of this potentially included file within the full
+    /// document.
+    fn adjust_tag_from_context(&mut self, mut tag: Tag<'a>) -> Tag<'a> {
+        if let Tag::Header(header) = &mut tag {
+            header.level += self.header_level_adjustment;
+        }
+
+        tag
+    }
+
     pub fn stack(&mut self) -> Stack<'a, '_, B, W> {
         Stack::new(&mut self.default_out, &mut self.stack)
     }
@@ -199,7 +260,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
         for state in self.stack.iter_mut().rev() {
             if context.is_none() {
                 match state {
-                    StackElement::Context(ctx, diagnostics) => context = Some((ctx, diagnostics)),
+                    StackElement::Context(ctx, diagnostics, _) => context = Some((ctx, diagnostics)),
                     _ => (),
                 }
             } else if out.is_none() {

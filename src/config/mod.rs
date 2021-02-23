@@ -61,6 +61,8 @@ pub struct FileConfig {
     /// Defaults to tex for stdout.
     #[structopt(short = "t", long = "to", long = "out-type", long = "output-type")]
     pub output_type: Option<OutType>,
+    #[structopt(short = "c", long = "cache", long = "cache-dir")]
+    pub cache_dir: Option<PathBuf>,
 
     /// Type of the document.
     #[structopt(long)]
@@ -247,6 +249,11 @@ pub struct Config {
     /// directory.  This prevents content injection from untrusted sources and is currently the
     /// result of choosing this path randomly.  TODO: Make this restriction explicit.
     pub temp_dir: PathBuf,
+    /// Space for downloaded (or generated?) input files.
+    ///
+    /// Defaults to the `temp_dir` if not otherwise configured.
+    /// TODO: Similar restrictions as to `temp_dir` apply.
+    pub cache_dir: PathBuf,
     pub input: FileOrStdio,
     pub document_folder: PathBuf,
     pub project_root: PathBuf,
@@ -454,8 +461,15 @@ impl Config {
 
         Config {
             output,
-            out_dir: args.out_dir.unwrap_or_else(|| tempdir.path().to_owned()),
+            out_dir: args.out_dir
+                .unwrap_or_else(|| tempdir.path().to_owned()),
             temp_dir: tempdir_path,
+            cache_dir: {
+                let configured = infile.cache_dir
+                    .or(file.cache_dir)
+                    .unwrap_or_else(|| tempdir.path().to_owned());
+                project_root.join(configured)
+            },
             input: args.input,
             document_folder,
             project_root,
@@ -480,7 +494,7 @@ impl Config {
                 .unwrap_or(MaybeUnknown::Known(CitationStyle::Ieee)),
             figures: args.fileconfig.figures.or(infile.figures).or(file.figures).unwrap_or_else(
                 || match document_type {
-                    DocumentType::Article | DocumentType::Beamer => false,
+                    DocumentType::Article | DocumentType::Beamer | DocumentType::RustDoc => false,
                     DocumentType::Thesis | DocumentType::Report => true,
                 },
             ),
@@ -696,6 +710,7 @@ pub enum DocumentType {
     Report,
     Thesis,
     Beamer,
+    RustDoc,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Display, EnumString)]

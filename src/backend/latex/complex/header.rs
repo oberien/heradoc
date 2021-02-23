@@ -3,7 +3,7 @@ use std::io::Write;
 
 use crate::backend::{Backend, CodeGenUnit, StatefulCodeGenUnit, latex::Beamer};
 use crate::config::Config;
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::frontend::range::{WithRange, SourceRange};
 use crate::generator::event::{Event, Header};
 use crate::generator::Generator;
@@ -19,7 +19,26 @@ impl<'a> CodeGenUnit<'a, Header<'a>> for HeaderGen<'a> {
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         let WithRange(Header { label, level }, _range) = header;
-        write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
+
+        if level > 3 {
+            if level > 6 {
+                gen.diagnostics()
+                    .error("Latex backed does not support header nesting more than 6 levels.")
+                    .emit();
+
+                return Err(Error::Diagnostic);
+            }
+
+            const MORE_HEADERS: [&str; 3] = [
+                "heradocsectionfour",
+                "heradocsectionfive",
+                "heradocsectionsix",
+            ];
+
+            write!(gen.get_out(), "\\{}{{", MORE_HEADERS[level as usize - 4])?;
+        } else {
+            write!(gen.get_out(), "\\{}section{{", "sub".repeat(level as usize - 1))?;
+        }
         Ok(HeaderGen { label })
     }
 
