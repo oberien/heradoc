@@ -6,7 +6,7 @@ use std::fs::File;
 use std::io::Write;
 
 use lazy_static::lazy_static;
-use pulldown_cmark::{Options as CmarkOptions, Parser as CmarkParser};
+use pulldown_cmark::{BrokenLink, CowStr, Options as CmarkOptions, Parser as CmarkParser};
 use regex::Regex;
 use itertools::structs::MultiPeek;
 
@@ -56,14 +56,14 @@ impl<'a> Iterator for Frontend<'a> {
     }
 }
 
-fn broken_link_callback(normalized_ref: &str, text_ref: &str) -> Option<(String, String)> {
-    let trimmed = normalized_ref.trim();
+fn broken_link_callback<'a>(broken_link: BrokenLink<'a>) -> Option<(CowStr<'a>, CowStr<'a>)> {
+    let trimmed = broken_link.reference.trim();
     if trimmed.starts_with_ignore_ascii_case("include")
         || Command::from_str(trimmed).is_ok()
         || trimmed.starts_with('#')
         || trimmed.starts_with('@')
     {
-        Some((normalized_ref.to_string(), text_ref.to_string()))
+        Some((broken_link.reference.clone(), broken_link.reference))
     } else {
         None
     }
@@ -77,7 +77,7 @@ impl<'a> Frontend<'a> {
                 | CmarkOptions::ENABLE_TABLES
                 | CmarkOptions::ENABLE_STRIKETHROUGH
                 | CmarkOptions::ENABLE_TASKLISTS,
-            Some(&broken_link_callback),
+            Some(Box::leak(Box::new(broken_link_callback))),
         )
         .into_offset_iter();
         Frontend {
@@ -94,19 +94,22 @@ impl<'a> Frontend<'a> {
         let evt = evt.map(|evt| {
             match evt {
                 CmarkEvent::Text(text) => Some(Event::Text(text)),
-                CmarkEvent::Html(html) => Some(Event::Html(html)),
+                CmarkEvent::Code(cow) => {
+                    self.convert_inline_code(WithRange(cow, range));
+                    None
+                },
+                CmarkEvent::Html(html) => Some(self.convert_html(html)),
                 CmarkEvent::FootnoteReference(label) => {
                     Some(Event::FootnoteReference(FootnoteReference { label }))
                 },
                 CmarkEvent::SoftBreak => Some(Event::SoftBreak),
                 CmarkEvent::HardBreak => Some(Event::HardBreak),
+                CmarkEvent::Rule => Some(Event::Rule),
                 CmarkEvent::TaskListMarker(checked) => {
                     Some(Event::TaskListMarker(TaskListMarker { checked }))
                 },
 
                 // TODO: make this not duplicate
-                CmarkEvent::Start(CmarkTag::Rule) => Some(Event::Start(Tag::Rule)),
-                CmarkEvent::End(CmarkTag::Rule) => Some(Event::End(Tag::Rule)),
                 CmarkEvent::Start(CmarkTag::BlockQuote) => Some(Event::Start(Tag::BlockQuote)),
                 CmarkEvent::End(CmarkTag::BlockQuote) => Some(Event::End(Tag::BlockQuote)),
                 CmarkEvent::Start(CmarkTag::List(start_number)) if start_number.is_none() => {
@@ -129,8 +132,6 @@ impl<'a> Frontend<'a> {
                 CmarkEvent::End(CmarkTag::FootnoteDefinition(label)) => {
                     Some(Event::End(Tag::FootnoteDefinition(FootnoteDefinition { label })))
                 },
-                CmarkEvent::Start(CmarkTag::HtmlBlock) => Some(Event::Start(Tag::HtmlBlock)),
-                CmarkEvent::End(CmarkTag::HtmlBlock) => Some(Event::End(Tag::HtmlBlock)),
                 CmarkEvent::Start(CmarkTag::TableHead) => Some(Event::Start(Tag::TableHead)),
                 CmarkEvent::End(CmarkTag::TableHead) => Some(Event::End(Tag::TableHead)),
                 CmarkEvent::Start(CmarkTag::TableRow) => Some(Event::Start(Tag::TableRow)),
@@ -144,14 +145,6 @@ impl<'a> Frontend<'a> {
                 CmarkEvent::Start(CmarkTag::Strikethrough) => Some(Event::Start(Tag::InlineStrikethrough)),
                 CmarkEvent::End(CmarkTag::Strikethrough) => Some(Event::End(Tag::InlineStrikethrough)),
 
-                CmarkEvent::InlineHtml(html) => {
-                    self.convert_inline_html(WithRange(html, range));
-                    None
-                },
-                CmarkEvent::Start(CmarkTag::Code) => {
-                    self.convert_inline_code(WithRange((), range));
-                    None
-                },
                 CmarkEvent::Start(CmarkTag::CodeBlock(lang)) => {
                     self.convert_code_block(WithRange(lang, range), None);
                     None
@@ -177,8 +170,7 @@ impl<'a> Frontend<'a> {
                     None
                 },
 
-                CmarkEvent::End(CmarkTag::Code)
-                | CmarkEvent::End(CmarkTag::CodeBlock(_))
+                CmarkEvent::End(CmarkTag::CodeBlock(_))
                 | CmarkEvent::End(CmarkTag::Paragraph)
                 | CmarkEvent::End(CmarkTag::Header(_))
                 | CmarkEvent::End(CmarkTag::Table(_))
@@ -194,15 +186,12 @@ impl<'a> Frontend<'a> {
         }
     }
 
-    fn convert_inline_html(&mut self, html: WithRange<Cow<'a, str>>) {
-        let evt = html.map(|html| {
-            // TODO: proper HTML tag parsing
-            match html.as_ref() {
-                "<br>" | "<br/>" | "<br />" => Event::HardBreak,
-                _ => Event::InlineHtml(html),
-            }
-        });
-        self.buffer.push_back(evt);
+    fn convert_html(&mut self, html: Cow<'a, str>) -> Event<'a> {
+        // TODO: proper HTML tag parsing
+        match html.as_ref() {
+            "<br>" | "<br/>" | "<br />" => Event::HardBreak,
+            _ => Event::Html(html),
+        }
     }
 
     /// Consumes and converts all elements until the next End event is received.
@@ -269,9 +258,10 @@ impl<'a> Frontend<'a> {
                 CmarkEvent::End(_) if nest > 0 => nest -= 1,
                 CmarkEvent::End(_) => break,
                 CmarkEvent::Text(text) => s += &text,
-                CmarkEvent::Html(_) => (),
-                CmarkEvent::InlineHtml(html) => s += &html,
+                CmarkEvent::Code(text) => { s += "`"; s += text; s += "`" },
+                CmarkEvent::Html(html) => s += &html,
                 CmarkEvent::SoftBreak | CmarkEvent::HardBreak => s += " ",
+                CmarkEvent::Rule => (),
                 CmarkEvent::FootnoteReference(_) => (),
                 CmarkEvent::TaskListMarker(_) => (),
             }
@@ -279,22 +269,8 @@ impl<'a> Frontend<'a> {
         s
     }
 
-    fn convert_inline_code(&mut self, WithRange((), range): WithRange<()>) {
+    fn convert_inline_code(&mut self, WithRange(mut text, range): WithRange<Cow<'a, str>>) {
         // check if code is math mode
-        let WithRange(evt, _text_range) = self.parser.next().unwrap();
-        let mut text = match evt {
-            CmarkEvent::Text(text) => text,
-            CmarkEvent::End(CmarkTag::Code) => {
-                self.buffer.push_back(WithRange(Event::Start(Tag::InlineCode), range));
-                self.buffer.push_back(WithRange(Event::End(Tag::InlineCode), range));
-                return;
-            },
-            e => unreachable!(
-                "InlineCode should always be followed by Text or End(Code) but was followed by \
-                 {:?}",
-                e
-            ),
-        };
         let tag = if text.chars().nth(1).map_or(false, char::is_whitespace) {
             match text.chars().next().unwrap() {
                 '$' => {
@@ -305,10 +281,6 @@ impl<'a> Frontend<'a> {
                 '\\' => {
                     // latex
                     text.truncate_start(2);
-                    match self.parser.next().unwrap().0 {
-                        CmarkEvent::End(CmarkTag::Code) => (),
-                        _ => unreachable!("InlineCode should only contain a single text event"),
-                    }
                     self.buffer.push_back(WithRange(Event::Latex(text), range));
                     return;
                 },
@@ -319,7 +291,6 @@ impl<'a> Frontend<'a> {
         };
         self.buffer.push_back(WithRange(Event::Start(tag.clone()), range));
         self.buffer.push_back(WithRange(Event::Text(text), range));
-        self.convert_until_end_inclusive(|t| if let CmarkTag::Code = t { true } else { false });
         self.buffer.push_back(WithRange(Event::End(tag), range));
     }
 

@@ -278,6 +278,20 @@ impl MediumCodeGenUnit<()> for HardBreakGen {
 }
 
 #[derive(Debug, Default)]
+pub struct RuleGen;
+
+impl<'a> SimpleCodeGenUnit<()> for RuleGen {
+    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+        writeln!(out)?;
+        writeln!(out, "\\vspace{{1em}}")?;
+        writeln!(out, "\\hrule")?;
+        writeln!(out, "\\vspace{{1em}}")?;
+        writeln!(out)?;
+        Ok(())
+    }
+}
+
+#[derive(Debug, Default)]
 pub struct PageBreakGen;
 
 impl SimpleCodeGenUnit<()> for PageBreakGen {

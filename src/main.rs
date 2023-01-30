@@ -29,7 +29,7 @@
 #![allow(clippy::if_not_else)]
 #![allow(clippy::single_match_else)]
 
-use std::env;
+use std::{env, mem};
 use std::fs::{self, File};
 use std::io::{self, Result, Write};
 use std::path::{Path, PathBuf};

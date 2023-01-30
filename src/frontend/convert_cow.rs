@@ -1,17 +1,10 @@
 use std::borrow::Cow;
 
-use pulldown_cmark::{
-    Alignment,
-    CowStr,
-    Event as CmarkEvent,
-    LinkType,
-    OffsetIter,
-    Tag as CmarkTag,
-};
+use pulldown_cmark::{Alignment, CodeBlockKind, CowStr, Event as CmarkEvent, LinkType, OffsetIter, Tag as CmarkTag};
 
 use crate::frontend::range::WithRange;
 
-pub struct ConvertCow<'a>(pub OffsetIter<'a>);
+pub struct ConvertCow<'a>(pub OffsetIter<'a, 'a>);
 
 impl<'a> Iterator for ConvertCow<'a> {
     type Item = WithRange<Event<'a>>;
@@ -35,11 +28,12 @@ pub enum Event<'a> {
     Start(Tag<'a>),
     End(Tag<'a>),
     Text(Cow<'a, str>),
+    Code(Cow<'a, str>),
     Html(Cow<'a, str>),
-    InlineHtml(Cow<'a, str>),
     FootnoteReference(Cow<'a, str>),
     SoftBreak,
     HardBreak,
+    Rule,
     /// A task list marker, rendered as a checkbox in HTML. Contains a true when it is checked
     TaskListMarker(bool),
 }
@@ -50,11 +44,12 @@ impl<'a> From<CmarkEvent<'a>> for Event<'a> {
             CmarkEvent::Start(tag) => Event::Start(tag.into()),
             CmarkEvent::End(tag) => Event::End(tag.into()),
             CmarkEvent::Text(cow) => Event::Text(convert(cow)),
+            CmarkEvent::Code(cow) => Event::Code(convert(cow)),
             CmarkEvent::Html(cow) => Event::Html(convert(cow)),
-            CmarkEvent::InlineHtml(cow) => Event::InlineHtml(convert(cow)),
             CmarkEvent::FootnoteReference(cow) => Event::FootnoteReference(convert(cow)),
             CmarkEvent::SoftBreak => Event::SoftBreak,
             CmarkEvent::HardBreak => Event::HardBreak,
+            CmarkEvent::Rule => Event::Rule,
             CmarkEvent::TaskListMarker(b) => Event::TaskListMarker(b),
         }
     }
@@ -64,7 +59,6 @@ impl<'a> From<CmarkEvent<'a>> for Event<'a> {
 pub enum Tag<'a> {
     // block-level tags
     Paragraph,
-    Rule,
 
     /// A heading. The field indicates the level of the heading.
     Header(i32),
@@ -73,10 +67,9 @@ pub enum Tag<'a> {
     CodeBlock(Cow<'a, str>),
 
     /// A list. If the list is ordered the field indicates the number of the first item.
-    List(Option<usize>), // TODO: add delim and tight for ast (not needed for html)
+    List(Option<u64>), // TODO: add delim and tight for ast (not needed for html)
     Item,
     FootnoteDefinition(Cow<'a, str>),
-    HtmlBlock,
 
     // tables
     Table(Vec<Alignment>),
@@ -88,7 +81,6 @@ pub enum Tag<'a> {
     Emphasis,
     Strong,
     Strikethrough,
-    Code,
 
     /// A link. The first field is the link type, the second the destination URL and the third is a
     /// title
@@ -103,14 +95,13 @@ impl<'a> From<CmarkTag<'a>> for Tag<'a> {
     fn from(tag: CmarkTag<'a>) -> Self {
         match tag {
             CmarkTag::Paragraph => Tag::Paragraph,
-            CmarkTag::Rule => Tag::Rule,
-            CmarkTag::Header(level) => Tag::Header(level),
+            CmarkTag::Heading(level, _, _) => Tag::Header(level as i32),
             CmarkTag::BlockQuote => Tag::BlockQuote,
-            CmarkTag::CodeBlock(cow) => Tag::CodeBlock(convert(cow)),
+            CmarkTag::CodeBlock(CodeBlockKind::Indented) => Tag::CodeBlock(Cow::Borrowed("")),
+            CmarkTag::CodeBlock(CodeBlockKind::Fenced(cow)) => Tag::CodeBlock(convert(cow)),
             CmarkTag::List(start) => Tag::List(start),
             CmarkTag::Item => Tag::Item,
             CmarkTag::FootnoteDefinition(cow) => Tag::FootnoteDefinition(convert(cow)),
-            CmarkTag::HtmlBlock => Tag::HtmlBlock,
             CmarkTag::Table(alignment) => Tag::Table(alignment),
             CmarkTag::TableHead => Tag::TableHead,
             CmarkTag::TableRow => Tag::TableRow,
@@ -118,7 +109,6 @@ impl<'a> From<CmarkTag<'a>> for Tag<'a> {
             CmarkTag::Emphasis => Tag::Emphasis,
             CmarkTag::Strong => Tag::Strong,
             CmarkTag::Strikethrough => Tag::Strikethrough,
-            CmarkTag::Code => Tag::Code,
             CmarkTag::Link(typ, dst, title) => Tag::Link(typ, convert(dst), convert(title)),
             CmarkTag::Image(typ, dst, title) => Tag::Image(typ, convert(dst), convert(title)),
         }

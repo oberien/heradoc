@@ -31,6 +31,7 @@ impl<'a> Backend<'a> for Thesis {
     type Pdf = latex::PdfGen;
     type SoftBreak = latex::SoftBreakGen;
     type HardBreak = latex::HardBreakGen;
+    type Rule = latex::RuleGen;
     type PageBreak = latex::PageBreakGen;
     type TaskListMarker = latex::TaskListMarkerGen;
     type TableOfContents = latex::TableOfContentsGen;
@@ -41,7 +42,6 @@ impl<'a> Backend<'a> for Thesis {
     type Appendix = latex::AppendixGen;
 
     type Paragraph = latex::ParagraphGen;
-    type Rule = latex::RuleGen;
     type Header = latex::BookHeaderGen<'a>;
     type BlockQuote = latex::BlockQuoteGen;
     type CodeBlock = latex::CodeBlockGen;
@@ -51,7 +51,6 @@ impl<'a> Backend<'a> for Thesis {
     type FootnoteDefinition = latex::FootnoteDefinitionGen;
     type UrlWithContent = latex::UrlWithContentGen<'a>;
     type InterLinkWithContent = latex::InterLinkWithContentGen;
-    type HtmlBlock = latex::HtmlBlockGen;
     type Figure = latex::FigureGen<'a>;
 
     type TableFigure = latex::TableFigureGen<'a>;

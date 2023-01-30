@@ -80,7 +80,6 @@ impl<'a> Iter<'a> {
             FeEventKind::End
             | FeEventKind::Text
             | FeEventKind::Html
-            | FeEventKind::InlineHtml
             | FeEventKind::Latex
             | FeEventKind::FootnoteReference
             | FeEventKind::BiberReferences
@@ -91,6 +90,7 @@ impl<'a> Iter<'a> {
             | FeEventKind::Label
             | FeEventKind::SoftBreak
             | FeEventKind::HardBreak
+            | FeEventKind::Rule
             | FeEventKind::PageBreak
             | FeEventKind::TaskListMarker
             | FeEventKind::Command => return Ok(()),

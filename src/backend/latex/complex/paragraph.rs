@@ -27,7 +27,6 @@ impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
         match peek.map(|WithRange(peek, _)| peek) {
             Some(Event::Text(_))
             | Some(Event::Html(_))
-            | Some(Event::InlineHtml(_))
             | Some(Event::Start(Tag::Paragraph))
             // those shouldn't occur after a par, but better safe than sorry
             | Some(Event::Start(Tag::InlineEmphasis))

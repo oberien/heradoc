@@ -16,4 +16,4 @@ Svg from web:
 ![](https://upload.wikimedia.org/wikipedia/commons/4/48/Markdown-mark.svg)
 
 Another image from web:
-[include https://placehold.it/100x100.png]
+[include https://via.placeholder.com/100x100.png]

@@ -13,7 +13,6 @@ use crate::resolve::Context;
 #[derive(Debug)]
 pub enum StackElement<'a, B: Backend<'a>> {
     Paragraph(B::Paragraph),
-    Rule(B::Rule),
     Header(B::Header),
     BlockQuote(B::BlockQuote),
     CodeBlock(B::CodeBlock),
@@ -23,7 +22,6 @@ pub enum StackElement<'a, B: Backend<'a>> {
     FootnoteDefinition(B::FootnoteDefinition),
     Url(B::UrlWithContent),
     InterLink(B::InterLinkWithContent),
-    HtmlBlock(B::HtmlBlock),
     Figure(B::Figure),
     TableFigure(B::TableFigure),
     Table(B::Table),
@@ -51,7 +49,6 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
         let WithRange(tag, range) = tag;
         match tag {
             Tag::Paragraph => Ok(Paragraph(B::Paragraph::new(cfg, WithRange((), range), gen)?)),
-            Tag::Rule => Ok(Rule(B::Rule::new(cfg, WithRange((), range), gen)?)),
             Tag::Header(header) => Ok(Header(B::Header::new(cfg, WithRange(header, range), gen)?)),
             Tag::BlockQuote => Ok(BlockQuote(B::BlockQuote::new(cfg, WithRange((), range), gen)?)),
             Tag::CodeBlock(cb) => Ok(CodeBlock(B::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
@@ -61,7 +58,6 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(B::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
             Tag::Url(url) => Ok(Url(B::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
             Tag::InterLink(interlink) => Ok(InterLink(B::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
-            Tag::HtmlBlock => Ok(HtmlBlock(B::HtmlBlock::new(cfg, WithRange((), range), gen)?)),
             Tag::Figure(figure) => Ok(Figure(B::Figure::new(cfg, WithRange(figure, range), gen)?)),
             Tag::TableFigure(figure) => Ok(TableFigure(B::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
             Tag::Table(table) => Ok(Table(B::Table::new(cfg, WithRange(table, range), gen)?)),
@@ -82,7 +78,6 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
     pub fn output_redirect(&mut self) -> Option<&mut dyn Write> {
         match self {
             Paragraph(s) => s.output_redirect(),
-            Rule(s) => s.output_redirect(),
             Header(s) => s.output_redirect(),
             BlockQuote(s) => s.output_redirect(),
             CodeBlock(s) => s.output_redirect(),
@@ -92,7 +87,6 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             FootnoteDefinition(s) => s.output_redirect(),
             Url(s) => s.output_redirect(),
             InterLink(s) => s.output_redirect(),
-            HtmlBlock(s) => s.output_redirect(),
             Figure(s) => s.output_redirect(),
             TableFigure(s) => s.output_redirect(),
             Table(s) => s.output_redirect(),
@@ -115,7 +109,6 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
     pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, B, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
         match (self, tag) {
             (Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
-            (Rule(s), Tag::Rule) => s.finish(gen, peek),
             (Header(s), Tag::Header(_)) => s.finish(gen, peek),
             (BlockQuote(s), Tag::BlockQuote) => s.finish(gen, peek),
             (CodeBlock(s), Tag::CodeBlock(_)) => s.finish(gen, peek),
@@ -125,7 +118,6 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
             (FootnoteDefinition(s), Tag::FootnoteDefinition(_)) => s.finish(gen, peek),
             (Url(s), Tag::Url(_)) => s.finish(gen, peek),
             (InterLink(s), Tag::InterLink(_)) => s.finish(gen, peek),
-            (HtmlBlock(s), Tag::HtmlBlock) => s.finish(gen, peek),
             (Figure(s), Tag::Figure(_)) => s.finish(gen, peek),
             (TableFigure(s), Tag::TableFigure(_)) => s.finish(gen, peek),
             (Table(s), Tag::Table(_)) => s.finish(gen, peek),

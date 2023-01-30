@@ -38,6 +38,7 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
     type SoftBreak = <Beamer as Backend<'a>>::SoftBreak;
     type HardBreak = <Beamer as Backend<'a>>::HardBreak;
     type PageBreak = PseudoBeamerPageBreakGen<'a>;
+    type Rule = <Beamer as Backend<'a>>::Rule;
     type TaskListMarker = <Beamer as Backend<'a>>::TaskListMarker;
     type TableOfContents = <Beamer as Backend<'a>>::TableOfContents;
     type Bibliography = <Beamer as Backend<'a>>::Bibliography;
@@ -47,7 +48,6 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
     type Appendix = <Beamer as Backend<'a>>::Appendix;
 
     type Paragraph = <Beamer as Backend<'a>>::Paragraph;
-    type Rule = <Beamer as Backend<'a>>::Rule;
     type Header = PseudoBeamerHeaderGen<'a>;
     type BlockQuote = <Beamer as Backend<'a>>::BlockQuote;
     type CodeBlock = CodeBlockGen;
@@ -57,7 +57,6 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
     type FootnoteDefinition = <Beamer as Backend<'a>>::FootnoteDefinition;
     type UrlWithContent = <Beamer as Backend<'a>>::UrlWithContent;
     type InterLinkWithContent = <Beamer as Backend<'a>>::InterLinkWithContent;
-    type HtmlBlock = <Beamer as Backend<'a>>::HtmlBlock;
     type Figure = <Beamer as Backend<'a>>::Figure;
 
     type TableFigure = <Beamer as Backend<'a>>::TableFigure;

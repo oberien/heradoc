@@ -16,7 +16,7 @@ For ubuntu, ensure that you are using its latest version, to ensure that you hav
 To do that, run `sudo apt update && sudo apt upgrade && do-release-upgrade`.
 
 On ubuntu, install `pkg-config`, `libssl-dev`, `libpango1.0-dev`, `libxml2-dev`, `libcairo2-dev`, `texlive` and `graphviz`.
-On arch, install `base-devel`, `openssl`, `pango`, `libxml2`, `cairo`, `texlive-bin`, `texlive-core`, `texlive-latexextra` and `texlive-science`.
+On arch, install `base-devel`, `openssl`, `pango`, `libxml2`, `cairo`, `texlive-bin`, `texlive-core`, `texlive-latexextra`, `texlive-bibtexextra`, `biber` and `texlive-science`.
 For other distributions, those packages may have different names.
 
 ## Windows

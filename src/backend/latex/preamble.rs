@@ -187,7 +187,7 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
             if let Some(author) = cfg.shortauthor.as_ref().or(cfg.author.as_ref()) {
                 write!(out, "[{}]", author)?;
             }
-        } else {
+        } else if cfg.shortauthor.is_some() {
             diagnostics.warning("the shortauthor option is only supported by beamer").emit();
         }
         write!(out, "{{")?;

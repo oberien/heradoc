@@ -15,7 +15,6 @@ pub enum Event<'a> {
     End(Tag<'a>),
     Text(Cow<'a, str>),
     Html(Cow<'a, str>),
-    InlineHtml(Cow<'a, str>),
     Latex(Cow<'a, str>),
     FootnoteReference(FootnoteReference<'a>),
     BiberReferences(Vec<BiberReference<'a>>),
@@ -30,6 +29,7 @@ pub enum Event<'a> {
     Label(Cow<'a, str>),
     SoftBreak,
     HardBreak,
+    Rule,
     PageBreak,
     TaskListMarker(TaskListMarker),
 
@@ -68,7 +68,6 @@ pub struct TaskListMarker {
 #[derive(Debug, Clone)]
 pub enum Tag<'a> {
     Paragraph,
-    Rule,
     Header(Header<'a>),
     BlockQuote,
     CodeBlock(CodeBlock<'a>),
@@ -76,7 +75,6 @@ pub enum Tag<'a> {
     Enumerate(Enumerate),
     Item,
     FootnoteDefinition(FootnoteDefinition<'a>),
-    HtmlBlock,
     /// Url with content
     Url(Url<'a>),
     /// InterLink with content
@@ -115,7 +113,7 @@ pub struct CodeBlock<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Enumerate {
-    pub start_number: usize,
+    pub start_number: u64,
 }
 
 #[derive(Debug, Clone)]

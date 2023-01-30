@@ -145,7 +145,6 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             },
             Event::Text(text) => B::Text::new(config, WithRange(text, range), self)?.finish(self, peek)?,
             Event::Html(html) => B::Text::new(config, WithRange(html, range), self)?.finish(self, peek)?,
-            Event::InlineHtml(html) => B::Text::new(config, WithRange(html, range), self)?.finish(self, peek)?,
             Event::Latex(latex) => B::Latex::new(config, WithRange(latex, range), self)?.finish(self, peek)?,
             Event::IncludeMarkdown(events) => self.generate_body(*events)?,
             Event::FootnoteReference(fnote) => {
@@ -162,6 +161,7 @@ impl<'a, B: Backend<'a>, W: Write> Generator<'a, B, W> {
             Event::Pdf(pdf) => B::Pdf::new(config, WithRange(pdf, range), self)?.finish(self, peek)?,
             Event::SoftBreak => B::SoftBreak::new(config, WithRange((), range), self)?.finish(self, peek)?,
             Event::HardBreak => B::HardBreak::new(config, WithRange((), range), self)?.finish(self, peek)?,
+            Event::Rule => B::Rule::new(config, WithRange((), range), self)?.finish(self, peek)?,
             Event::PageBreak => B::PageBreak::new(config, WithRange((), range), self)?.finish(self, peek)?,
             Event::TaskListMarker(marker) => {
                 B::TaskListMarker::new(config, WithRange(marker, range), self)?.finish(self, peek)?

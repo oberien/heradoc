@@ -60,6 +60,7 @@ pub trait Backend<'a>: Sized + Debug {
     type SoftBreak: StatefulCodeGenUnit<'a, Self, ()>;
     type HardBreak: StatefulCodeGenUnit<'a, Self, ()>;
     type PageBreak: StatefulCodeGenUnit<'a, Self, ()>;
+    type Rule: StatefulCodeGenUnit<'a, Self, ()>;
     type TaskListMarker: StatefulCodeGenUnit<'a, Self, TaskListMarker>;
     type TableOfContents: StatefulCodeGenUnit<'a, Self, ()>;
     type Bibliography: StatefulCodeGenUnit<'a, Self, ()>;
@@ -69,7 +70,6 @@ pub trait Backend<'a>: Sized + Debug {
     type Appendix: StatefulCodeGenUnit<'a, Self, ()>;
 
     type Paragraph: StatefulCodeGenUnit<'a, Self, ()>;
-    type Rule: StatefulCodeGenUnit<'a, Self, ()>;
     type Header: StatefulCodeGenUnit<'a, Self, Header<'a>>;
     type BlockQuote: StatefulCodeGenUnit<'a, Self, ()>;
     type CodeBlock: StatefulCodeGenUnit<'a, Self, CodeBlock<'a>>;
@@ -79,7 +79,6 @@ pub trait Backend<'a>: Sized + Debug {
     type FootnoteDefinition: StatefulCodeGenUnit<'a, Self, FootnoteDefinition<'a>>;
     type UrlWithContent: StatefulCodeGenUnit<'a, Self, Url<'a>>;
     type InterLinkWithContent: StatefulCodeGenUnit<'a, Self, InterLink<'a>>;
-    type HtmlBlock: StatefulCodeGenUnit<'a, Self, ()>;
     type Figure: StatefulCodeGenUnit<'a, Self, Figure<'a>>;
 
     type TableFigure: StatefulCodeGenUnit<'a, Self, Figure<'a>>;

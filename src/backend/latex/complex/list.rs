@@ -41,7 +41,7 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     ) -> Result<Self> {
         let WithRange(Enumerate { start_number }, _range) = enumerate;
         assert!(std::mem::size_of::<usize>() >= 4);
-        assert!(start_number < i32::max_value() as usize);
+        assert!(start_number < i32::MAX as u64);
         let start = start_number as i32 - 1;
         let enumerate_depth = 1 + gen.iter_stack().filter(|state| state.is_enumerate()).count();
         writeln!(gen.get_out(), "\\begin{{enumerate}}")?;
