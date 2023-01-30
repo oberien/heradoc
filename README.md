@@ -15,8 +15,8 @@ To find out how to install rust, visit <https://rustup.rs> and follow
 For ubuntu, ensure that you are using its latest version, to ensure that you have the newest versions of all packages.
 To do that, run `sudo apt update && sudo apt upgrade && do-release-upgrade`.
 
-Install `pkg-config`, `libssl-dev`, `libpango1.0-dev`, `libxml2-dev`, `libcairo2-dev`, `texlive` and `graphviz`.
-The above names are for ubuntu systems.
+On ubuntu, install `pkg-config`, `libssl-dev`, `libpango1.0-dev`, `libxml2-dev`, `libcairo2-dev`, `texlive` and `graphviz`.
+On arch, install `base-devel`, `openssl`, `pango`, `libxml2`, `cairo`, `texlive-bin`, `texlive-core`, `texlive-latexextra` and `texlive-science`.
 For other distributions, those packages may have different names.
 
 ## Windows

@@ -184,9 +184,11 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
     if cfg.author.is_some() || cfg.supervisor.is_some() || cfg.advisor.is_some() {
         write!(out, "\\author")?;
         if short_author == ShortAuthor::Yes {
-            if let Some(author) = &cfg.author {
+            if let Some(author) = cfg.shortauthor.as_ref().or(cfg.author.as_ref()) {
                 write!(out, "[{}]", author)?;
             }
+        } else {
+            diagnostics.warning("the shortauthor option is only supported by beamer").emit();
         }
         write!(out, "{{")?;
         let mut joiner = OutJoiner::new(&mut *out, "\\\\");

@@ -123,6 +123,9 @@ pub struct FileConfig {
     /// Author(s) of document, used for titlepage
     #[structopt(long)]
     pub author: Option<String>,
+    /// Short names of author(s), used e.g. for the footer in presentations
+    #[structopt(long)]
+    pub shortauthor: Option<String>,
     /// Email(s) of authors, used for titlepage
     #[structopt(long)]
     pub email: Option<String>,
@@ -276,6 +279,7 @@ pub struct Config {
     pub subtitle: Option<String>,
     pub titlehead: Option<String>,
     pub author: Option<String>,
+    pub shortauthor: Option<String>,
     pub email: Option<String>,
     pub date: Option<String>,
     pub publisher: Option<String>,
@@ -501,6 +505,7 @@ impl Config {
             subtitle: args.fileconfig.subtitle.or(infile.subtitle).or(file.subtitle),
             titlehead: args.fileconfig.titlehead.or(infile.titlehead).or(file.titlehead),
             author: args.fileconfig.author.or(infile.author).or(file.author),
+            shortauthor: args.fileconfig.shortauthor.or(infile.shortauthor).or(file.shortauthor),
             email: args.fileconfig.email.or(infile.email).or(file.email),
             date: args.fileconfig.date.or(infile.date).or(file.date),
             publisher: args.fileconfig.publisher.or(infile.publisher).or(file.publisher),
