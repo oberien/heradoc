@@ -12,8 +12,9 @@ void = "1.0.2"
 boolinator = "2.4"
 tempdir = "0.3.7"
 typed-arena = "1.4.1"
-url = "1.7.1"
-reqwest = "0.9.2"
+url = "2.3.1"
+#reqwest = "0.9.2"
+reqwest = { version = "0.11.14", features = ["blocking"] }
 serde = { version = "1.0.89", features = ["derive"] }
 toml = "0.5.0"
 log = "0.4.5"
@@ -31,8 +32,8 @@ codespan = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc5
 codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc58721415ce3120d05cf117ca81" }
 backtrace = "0.3.14"
 enum-kinds = "0.4.1"
-lexical = "5.0.0"
-svgbob = "0.5.0-alpha.5"
+lexical = "6.1.1"
+svgbob = "0.6.7"
 itertools = "0.9.0"
 
 [target.'cfg(not(windows))'.dependencies]

@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use mime::Mime;
 use sha2::{Digest, Sha256};
 // TODO: The error representation is awkward with reqwest, evaluate cHTTP instead.
-use reqwest::{header, Client, Error as RequestError, RedirectPolicy, Response};
+use reqwest::{header, blocking::{Client, Response}, Error as RequestError, redirect::Policy};
 use url::Url;
 
 /// Provide access to remotely hosted resources.
@@ -55,7 +55,7 @@ impl Remote {
         let client = Client::builder()
             // TODO: how should redirects interact relative references etc. ?
             // Also consider that redirects could influence the injectivity of `target_path`
-            .redirect(RedirectPolicy::none())
+            .redirect(Policy::none())
             .build()?;
 
         Ok(Remote { temp: download_folder, client })

@@ -489,7 +489,7 @@ impl<'a> Frontend<'a> {
                 self.buffer.push_back(WithRange(Event::End(Tag::Paragraph), range));
                 return;
             }};
-        };
+        }
 
         let text = match self.parser.peek().map(|t| t.as_ref().element()) {
             Some(CmarkEvent::Text(text)) => text, // continue
@@ -712,7 +712,7 @@ impl<'a> Frontend<'a> {
         let tag = Tag::Header(Header { label, level });
         self.buffer.insert(current_index, WithRange(Event::Start(tag.clone()), range));
         // if there was an inline-label, remove the label from the converted output
-        if let Some(range) = inline_range {
+        if let Some(_) = inline_range {
             let WithRange(evt, mut range) = self.buffer.pop_back().unwrap();
             let mut last_text = match evt {
                 Event::Text(text) => text,

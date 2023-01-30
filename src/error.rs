@@ -2,9 +2,7 @@ use std::io;
 use std::result;
 use std::fmt;
 
-#[must_use]
 pub type Result<T> = result::Result<T, Error>;
-#[must_use]
 pub type FatalResult<T> = result::Result<T, Fatal>;
 
 #[must_use]

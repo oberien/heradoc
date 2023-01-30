@@ -4,8 +4,6 @@ use std::fmt;
 #[cfg(not(windows))]
 use librsvg::{Length, LengthUnit};
 
-use lexical::ErrorCode;
-
 // TODO: actually use this everywhere
 #[derive(Debug, Clone, Copy)]
 pub struct Size {
@@ -27,13 +25,13 @@ pub enum SizeUnit {
 }
 
 pub enum ParseSizeError {
-    ParseError(ErrorCode),
+    ParseError(lexical::Error),
     UnknownSuffix(String),
 }
 
 impl From<lexical::Error> for ParseSizeError {
     fn from(err: lexical::Error) -> Self {
-        ParseSizeError::ParseError(err.code)
+        ParseSizeError::ParseError(err)
     }
 }
 
