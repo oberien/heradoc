@@ -95,10 +95,10 @@ impl Remote {
         let extension = key.path.extension();
 
         let file_hash = Sha256::new()
-            .chain(key.host.as_str())
-            .chain(key.path.to_str().unwrap())
-            .chain(key.mime.as_ref().map_or("", Mime::as_ref))
-            .result();
+            .chain_update(key.host.as_str())
+            .chain_update(key.path.to_str().unwrap())
+            .chain_update(key.mime.as_ref().map_or("", Mime::as_ref))
+            .finalize();
 
         let mut hash_name = format!("{:x}", file_hash);
 

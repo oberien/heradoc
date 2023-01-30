@@ -132,7 +132,7 @@ fn main() {
         },
         OutType::Mp4 => {
             ensure_mp4_tools_installed();
-            let tmpdir = core::mem::ManuallyDrop::new(tmpdir);
+            let tmpdir = mem::ManuallyDrop::new(tmpdir);
             let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
             let movie = ffmpeg(generated, &cfg);
             let mut movie = File::open(movie)
