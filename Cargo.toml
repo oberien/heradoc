@@ -34,7 +34,7 @@ backtrace = "0.3.14"
 enum-kinds = "0.4.1"
 lexical = "6.1.1"
 svgbob = "0.6.7"
-itertools = "0.9.0"
+itertools = "0.10.5"
 
 [target.'cfg(not(windows))'.dependencies]
 librsvg = { git="https://gitlab.gnome.org/GNOME/librsvg", rev="6ecab568" }
