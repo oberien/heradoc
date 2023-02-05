@@ -33,8 +33,8 @@ svgbob = "0.6.7"
 itertools = "0.10.5"
 
 [target.'cfg(not(windows))'.dependencies]
-librsvg = { git="https://gitlab.gnome.org/GNOME/librsvg", rev="6ecab568" }
-cairo-rs = { version = "0.7.0", features = ["pdf"] }
+librsvg = { git="https://gitlab.gnome.org/GNOME/librsvg", rev="2a06e240" }
+cairo-rs = { version = "0.16.7", features = ["pdf"] }
 
 [profile.release]
 debug = true

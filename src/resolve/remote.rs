@@ -56,6 +56,7 @@ impl Remote {
             // TODO: how should redirects interact relative references etc. ?
             // Also consider that redirects could influence the injectivity of `target_path`
             .redirect(Policy::none())
+            .user_agent("heradoc")
             .build()?;
 
         Ok(Remote { temp: download_folder, client })

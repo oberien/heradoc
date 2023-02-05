@@ -152,20 +152,20 @@ impl<'a> Svg<'a> {
         let width = self.width.as_ref()
             .and_then(|width| Size::from_str(&width.value).ok())
             .and_then(|size| size.to_f64_opt(72.0, 12.0))
-            .or_else(|| Size::from(renderer.intrinsic_dimensions().width?).to_f64_opt(72.0, 12.0))
-            .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.width))
+            .or_else(|| Size::from(renderer.intrinsic_dimensions().width).to_f64_opt(72.0, 12.0))
+            .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.width()))
             .ok_or(SvgConversionError::UnknownDimensions)?;
         let height = self.height.as_ref()
             .and_then(|height| Size::from_str(&height.value).ok())
             .and_then(|size| size.to_f64_opt(72.0, 12.0))
-            .or_else(|| Size::from(renderer.intrinsic_dimensions().height?).to_f64_opt(72.0, 12.0))
-            .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.height))
+            .or_else(|| Size::from(renderer.intrinsic_dimensions().height).to_f64_opt(72.0, 12.0))
+            .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.height()))
             .ok_or(SvgConversionError::UnknownDimensions)?;
-        let surface = PdfSurface::new(width, height, &pdf_path);
-        let cr = Context::new(&surface);
+        let surface = PdfSurface::new(width, height, &pdf_path).unwrap();
+        let cr = Context::new(&surface).unwrap();
         renderer.render_document(
             &cr,
-            &Rectangle { x: 0.0, y: 0.0, width, height },
+            &Rectangle::new(0.0, 0.0, width, height),
         )?;
         Ok(pdf_path)
     }
