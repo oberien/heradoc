@@ -26,8 +26,7 @@ strum_macros = "0.24.3"
 regex = "1.1.0"
 lazy_static = "1.2.0"
 quoted-string = "0.6.0"
-#diagnostic = { git = "https://github.com/oberien/diagnostic" }
-diagnostic = { path = "../diagnostic" }
+diagnostic = { git = "https://github.com/oberien/diagnostic", rev = "eac2c7c1ced09c512c52a145bca55b28f42f7f3e" }
 enum-kinds = "0.5.1"
 lexical = "6.1.1"
 svgbob = "0.6.7"
