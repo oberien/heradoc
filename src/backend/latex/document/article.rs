@@ -4,8 +4,8 @@ use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
 use crate::error::FatalResult;
-use crate::diagnostics::Diagnostics;
 use crate::backend::latex::preamble::ShortAuthor;
+use crate::Diagnostics;
 
 #[derive(Debug)]
 pub struct Article;
@@ -66,7 +66,7 @@ impl<'a> Backend<'a> for Article {
         Article
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()> {
         // TODO: itemizespacing
         preamble::write_documentclass(cfg, out, "scrartcl", "")?;
         preamble::write_packages(cfg, out)?;
@@ -85,7 +85,7 @@ impl<'a> Backend<'a> for Article {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &'a Diagnostics) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

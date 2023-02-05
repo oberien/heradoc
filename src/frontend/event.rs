@@ -1,10 +1,10 @@
 use std::borrow::Cow;
+use diagnostic::Spanned;
 
 pub use pulldown_cmark::Alignment;
 
 use enum_kinds::EnumKind;
 
-use crate::frontend::range::WithRange;
 use crate::resolve::{Command, ResolveSecurity};
 
 // extension of pulldown_cmark::Event with custom types
@@ -100,15 +100,15 @@ pub enum Tag<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Header<'a> {
-    pub label: WithRange<Cow<'a, str>>,
+    pub label: Spanned<Cow<'a, str>>,
     pub level: i32,
 }
 
 #[derive(Debug, Clone)]
 pub struct CodeBlock<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
-    pub language: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
+    pub language: Option<Spanned<Cow<'a, str>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -123,8 +123,8 @@ pub struct FootnoteDefinition<'a> {
 
 #[derive(Debug, Clone)]
 pub struct Figure<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -132,36 +132,36 @@ pub struct ColumnWidthPercent(pub f32);
 
 #[derive(Debug, Clone)]
 pub struct Table<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
     pub columns: Vec<(Alignment, ColumnWidthPercent)>
 }
 
 #[derive(Debug, Clone)]
 pub struct Include<'a> {
     pub resolve_security: ResolveSecurity,
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
     pub title: Option<Cow<'a, str>>,
     /// rendered already
     pub alt_text: Option<String>,
     pub dst: Cow<'a, str>,
-    pub scale: Option<WithRange<Cow<'a, str>>>,
-    pub width: Option<WithRange<Cow<'a, str>>>,
-    pub height: Option<WithRange<Cow<'a, str>>>,
+    pub scale: Option<Spanned<Cow<'a, str>>>,
+    pub width: Option<Spanned<Cow<'a, str>>>,
+    pub height: Option<Spanned<Cow<'a, str>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Equation<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct Graphviz<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
-    pub scale: Option<WithRange<Cow<'a, str>>>,
-    pub width: Option<WithRange<Cow<'a, str>>>,
-    pub height: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
+    pub scale: Option<Spanned<Cow<'a, str>>>,
+    pub width: Option<Spanned<Cow<'a, str>>>,
+    pub height: Option<Spanned<Cow<'a, str>>>,
 }

@@ -1,12 +1,12 @@
 use std::io::Write;
+use diagnostic::{FileId, Span};
 
 use crate::backend::Backend;
 use crate::backend::latex::{self, preamble};
 use crate::config::Config;
-use crate::error::{FatalResult, Result, Error};
-use crate::diagnostics::Diagnostics;
-use crate::frontend::range::SourceRange;
+use crate::error::{FatalResult, Result, Error, DiagnosticCode};
 use crate::backend::latex::preamble::ShortAuthor;
+use crate::Diagnostics;
 
 #[derive(Debug)]
 pub struct Beamer {
@@ -30,10 +30,10 @@ impl Beamer {
     /// Closes the beamerboxesrounded / slides until including the given level.
     /// Also performs the according checks and updates the heading stack.
     pub fn close_until(
-        &mut self, level: i32, out: &mut impl Write, range: SourceRange,
-        diagnostics: &Diagnostics<'_>,
+        &mut self, level: i32, out: &mut impl Write, span: Span,
+        diagnostics: &Diagnostics,
     ) -> Result<Vec<FrameEvent>> {
-        check_level(level, range, diagnostics)?;
+        check_level(level, span, diagnostics)?;
 
         let mut levels = Vec::new();
         while let Some(&stack_level) = self.headings.last() {
@@ -61,10 +61,10 @@ impl Beamer {
     /// Opens the beamerboxesrounded / slides until including the given level, updating the heading
     /// stack.
     pub fn open_until(
-        &mut self, level: i32, cfg: &Config, out: &mut impl Write, range: SourceRange,
-        diagnostics: &Diagnostics<'_>,
+        &mut self, level: i32, cfg: &Config, out: &mut impl Write, span: Span,
+        diagnostics: &Diagnostics,
     ) -> Result<Vec<FrameEvent>> {
-        check_level(level, range, diagnostics)?;
+        check_level(level, span, diagnostics)?;
         let last = self.headings.last().cloned().unwrap_or(0);
         let mut levels = Vec::new();
         for level in (last+1)..=level {
@@ -97,14 +97,14 @@ impl Beamer {
     }
 }
 
-fn check_level(level: i32, range: SourceRange, diagnostics: &Diagnostics<'_>) -> Result<()> {
+fn check_level(level: i32, span: Span, diagnostics: &Diagnostics) -> Result<()> {
     assert!(level > 0, "Header level should be positive, but is {}", level);
     if level > 3 {
         diagnostics
-            .error("heading level in beamer greater than 3")
-            .with_error_section(range, "for this heading")
-            .note("beamer only supports levels >= 3")
-            .note("skipping over it")
+            .error(DiagnosticCode::InvalidHeaderLevel)
+            .with_error_label(span, "heading level in beamer greater than 3")
+            .with_note("beamer only supports levels <= 3")
+            .with_note("skipping over it")
             .emit();
         return Err(Error::Diagnostic);
     }
@@ -169,7 +169,7 @@ impl<'a> Backend<'a> for Beamer {
         }
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()> {
         // Beamer already loads internally color, hyperref, xcolor. Correct their options.
         preamble::write_documentclass(cfg, out, "beamer", "color={usenames,dvipsnames},xcolor={usenames,dvipsnames},hyperref={pdfusetitle},")?;
         writeln!(out, "\\usetheme{{{}}}", cfg.beamertheme)?;
@@ -195,8 +195,8 @@ impl<'a> Backend<'a> for Beamer {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
-        match self.close_until(1, out, SourceRange { start: 0, end: 0 }, diagnostics) {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()> {
+        match self.close_until(1, out, Span { file: FileId::synthetic("test"), start: 0, end: 0 }, diagnostics) {
             Ok(_events) => (),
             Err(Error::Diagnostic) => unreachable!(),
             Err(Error::Fatal(fatal)) => return Err(fatal),

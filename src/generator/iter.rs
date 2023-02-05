@@ -2,19 +2,18 @@ use std::collections::VecDeque;
 use std::fs;
 use std::io::Write;
 use std::iter::Fuse;
+use diagnostic::{Span, Spanned};
 
 use crate::backend::Backend;
-use crate::diagnostics::Input;
-use crate::error::{Error, FatalResult, Result};
+use crate::error::{DiagnosticCode, Error, FatalResult, Result};
 use crate::frontend::{Event as FeEvent, EventKind as FeEventKind, Frontend, Include as FeInclude, Graphviz};
-use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Tag, Image, Pdf, Svg};
 use crate::generator::Generator;
-use crate::resolve::{Include, ContextType, ResolveSecurity};
+use crate::resolve::{Include, ResolveSecurity};
 
 pub struct Iter<'a> {
     frontend: Fuse<Frontend<'a>>,
-    peek: VecDeque<(WithRange<Event<'a>>, FeEventKind)>,
+    peek: VecDeque<(Spanned<Event<'a>>, FeEventKind)>,
     /// Contains the kind of the last FeEvent returned from `Self::next()`.
     ///
     /// This is used to `skip` correctly over events when an event couldn't be handled correctly.
@@ -34,7 +33,7 @@ impl<'a> Iter<'a> {
     /// the next one which should be handled.
     pub fn next(
         &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-    ) -> FatalResult<Option<WithRange<Event<'a>>>> {
+    ) -> FatalResult<Option<Spanned<Event<'a>>>> {
         if let Some((peek, kind)) = self.peek.pop_front() {
             self.last_kind = kind;
             return Ok(Some(peek));
@@ -42,10 +41,10 @@ impl<'a> Iter<'a> {
         loop {
             match self.frontend.next() {
                 None => return Ok(None),
-                Some(WithRange(event, range)) => {
+                Some(Spanned { value: event, span }) => {
                     self.last_kind = FeEventKind::from(&event);
-                    match self.convert_event(WithRange(event, range), gen) {
-                        Ok(event) => return Ok(Some(WithRange(event, range))),
+                    match self.convert_event(Spanned::new(event, span), gen) {
+                        Ok(event) => return Ok(Some(Spanned::new(event, span))),
                         Err(Error::Diagnostic) => self.skip(gen)?,
                         Err(Error::Fatal(fatal)) => return Err(fatal),
                     }
@@ -56,7 +55,7 @@ impl<'a> Iter<'a> {
 
     pub fn peek(
         &mut self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-    ) -> FatalResult<Option<WithRange<&Event<'a>>>> {
+    ) -> FatalResult<Option<Spanned<&Event<'a>>>> {
         if self.peek.is_empty() {
             let old_kind = self.last_kind;
             let peek = match self.next(gen)? {
@@ -97,7 +96,7 @@ impl<'a> Iter<'a> {
         }
         let mut depth = 0;
         loop {
-            let evt = self.next(gen)?.unwrap().0;
+            let evt = self.next(gen)?.unwrap().value;
             match evt {
                 Event::Start(_) => depth += 1,
                 Event::End(_) if depth > 0 => depth -= 1,
@@ -110,25 +109,25 @@ impl<'a> Iter<'a> {
     /// Converts an event, resolving any includes. If the include is handled, returns Ok(None).
     /// If it fails, returns the original event.
     fn convert_event(
-        &mut self, event: WithRange<FeEvent<'a>>,
+        &mut self, event: Spanned<FeEvent<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
-        let WithRange(event, range) = event;
+        let Spanned { value: event, span } = event;
         match event {
             FeEvent::Include(image) => {
-                let include = gen.resolve(image.resolve_security, &image.dst, range)?;
-                self.convert_include(WithRange(include, range), Some(image), gen)
+                let include = gen.resolve(image.resolve_security, &image.dst, span)?;
+                self.convert_include(Spanned::new(include, span), Some(image), gen)
             },
             FeEvent::ResolveInclude(include) => {
-                let include = gen.resolve(ResolveSecurity::Default, &include, range)?;
-                self.convert_include(WithRange(include, range), None, gen)
+                let include = gen.resolve(ResolveSecurity::Default, &include, span)?;
+                self.convert_include(Spanned::new(include, span), None, gen)
             },
             e => Ok(e.into()),
         }
     }
 
     fn convert_include(
-        &mut self, WithRange(include, range): WithRange<Include>, image: Option<FeInclude<'a>>,
+        &mut self, Spanned { value: include, span }: Spanned<Include>, image: Option<FeInclude<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Event<'a>> {
         let (label, caption, title, alt_text, scale, width, height) =
@@ -153,20 +152,16 @@ impl<'a> Iter<'a> {
             Include::Markdown(path, context) => {
                 let markdown = fs::read_to_string(&path).map_err(|err| {
                     gen.diagnostics()
-                        .error("error reading markdown include file")
-                        .with_error_section(range, "in this include")
-                        .error(format!("cause: {}", err))
-                        .note(format!("reading from path {}", path.display()))
+                        .error(DiagnosticCode::ErrorReadingIncludedMarkdownFile)
+                        .with_error_label(span, "error reading markdown include file")
+                        .with_error_label(span, format!("cause: {}", err))
+                        .with_note(format!("reading from path {}", path.display()))
                         .emit();
                     Error::Diagnostic
                 })?;
-                let input = match context.typ() {
-                    ContextType::Remote => Input::Url(context.url().clone()),
-                    ContextType::LocalRelative | ContextType::LocalAbsolute => {
-                        Input::File(path)
-                    },
-                };
-                let events = gen.get_events(markdown, context, input);
+                let (fileid, markdown) = gen.diagnostics.add_file(path.display().to_string(), markdown);
+                let markdown_span = Span::new(fileid, 0, markdown.len());
+                let events = gen.get_events(Spanned::new(markdown, markdown_span), context);
                 Ok(Event::IncludeMarkdown(Box::new(events)))
             },
             Include::Image(path) => {
@@ -197,10 +192,10 @@ impl<'a> Iter<'a> {
             Include::Graphviz(path) => {
                 let content = fs::read_to_string(&path).map_err(|err| {
                     gen.diagnostics()
-                        .error("can't read graphviz file")
-                        .with_error_section(range, "in this include")
-                        .error(format!("cause: {}", err))
-                        .note(format!("reading from path {}", path.display()))
+                        .error(DiagnosticCode::ErrorReadingGraphvizFile)
+                        .with_error_label(span, "can't read this graphviz file")
+                        .with_error_label(span, format!("cause: {}", err))
+                        .with_note(format!("reading from path {}", path.display()))
                         .emit();
                     Error::Diagnostic
                 })?;
@@ -211,8 +206,8 @@ impl<'a> Iter<'a> {
                     width,
                     height,
                 });
-                self.peek.push_back((WithRange(Event::Text(content.into()), range), self.last_kind));
-                self.peek.push_back((WithRange(Event::End(tag.clone()), range), self.last_kind));
+                self.peek.push_back((Spanned::new(Event::Text(content.into()), span), self.last_kind));
+                self.peek.push_back((Spanned::new(Event::End(tag.clone()), span), self.last_kind));
                 Ok(Event::Start(tag))
             }
         }

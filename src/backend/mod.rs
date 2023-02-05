@@ -1,15 +1,10 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
 use std::io::Write;
-use std::sync::{Arc, Mutex};
-
-use typed_arena::Arena;
-use codespan_reporting::termcolor::StandardStream;
+use diagnostic::Spanned;
 
 use crate::config::Config;
-use crate::error::{FatalResult, Result};
-use crate::frontend::range::WithRange;
-use crate::diagnostics::Diagnostics;
+use crate::error::{Diagnostics, FatalResult, Result};
 use crate::generator::event::{
     BiberReference,
     CodeBlock,
@@ -35,10 +30,10 @@ pub mod latex;
 pub mod ffmpeg;
 
 pub fn generate<'a>(
-    cfg: &'a Config, backend: impl Backend<'a>, arena: &'a Arena<String>, markdown: String,
-    out: impl Write, stderr: Arc<Mutex<StandardStream>>,
+    cfg: &'a Config, backend: impl Backend<'a>, markdown: Spanned<&'a str>,
+    diagnostics: &'a Diagnostics, out: impl Write,
 ) -> FatalResult<()> {
-    let mut gen = Generator::new(cfg, backend, out, arena, stderr);
+    let mut gen = Generator::new(cfg, backend, out, diagnostics);
     gen.generate(markdown)?;
     Ok(())
 }
@@ -98,15 +93,15 @@ pub trait Backend<'a>: Sized + Debug {
     type Graphviz: StatefulCodeGenUnit<'a, Self, Graphviz<'a>>;
 
     fn new() -> Self;
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()>;
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()>;
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()>;
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()>;
 }
 
 /// A [`CodeGenUnit`] is used to generate the code for an event which can contain other events,
 /// namely for all tags.
 pub trait CodeGenUnit<'a, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: WithRange<T>,
+        cfg: &'a Config, tag: Spanned<T>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
@@ -114,7 +109,7 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
     }
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        peek: Option<WithRange<&Event<'a>>>,
+        peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()>;
 }
 
@@ -124,7 +119,7 @@ pub trait CodeGenUnit<'a, T>: Sized + Debug {
 /// because a new heading can close the frame of an old heading if there is one.
 pub trait StatefulCodeGenUnit<'a, B: Backend<'a>, T>: Sized + Debug {
     fn new(
-        cfg: &'a Config, tag: WithRange<T>,
+        cfg: &'a Config, tag: Spanned<T>,
         gen: &mut Generator<'a, B, impl Write>,
     ) -> Result<Self>;
     fn output_redirect(&mut self) -> Option<&mut dyn Write> {
@@ -132,28 +127,28 @@ pub trait StatefulCodeGenUnit<'a, B: Backend<'a>, T>: Sized + Debug {
     }
     fn finish(
         self, gen: &mut Generator<'a, B, impl Write>,
-        peek: Option<WithRange<&Event<'a>>>,
+        peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()>;
 }
 
 /// A [`SimpleCodeGenUnit`] can be used to implement "leaf-events", events which don't contain any further
 /// events. It is context free and gets the struct and the out-writer.
 pub trait SimpleCodeGenUnit<T>: Debug + Default {
-    fn gen(data: WithRange<T>, out: &mut impl Write) -> Result<()>;
+    fn gen(data: Spanned<T>, out: &mut impl Write) -> Result<()>;
 }
 
 /// Similar to a [`SimpleCodeGenUnit`], but a [`MediumCodeGenUnit`] gets context information by
 /// being passed the stack. The out-writer can be gotten from `stack.get_out()`.
 pub trait MediumCodeGenUnit<T>: Debug + Default {
     fn gen<'a, 'b>(
-        data: WithRange<T>, config: &Config, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+        data: Spanned<T>, config: &Config, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()>;
 }
 
 // default implementation of Medium… for Simple… such that we can use Medium… everywhere
 impl<C: SimpleCodeGenUnit<T>, T> MediumCodeGenUnit<T> for C {
     fn gen<'a, 'b>(
-        data: WithRange<T>, _config: &Config, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
+        data: Spanned<T>, _config: &Config, stack: &mut Stack<'a, 'b, impl Backend<'a>, impl Write>,
     ) -> Result<()> {
         C::gen(data, &mut stack.get_out())
     }
@@ -161,12 +156,12 @@ impl<C: SimpleCodeGenUnit<T>, T> MediumCodeGenUnit<T> for C {
 
 // default implementation of CodeGenUnit for Medium... such that we can use Stateful everywhere
 impl<'a, T, C: MediumCodeGenUnit<T>> CodeGenUnit<'a, T> for C {
-    fn new(cfg: &'a Config, data: WithRange<T>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
+    fn new(cfg: &'a Config, data: Spanned<T>, gen: &mut Generator<'a, impl Backend<'a>, impl Write>) -> Result<Self> {
         C::gen(data, cfg, &mut gen.stack())?;
         Ok(C::default())
     }
 
-    fn finish(self, _gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
+    fn finish(self, _gen: &mut Generator<'a, impl Backend<'a>, impl Write>, _peek: Option<Spanned<&Event<'a>>>) -> Result<()> {
         Ok(())
     }
 }
@@ -174,7 +169,7 @@ impl<'a, T, C: MediumCodeGenUnit<T>> CodeGenUnit<'a, T> for C {
 // default impl Stateful… for CodeGenUnit such that we can use Stateful… everywhere
 impl<'a, B: Backend<'a>, T, C: CodeGenUnit<'a, T>> StatefulCodeGenUnit<'a, B, T> for C {
     fn new(
-        cfg: &'a Config, tag: WithRange<T>,
+        cfg: &'a Config, tag: Spanned<T>,
         gen: &mut Generator<'a, B, impl Write>,
     ) -> Result<Self> {
         C::new(cfg, tag, gen)
@@ -184,7 +179,7 @@ impl<'a, B: Backend<'a>, T, C: CodeGenUnit<'a, T>> StatefulCodeGenUnit<'a, B, T>
     }
     fn finish(
         self, gen: &mut Generator<'a, B, impl Write>,
-        peek: Option<WithRange<&Event<'a>>>,
+        peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
         C::finish(self, gen, peek)
     }

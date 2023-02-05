@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 use std::io::Write;
 use std::path::Path;
+use diagnostic::Spanned;
 
 use super::replace::replace;
 use crate::backend::latex::InlineEnvironment;
 use crate::backend::{Backend, MediumCodeGenUnit, SimpleCodeGenUnit};
 use crate::config::Config;
-use crate::error::{Result, Error};
-use crate::frontend::range::WithRange;
+use crate::error::{Result, Error, DiagnosticCode};
 use crate::generator::event::{
     BiberReference,
     FootnoteReference,
@@ -26,9 +26,9 @@ pub struct TextGen;
 
 impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
     fn gen<'b, 'c>(
-        text: WithRange<Cow<'a, str>>, _config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+        text: Spanned<Cow<'a, str>>, _config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
     ) -> Result<()> {
-        let WithRange(text, _range) = text;
+        let Spanned { value: text, .. } = text;
         // TODO: make code-blocks containing unicode allow inline-math
         // handle unicode
         let strfn: fn(&str) -> &str =
@@ -73,8 +73,8 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
 pub struct LatexGen;
 
 impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
-    fn gen(latex: WithRange<Cow<'a, str>>, out: &mut impl Write) -> Result<()> {
-        write!(out, "{}", latex.element())?;
+    fn gen(latex: Spanned<Cow<'a, str>>, out: &mut impl Write) -> Result<()> {
+        write!(out, "{}", latex.value)?;
         Ok(())
     }
 }
@@ -83,8 +83,8 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LatexGen {
 pub struct FootnoteReferenceGen;
 
 impl<'a> SimpleCodeGenUnit<FootnoteReference<'a>> for FootnoteReferenceGen {
-    fn gen(fnote: WithRange<FootnoteReference<'a>>, out: &mut impl Write) -> Result<()> {
-        let WithRange(FootnoteReference { label }, _range) = fnote;
+    fn gen(fnote: Spanned<FootnoteReference<'a>>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: FootnoteReference { label }, .. } = fnote;
         write!(out, "\\footnotemark[\\getrefnumber{{fnote:{}}}]", label)?;
         Ok(())
     }
@@ -95,9 +95,9 @@ pub struct BiberReferencesGen;
 
 impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
     fn gen(
-        biber: WithRange<Vec<BiberReference<'a>>>, out: &mut impl Write,
+        biber: Spanned<Vec<BiberReference<'a>>>, out: &mut impl Write,
     ) -> Result<()> {
-        let WithRange(mut biber, _range) = biber;
+        let Spanned { value: mut biber, .. } = biber;
         if biber.len() == 1 {
             let BiberReference { reference, attributes } = biber.pop().unwrap();
             match attributes {
@@ -121,8 +121,8 @@ impl<'a> SimpleCodeGenUnit<Vec<BiberReference<'a>>> for BiberReferencesGen {
 pub struct UrlGen;
 
 impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
-    fn gen(url: WithRange<Url<'a>>, out: &mut impl Write) -> Result<()> {
-        let WithRange(Url { destination, title }, _range) = url;
+    fn gen(url: Spanned<Url<'a>>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: Url { destination, title }, .. } = url;
         match title {
             None => write!(out, "\\url{{{}}}", destination)?,
             Some(title) => write!(out, "\\pdftooltip{{\\url{{{}}}}}{{{}}}", destination, title)?,
@@ -135,8 +135,8 @@ impl<'a> SimpleCodeGenUnit<Url<'a>> for UrlGen {
 pub struct InterLinkGen;
 
 impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
-    fn gen(interlink: WithRange<InterLink<'a>>, out: &mut impl Write) -> Result<()> {
-        let WithRange(InterLink { label, uppercase }, _range) = interlink;
+    fn gen(interlink: Spanned<InterLink<'a>>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: InterLink { label, uppercase }, .. } = interlink;
         match uppercase {
             true => write!(out, "\\Cref{{{}}}", label)?,
             false => write!(out, "\\cref{{{}}}", label)?,
@@ -149,17 +149,17 @@ impl<'a> SimpleCodeGenUnit<InterLink<'a>> for InterLinkGen {
 pub struct ImageGen;
 
 impl<'a> SimpleCodeGenUnit<Image<'a>> for ImageGen {
-    fn gen(image: WithRange<Image<'a>>, out: &mut impl Write) -> Result<()> {
-        let WithRange(Image { label, caption, title, alt_text, path, scale, width, height }, _range) = image;
+    fn gen(image: Spanned<Image<'a>>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: Image { label, caption, title, alt_text, path, scale, width, height }, .. } = image;
         includegraphics(out, label, caption, title, alt_text, path, scale, width, height)?;
         Ok(())
     }
 }
 
-fn includegraphics(out: &mut impl Write, label: Option<WithRange<Cow<'_, str>>>,
-    caption: Option<WithRange<Cow<'_, str>>>, title: Option<Cow<'_, str>>, alt_text: Option<String>,
-    path: impl AsRef<Path>, scale: Option<WithRange<Cow<'_, str>>>, width: Option<WithRange<Cow<'_, str>>>,
-    height: Option<WithRange<Cow<'_, str>>>,
+fn includegraphics(out: &mut impl Write, label: Option<Spanned<Cow<'_, str>>>,
+    caption: Option<Spanned<Cow<'_, str>>>, title: Option<Cow<'_, str>>, alt_text: Option<String>,
+    path: impl AsRef<Path>, scale: Option<Spanned<Cow<'_, str>>>, width: Option<Spanned<Cow<'_, str>>>,
+    height: Option<Spanned<Cow<'_, str>>>,
 ) -> Result<()> {
     let inline_fig = InlineEnvironment::new_figure(label, caption);
     inline_fig.write_begin(&mut *out)?;
@@ -173,13 +173,13 @@ fn includegraphics(out: &mut impl Write, label: Option<WithRange<Cow<'_, str>>>,
         write!(out, "\\includegraphics[")?;
     }
 
-    if let Some(WithRange(scale, _)) = scale {
+    if let Some(Spanned { value: scale, .. }) = scale {
         write!(out, "scale={}", scale)?;
     }
-    if let Some(WithRange(width, _)) = width {
+    if let Some(Spanned { value: width, .. }) = width {
         write!(out, "width={},", width)?;
     }
-    if let Some(WithRange(height, _)) = height {
+    if let Some(Spanned { value: height, .. }) = height {
         write!(out, "height={},", height)?;
     }
 
@@ -204,18 +204,18 @@ fn includegraphics(out: &mut impl Write, label: Option<WithRange<Cow<'_, str>>>,
 pub struct SvgGen;
 
 impl<'a> MediumCodeGenUnit<Svg<'a>> for SvgGen {
-    fn gen<'b, 'c>(svg: WithRange<Svg<'a>>, config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
-        let pdf_path = match svg.0.to_pdf_path(&config.out_dir) {
+    fn gen<'b, 'c>(svg: Spanned<Svg<'a>>, config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>) -> Result<()> {
+        let pdf_path = match svg.value.to_pdf_path(&config.out_dir) {
             Ok(path) => path,
             Err(e) => {
-                stack.diagnostics().error("can't convert svg to pdf")
-                    .with_info_section(svg.1, "including this svg")
-                    .error(format!("{}", e))
+                stack.diagnostics().error(DiagnosticCode::SvgConversionError)
+                    .with_info_label(svg.span, "can't convert svg to pdf")
+                    .with_note(format!("{}", e))
                     .emit();
                 return Err(Error::Diagnostic);
             },
         };
-        let WithRange(Svg { label, caption, title, alt_text, path: _, scale, width, height }, _range) = svg;
+        let Spanned { value: Svg { label, caption, title, alt_text, path: _, scale, width, height }, .. } = svg;
         includegraphics(&mut stack.get_out(), label, caption, title, alt_text, pdf_path, scale, width, height)?;
         Ok(())
     }
@@ -225,8 +225,8 @@ impl<'a> MediumCodeGenUnit<Svg<'a>> for SvgGen {
 pub struct LabelGen;
 
 impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
-    fn gen(label: WithRange<Cow<'a, str>>, out: &mut impl Write) -> Result<()> {
-        let WithRange(label, _range) = label;
+    fn gen(label: Spanned<Cow<'a, str>>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: label, .. } = label;
         writeln!(out, "\\label{{{}}}", label)?;
         Ok(())
     }
@@ -236,8 +236,8 @@ impl<'a> SimpleCodeGenUnit<Cow<'a, str>> for LabelGen {
 pub struct PdfGen;
 
 impl SimpleCodeGenUnit<Pdf> for PdfGen {
-    fn gen(pdf: WithRange<Pdf>, out: &mut impl Write) -> Result<()> {
-        let WithRange(Pdf { path }, _range) = pdf;
+    fn gen(pdf: Spanned<Pdf>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: Pdf { path }, .. } = pdf;
 
         writeln!(out, "\\includepdf[pages=-]{{{}}}", path.to_unix()
             .expect(&format!("non-utf8 path: {:?}", path)))?;
@@ -249,7 +249,7 @@ impl SimpleCodeGenUnit<Pdf> for PdfGen {
 pub struct SoftBreakGen;
 
 impl SimpleCodeGenUnit<()> for SoftBreakGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         // soft breaks are only used to split up text in lines in the source file
         // so it's nothing we should translate, but for better readability keep them
         writeln!(out)?;
@@ -262,7 +262,7 @@ pub struct HardBreakGen;
 
 impl MediumCodeGenUnit<()> for HardBreakGen {
     fn gen<'b, 'c>(
-        _: WithRange<()>, _config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
+        _: Spanned<()>, _config: &Config, stack: &mut Stack<'b, 'c, impl Backend<'b>, impl Write>,
     ) -> Result<()> {
         let in_table = stack.iter().any(|e| e.is_table());
         let out = stack.get_out();
@@ -281,7 +281,7 @@ impl MediumCodeGenUnit<()> for HardBreakGen {
 pub struct RuleGen;
 
 impl<'a> SimpleCodeGenUnit<()> for RuleGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out)?;
         writeln!(out, "\\vspace{{1em}}")?;
         writeln!(out, "\\hrule")?;
@@ -295,7 +295,7 @@ impl<'a> SimpleCodeGenUnit<()> for RuleGen {
 pub struct PageBreakGen;
 
 impl SimpleCodeGenUnit<()> for PageBreakGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\newpage")?;
         Ok(())
     }
@@ -305,8 +305,8 @@ impl SimpleCodeGenUnit<()> for PageBreakGen {
 pub struct TaskListMarkerGen;
 
 impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
-    fn gen(marker: WithRange<TaskListMarker>, out: &mut impl Write) -> Result<()> {
-        let WithRange(TaskListMarker { checked }, _range) = marker;
+    fn gen(marker: Spanned<TaskListMarker>, out: &mut impl Write) -> Result<()> {
+        let Spanned { value: TaskListMarker { checked }, .. } = marker;
         match checked {
             true => write!(out, r"[$\boxtimes$] ")?,
             false => write!(out, r"[$\square$] ")?,
@@ -319,7 +319,7 @@ impl SimpleCodeGenUnit<TaskListMarker> for TaskListMarkerGen {
 pub struct TableOfContentsGen;
 
 impl SimpleCodeGenUnit<()> for TableOfContentsGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\tableofcontents")?;
         Ok(())
     }
@@ -329,7 +329,7 @@ impl SimpleCodeGenUnit<()> for TableOfContentsGen {
 pub struct BibliographyGen;
 
 impl SimpleCodeGenUnit<()> for BibliographyGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         // TODO: config option if bibliography in toc
         // TODO: config option for title
         writeln!(out, "\\printbibliography[heading=bibintoc]")?;
@@ -341,7 +341,7 @@ impl SimpleCodeGenUnit<()> for BibliographyGen {
 pub struct ListOfTablesGen;
 
 impl SimpleCodeGenUnit<()> for ListOfTablesGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\listoftables")?;
         writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
@@ -353,7 +353,7 @@ impl SimpleCodeGenUnit<()> for ListOfTablesGen {
 pub struct ListOfFiguresGen;
 
 impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\listoffigures")?;
         writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
@@ -365,7 +365,7 @@ impl SimpleCodeGenUnit<()> for ListOfFiguresGen {
 pub struct ListOfListingsGen;
 
 impl SimpleCodeGenUnit<()> for ListOfListingsGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\microtypesetup{{protrusion=false}}")?;
         writeln!(out, "\\lstlistoflistings")?;
         writeln!(out, "\\microtypesetup{{protrusion=true}}")?;
@@ -377,7 +377,7 @@ impl SimpleCodeGenUnit<()> for ListOfListingsGen {
 pub struct AppendixGen;
 
 impl SimpleCodeGenUnit<()> for AppendixGen {
-    fn gen(_: WithRange<()>, out: &mut impl Write) -> Result<()> {
+    fn gen(_: Spanned<()>, out: &mut impl Write) -> Result<()> {
         writeln!(out, "\\appendix{{}}")?;
         writeln!(out, "\\renewcommand\\thelstlisting{{\\Alph{{lstlisting}}}}")?;
         writeln!(out, "\\setcounter{{lstlisting}}{{0}}")?;

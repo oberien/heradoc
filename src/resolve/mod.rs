@@ -9,6 +9,8 @@
 //! an open read stream or to an auxiliary file. Secondly, this resolution will automatically apply
 //! a restrictive-by-default filter and error when violating security boundaries.
 use std::path::{Path, PathBuf};
+use diagnostic::Span;
+use crate::Diagnostics;
 
 mod include;
 pub mod remote;
@@ -19,9 +21,7 @@ mod tests;
 pub use self::include::*;
 use self::remote::Remote;
 use self::target::Target;
-use crate::diagnostics::Diagnostics;
 use crate::error::Result;
-use crate::frontend::range::SourceRange;
 
 const BASE_URL: &'static str = "heradoc://project/";
 
@@ -62,10 +62,10 @@ impl Resolver {
 
     /// Make a request to an url in the context of a document with the specified source.
     pub fn resolve(
-        &self, resolve_security: ResolveSecurity, context: &Context, url: &str, range: SourceRange,
-        diagnostics: &Diagnostics<'_>,
+        &self, resolve_security: ResolveSecurity, context: &Context, url: &str, span: Span,
+        diagnostics: &Diagnostics,
     ) -> Result<Include> {
-        let target = Target::new(url, context, &self.project_root, &self.document_root, &self.permissions, range, diagnostics)?;
+        let target = Target::new(url, context, &self.project_root, &self.document_root, &self.permissions, span, diagnostics)?;
         let include = match resolve_security {
             ResolveSecurity::Default =>
                 target.canonicalize()?.check_access()?.into_include(&self.remote)?,

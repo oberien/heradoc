@@ -1,16 +1,19 @@
 use std::borrow::Cow;
+use diagnostic::{Span, Spanned};
 
 use pulldown_cmark::{Alignment, CodeBlockKind, CowStr, Event as CmarkEvent, LinkType, OffsetIter, Tag as CmarkTag};
 
-use crate::frontend::range::WithRange;
-
-pub struct ConvertCow<'a>(pub OffsetIter<'a, 'a>);
+pub struct ConvertCow<'a>(pub Span, pub OffsetIter<'a, 'a>);
 
 impl<'a> Iterator for ConvertCow<'a> {
-    type Item = WithRange<Event<'a>>;
+    type Item = Spanned<Event<'a>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(|(e, r)| WithRange(e.into(), r.into()))
+        self.1.next().map(|(e, r)| Spanned::new(e.into(), Span {
+            file: self.0.file,
+            start: self.0.start + r.start,
+            end: self.0.start + r.end,
+        }))
     }
 }
 

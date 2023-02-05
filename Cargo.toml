@@ -11,7 +11,6 @@ structopt = "0.2.10"
 void = "1.0.2"
 boolinator = "2.4"
 tempdir = "0.3.7"
-typed-arena = "2.0.2"
 url = "2.3.1"
 #reqwest = "0.9.2"
 reqwest = { version = "0.11.14", features = ["blocking"] }
@@ -28,9 +27,8 @@ regex = "1.1.0"
 lazy_static = "1.2.0"
 single = "1.0.0"
 quoted-string = "0.6.0"
-codespan = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc58721415ce3120d05cf117ca81" }
-codespan-reporting = { git = "https://github.com/oberien/codespan", rev = "dc7b13739165fc58721415ce3120d05cf117ca81" }
-backtrace = "0.3.14"
+#diagnostic = { git = "https://github.com/oberien/diagnostic" }
+diagnostic = { path = "../diagnostic" }
 enum-kinds = "0.4.1"
 lexical = "6.1.1"
 svgbob = "0.6.7"

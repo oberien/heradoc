@@ -1,13 +1,14 @@
 use std::borrow::Cow;
 use std::str::FromStr;
+use diagnostic::Span;
 
 pub use pulldown_cmark::LinkType;
 
 use super::event::{BiberReference, InterLink, Url};
 use crate::config::Config;
-use crate::diagnostics::Diagnostics;
+use crate::Diagnostics;
+use crate::error::DiagnosticCode;
 use crate::ext::{CowExt, StrExt};
-use crate::frontend::range::SourceRange;
 use crate::resolve::Command;
 
 #[derive(Debug)]
@@ -23,8 +24,8 @@ pub enum ReferenceParseResult<'a> {
 }
 
 pub fn parse_references<'a>(
-    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, range: SourceRange,
-    diagnostics: &Diagnostics<'a>,
+    cfg: &'a Config, typ: LinkType, dst: Cow<'a, str>, title: Cow<'a, str>, span: Span,
+    diagnostics: &'a Diagnostics,
 ) -> ReferenceParseResult<'a> {
     // ShortcutUnknown and ReferenceUnknown make destination lowercase, but save original case in
     // title
@@ -49,10 +50,9 @@ pub fn parse_references<'a>(
     // biber
     if dst.trim_start().starts_with('@') && typ == LinkType::ShortcutUnknown {
         if cfg.bibliography.is_none() {
-            diagnostics
-                .error("found biber reference, but no bibliography file found")
-                .with_error_section(range, "referenced here")
-                .note("rendering as text")
+            diagnostics.error(DiagnosticCode::InvalidReference)
+                .with_error_label(span, "no bibliography file found")
+                .with_note("rendering as text")
                 .emit();
             return ReferenceParseResult::Text(Cow::Owned(format!("[{}]", dst)));
         }

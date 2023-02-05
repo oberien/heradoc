@@ -1,47 +1,47 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use diagnostic::Span;
 
 use url::Url;
+use crate::Diagnostics;
 
-use crate::diagnostics::Diagnostics;
-use crate::error::{Error, Result};
-use crate::frontend::range::SourceRange;
+use crate::error::{DiagnosticCode, Error, Result};
 use crate::resolve::remote::{ContentType, Error as RemoteError, Remote};
 use crate::resolve::{Command, Context, Include, Permissions, ContextType};
 
 /// Target pointed to by URL before the permission check.
 #[must_use]
 #[derive(Debug)]
-pub struct Target<'a, 'd> {
+pub struct Target<'a> {
     inner: TargetInner,
-    meta: Meta<'a, 'd>,
+    meta: Meta<'a>,
 }
 
 /// Target after canonicalization
 #[must_use]
 #[derive(Debug)]
-pub struct TargetCanonicalized<'a, 'd> {
+pub struct TargetCanonicalized<'a> {
     inner: TargetInner,
-    meta: Meta<'a, 'd>,
+    meta: Meta<'a>,
 }
 
 /// Target after its permissions have been checked
 #[must_use]
 #[derive(Debug)]
-pub struct TargetChecked<'a, 'd> {
+pub struct TargetChecked<'a> {
     inner: TargetInner,
-    meta: Meta<'a, 'd>,
+    meta: Meta<'a>,
 }
 
 #[derive(Debug)]
-struct Meta<'a, 'd> {
+struct Meta<'a> {
     url: Url,
     context: &'a Context,
     project_root: &'a Path,
     document_root: &'a Path,
     permissions: &'a Permissions,
-    range: SourceRange,
-    diagnostics: &'a Diagnostics<'d>,
+    span: Span,
+    diagnostics: &'a Diagnostics,
 }
 
 #[derive(Debug)]
@@ -75,7 +75,7 @@ enum TargetInner {
     Remote(Url),
 }
 
-impl<'a, 'd> Target<'a, 'd> {
+impl<'a> Target<'a> {
     /// Create a new Target for the given URL, resolved in the given context.
     ///
     /// This target can be canonicalized and access-checked within the context before being converted
@@ -83,16 +83,16 @@ impl<'a, 'd> Target<'a, 'd> {
     /// Local relative files are resolved relative to the project_root.
     pub fn new(
         to_resolve: &str, context: &'a Context, project_root: &'a Path, document_root: &'a Path,
-        permissions: &'a Permissions, range: SourceRange, diagnostics: &'a Diagnostics<'d>,
-    ) -> Result<Target<'a, 'd>> {
+        permissions: &'a Permissions, span: Span, diagnostics: &'a Diagnostics,
+    ) -> Result<Target<'a>> {
         let url = match context.url.join(to_resolve) {
             Ok(url) => url,
             Err(err) => {
                 diagnostics
-                    .error("couldn't resolve file")
-                    .with_error_section(range, "defined here")
-                    .note(format!("tried to resolve {}", to_resolve))
-                    .note(format!("malformed reference: {}", err))
+                    .error(DiagnosticCode::ErrorResolvingFile)
+                    .with_error_label(span, "couldn't resolve this file")
+                    .with_note(format!("tried to resolve {}", to_resolve))
+                    .with_note(format!("malformed reference: {}", err))
                     .emit();
                 return Err(Error::Diagnostic);
             },
@@ -104,9 +104,9 @@ impl<'a, 'd> Target<'a, 'd> {
                 Some(domain) => TargetInner::Implementation(domain.to_string()),
                 None => {
                     diagnostics
-                        .error("no heradoc implementation domain provided")
-                        .with_error_section(range, "defined here")
-                        .note("the domain must be either `document` for includes or an implementation command")
+                        .error(DiagnosticCode::UnsupportedDomain)
+                        .with_error_label(span, "no heradoc implementation domain provided")
+                        .with_note("the domain must be either `document` for includes or an implementation command")
                         .emit();
                     return Err(Error::Diagnostic);
                 }
@@ -115,9 +115,9 @@ impl<'a, 'd> Target<'a, 'd> {
                 Ok(path) => TargetInner::LocalAbsolute(path),
                 Err(()) => {
                     diagnostics
-                        .error("error converting url to path")
-                        .with_info_section(range, "defined here")
-                        .help("this could be due to a malformed URL like a non-empty or non-localhost domain")
+                        .error(DiagnosticCode::InvalidUrl)
+                        .with_info_label(span, "error converting this url to path")
+                        .with_note("this could be due to a malformed URL like a non-empty or non-localhost domain")
                         .emit();
                     return Err(Error::Diagnostic);
                 }
@@ -132,13 +132,13 @@ impl<'a, 'd> Target<'a, 'd> {
                 project_root,
                 document_root,
                 permissions,
-                range,
+                span,
                 diagnostics,
             }
         })
     }
 
-    pub fn canonicalize(self) -> Result<TargetCanonicalized<'a, 'd>> {
+    pub fn canonicalize(self) -> Result<TargetCanonicalized<'a>> {
         let Target { inner, meta } = self;
 
         let canonicalize = |path: PathBuf| {
@@ -146,10 +146,10 @@ impl<'a, 'd> Target<'a, 'd> {
                 Ok(path) => Ok(path),
                 Err(e) => {
                     meta.diagnostics
-                        .error("error canonicalizing path")
-                        .with_error_section(meta.range, "trying to include this")
-                        .note(format!("canonicalizing the path: {:?}", path))
-                        .error(e.to_string())
+                        .error(DiagnosticCode::ErrorCanonicalizingPath)
+                        .with_error_label(meta.span, "error canonicalizing path of this include")
+                        .with_error_label(meta.span, e.to_string())
+                        .with_note(format!("canonicalizing the path: {:?}", path))
                         .emit();
                     Err(Error::Diagnostic)
                 }
@@ -179,19 +179,19 @@ impl<'a, 'd> Target<'a, 'd> {
     ///
     /// This function should only be used when the target is known to be fine,
     /// for example if it was created from within heradoc.
-    pub fn skip_canonicalization(self) -> TargetCanonicalized<'a, 'd> {
+    pub fn skip_canonicalization(self) -> TargetCanonicalized<'a> {
         let Target { inner, meta } = self;
         TargetCanonicalized { inner, meta }
     }
 }
 
-impl <'a, 'd> TargetCanonicalized<'a, 'd> {
+impl <'a> TargetCanonicalized<'a> {
     /// Test if the source is allowed to request the target document.
     ///
     /// Some origins are not allowed to read all documents or only after explicit clearance by the
     /// invoking user. Even more restrictive, the target handler could terminate the request at a
     /// later time. For example when requesting a remote document make a CORS check.
-    pub fn check_access(self) -> Result<TargetChecked<'a, 'd>> {
+    pub fn check_access(self) -> Result<TargetChecked<'a>> {
         let TargetCanonicalized { inner, meta } = self;
         match (meta.context.typ(), &inner) {
             (ContextType::LocalRelative, TargetInner::Implementation(_))
@@ -204,9 +204,9 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             | (ContextType::LocalAbsolute, TargetInner::LocalDocumentRelative(_))
             | (ContextType::LocalAbsolute, TargetInner::Remote(_)) => {
                 meta.diagnostics
-                    .error("permission denied")
-                    .with_error_section(meta.range, "trying to include this")
-                    .note(
+                    .error(DiagnosticCode::PermissionDenied)
+                    .with_error_label(meta.span, "permission denied for this include")
+                    .with_note(
                         "local absolute path not allowed to access remote or local relative files",
                     )
                     .emit();
@@ -219,18 +219,17 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             (ContextType::Remote, TargetInner::Remote(url)) if meta.context.url.domain() == url.domain() => (),
             (ContextType::Remote, TargetInner::Remote(_)) => {
                 meta.diagnostics
-                    .error("permission denied")
-                    .with_error_section(meta.range, "trying to include this")
-                    .error("cross-origin request detected")
-                    .note("remote inclusions can only include remote content from the same domain")
+                    .error(DiagnosticCode::PermissionDenied)
+                    .with_error_label(meta.span, "permission denied: cross-origin request detected")
+                    .with_note("remote inclusions can only include remote content from the same domain")
                     .emit();
                 return Err(Error::Diagnostic)
             },
             (ContextType::Remote, _) => {
                 meta.diagnostics
-                    .error("permission denied")
-                    .with_error_section(meta.range, "trying to include this")
-                    .note("remote file can only include other remote content")
+                    .error(DiagnosticCode::PermissionDenied)
+                    .with_error_label(meta.span, "permission denied: remote file can only include other remote content")
+                    .with_note("")
                     .emit();
                 return Err(Error::Diagnostic)
             },
@@ -238,9 +237,8 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
             (_, TargetInner::LocalAbsolute(path)) => {
                 if !meta.permissions.is_allowed_absolute(path) {
                     meta.diagnostics
-                        .error("permission denied")
-                        .with_error_section(meta.range, "trying to include this")
-                        .note(format!("not allowed to access absolute path {:?}", path))
+                        .error(DiagnosticCode::PermissionDenied)
+                        .with_error_label(meta.span, format!("permission denied: not allowed to access absolute path {:?}", path))
                         .emit();
                     return Err(Error::Diagnostic)
                 }
@@ -255,13 +253,13 @@ impl <'a, 'd> TargetCanonicalized<'a, 'd> {
     /// Skips the access checks. Use with care, as this could result in security problems.
     /// This function should only be used when the target is known to be fine,
     /// for example if it was created from within heradoc.
-    pub fn skip_check_access(self) -> TargetChecked<'a, 'd> {
+    pub fn skip_check_access(self) -> TargetChecked<'a> {
         let TargetCanonicalized { inner, meta } = self;
         TargetChecked { inner, meta }
     }
 }
 
-impl<'a, 'd> TargetChecked<'a, 'd> {
+impl<'a> TargetChecked<'a> {
     pub fn into_include(self, remote: &Remote) -> Result<Include> {
         let TargetChecked { inner, meta } = self;
         let check_still_relative = |path: &Path, root: &Path, name: &str| -> Result<()> {
@@ -269,8 +267,9 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     meta.diagnostics
-                        .bug(format!("Local {}-relative path resolved to non-{}-relative path", name, name))
-                        .error(format!("cause: {}", e))
+                        .bug(DiagnosticCode::InternalCompilerError)
+                        .with_note(format!("Local {}-relative path resolved to non-{}-relative path", name, name))
+                        .with_note(format!("cause: {}", e))
                         .emit();
                     Err(Error::Diagnostic)
                 }
@@ -282,8 +281,8 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                     Ok(command) => Ok(Include::Command(command)),
                     Err(()) => {
                         meta.diagnostics
-                            .error(format!("{:?} isn't a valid implementation command", command))
-                            .with_error_section(meta.range, "defined here")
+                            .error(DiagnosticCode::InvalidCommand)
+                            .with_error_label(meta.span, format!("{:?} isn't a valid implementation command", command))
                             .emit();
                         return Err(Error::Diagnostic)
                     }
@@ -293,35 +292,36 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                 // Making doubly sure for future changes.
                 // Number of times this error was hit during changes: 0
                 check_still_relative(&path, meta.document_root, "document-root")?;
-                to_include(path, Context::from_url(meta.url), meta.range, meta.diagnostics)
+                to_include(path, Context::from_url(meta.url), meta.span, meta.diagnostics)
             },
             TargetInner::LocalProjectRelative(path) => {
                 // Making doubly sure for future changes.
                 // Number of times this error was hit during changes: 1
                 check_still_relative(&path, meta.project_root, "project-root")?;
-                to_include(path, Context::from_url(meta.url), meta.range, meta.diagnostics)
+                to_include(path, Context::from_url(meta.url), meta.span, meta.diagnostics)
             },
             TargetInner::LocalAbsolute(path) => {
                 let context = Context::from_url(meta.url);
-                to_include(path, context, meta.range, meta.diagnostics)
+                to_include(path, context, meta.span, meta.diagnostics)
             },
             TargetInner::Remote(url) => {
+                println!("{url}");
                 let downloaded = match remote.http(&url) {
                     Ok(downloaded) => downloaded,
                     Err(RemoteError::Io(err, path)) => {
                         meta.diagnostics
-                            .error("error writing downloaded content to cache")
-                            .with_error_section(meta.range, "trying to download this")
-                            .error(format!("cause: {}", err))
-                            .note(format!("file: {}", path.display()))
+                            .error(DiagnosticCode::ErrorWritingToCache)
+                            .with_error_label(meta.span, "error writing downloaded content to cache downloading this")
+                            .with_note(format!("cause: {}", err))
+                            .with_note(format!("file: {}", path.display()))
                             .emit();
                         return Err(Error::Diagnostic);
                     },
                     Err(RemoteError::Request(err)) => {
                         meta.diagnostics
-                            .error("error downloading content")
-                            .with_error_section(meta.range, "trying to download this")
-                            .error(format!("cause: {}", err))
+                            .error(DiagnosticCode::ErrorDownloadingContent)
+                            .with_error_label(meta.span, "error trying to download this")
+                            .with_note(format!("cause: {}", err))
                             .emit();
                         return Err(Error::Diagnostic);
                     },
@@ -334,7 +334,7 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
                     Some(ContentType::Image) => Ok(Include::Image(path)),
                     Some(ContentType::Markdown) => Ok(Include::Markdown(path, context)),
                     Some(ContentType::Pdf) => Ok(Include::Pdf(path)),
-                    None => to_include(path, context, meta.range, meta.diagnostics),
+                    None => to_include(path, context, meta.span, meta.diagnostics),
                 }
             },
         }
@@ -347,7 +347,7 @@ impl<'a, 'd> TargetChecked<'a, 'd> {
 /// includes that did not receive repsonse with a media type header. Matching is performed purely
 /// based on the file extension.
 fn to_include(
-    path: PathBuf, context: Context, range: SourceRange, diagnostics: &Diagnostics<'_>,
+    path: PathBuf, context: Context, span: Span, diagnostics: &Diagnostics,
 ) -> Result<Include> {
     let ext = path.extension().map(|s| s.to_str().unwrap().to_lowercase());
     match ext.as_ref().map(String::as_str) {
@@ -358,16 +358,16 @@ fn to_include(
         Some("gv") | Some("dot") => Ok(Include::Graphviz(path)),
         Some(ext) => {
             diagnostics
-                .error(format!("unknown file format {:?}", ext))
-                .with_error_section(range, "trying to include this")
+                .error(DiagnosticCode::UnknownFileFormat)
+                .with_error_label(span, format!("unknown file format {:?}", ext))
                 .emit();
             Err(Error::Diagnostic)
         },
         None => {
             diagnostics
-                .error("no file extension")
-                .with_error_section(range, "trying to include this")
-                .note("need file extension to differentiate file type")
+                .error(DiagnosticCode::MissingFileExtension)
+                .with_error_label(span, "missing file extension")
+                .with_note("need file extension to differentiate file type")
                 .emit();
             Err(Error::Diagnostic)
         },

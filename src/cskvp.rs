@@ -1,27 +1,27 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::mem;
-use std::sync::Arc;
 use std::fmt;
+use diagnostic::{FileId, Span, Spanned};
 
 use quoted_string::test_utils::TestSpec;
 use single::{self, Single};
+use crate::Diagnostics;
 
-use crate::diagnostics::Diagnostics;
+use crate::error::DiagnosticCode;
 use crate::ext::{CowExt, VecExt};
-use crate::frontend::range::{SourceRange, WithRange};
 
 #[derive(Debug, PartialEq, Eq)]
 struct Diagnostic;
 
 pub struct Cskvp<'a> {
-    diagnostics: Option<Arc<Diagnostics<'a>>>,
-    range: SourceRange,
-    label: Option<WithRange<Cow<'a, str>>>,
-    caption: Option<WithRange<Cow<'a, str>>>,
-    figure: Option<WithRange<bool>>,
-    single: Vec<WithRange<Cow<'a, str>>>,
-    double: HashMap<Cow<'a, str>, WithRange<Cow<'a, str>>>,
+    diagnostics: Option<&'a Diagnostics>,
+    span: Span,
+    label: Option<Spanned<Cow<'a, str>>>,
+    caption: Option<Spanned<Cow<'a, str>>>,
+    figure: Option<Spanned<bool>>,
+    single: Vec<Spanned<Cow<'a, str>>>,
+    double: HashMap<Cow<'a, str>, Spanned<Cow<'a, str>>>,
 }
 
 impl<'a> fmt::Debug for Cskvp<'a> {
@@ -40,7 +40,7 @@ impl<'a> Default for Cskvp<'a> {
     fn default() -> Self {
         Cskvp {
             diagnostics: None,
-            range: SourceRange { start: 0, end: 0 },
+            span: Span { file: FileId::synthetic("nonexistent"), start: 0, end: 0 },
             label: None,
             caption: None,
             figure: None,
@@ -52,82 +52,78 @@ impl<'a> Default for Cskvp<'a> {
 
 impl<'a> Cskvp<'a> {
     pub fn new(
-        s: Cow<'a, str>, range: SourceRange, content_range: SourceRange,
-        diagnostics: Arc<Diagnostics<'a>>,
+        s: Cow<'a, str>, span: Span, content_span: Span,
+        diagnostics: &'a Diagnostics,
     ) -> Cskvp<'a> {
-        // The content_range may involve unescaped escaped sequences like `\\`, which will only have
-        // a length of 1 here. Thus we need to trim the range for the parser.
+        // The content_span may involve unescaped escaped sequences like `\\`, which will only have
+        // a length of 1 here. Thus we need to trim the span for the parser.
         // TODO: fix for diagnostics when unescaping is involved. See #
-        let parser_range = SourceRange {
-            start: content_range.start, end: content_range.start + s.len() };
-        let mut parser = Parser::new(s, parser_range);
+        let parser_span = content_span.with_len(s.len());
+        let mut parser = Parser::new(s, parser_span);
 
         let mut single = Vec::new();
         let mut double = HashMap::new();
-        let mut label: Option<WithRange<_>> = None;
-        while let Ok(Some(WithRange(value, range))) = parser.next(&diagnostics) {
+        let mut label: Option<Spanned<_>> = None;
+        while let Ok(Some(Spanned { value, span })) = parser.next(&diagnostics) {
             match value {
                 Value::Double(key, value) => {
-                    double.insert(key, WithRange(value, range));
+                    double.insert(key, Spanned { value, span });
                 },
                 Value::Single(mut value) => {
                     if value.starts_with('#') {
                         if label.is_some() {
-                            diagnostics
-                                .warning("found two labels")
-                                .with_info_section(
-                                    label.as_ref().unwrap().1,
+                            diagnostics.warning(DiagnosticCode::FoundTwoLabels)
+                                .with_info_label(
+                                    label.as_ref().unwrap().span,
                                     "first label defined here",
                                 )
-                                .with_info_section(range, "second label defined here")
-                                .note("using the last")
+                                .with_info_label(span, "second label defined here")
+                                .with_note("using the last one")
                                 .emit();
                         }
                         value.truncate_start(1);
-                        label = Some(WithRange(value, range));
+                        label = Some(Spanned { value, span });
                     } else {
-                        single.push(WithRange(value, range));
+                        single.push(Spanned { value, span });
                     }
                 },
             }
         }
 
-        let figure_double = double.remove("figure").and_then(|WithRange(s, range)| match s.parse() {
-            Ok(val) => Some(WithRange(val, range)),
+        let figure_double = double.remove("figure").and_then(|Spanned { value, span }| match value.parse() {
+            Ok(value) => Some(Spanned { value, span }),
             Err(_) => {
                 diagnostics
-                    .error("cannot parse figure value")
-                    .with_error_section(range, "defined here")
-                    .note("only `true` and `false` are allowed")
+                    .error(DiagnosticCode::InvalidFigureValue)
+                    .with_error_label(span, "defined here")
+                    .with_note("only `true` and `false` are allowed")
                     .emit();
                 None
             },
         });
-        let figure = single.remove_element(&"figure").map(|WithRange(_, range)| WithRange(true, range));
-        let nofigure = single.remove_element(&"nofigure").map(|WithRange(_, range)| WithRange(false, range));
+        let figure = single.remove_element(&"figure").map(|Spanned { span, .. }| Spanned { value: true, span });
+        let nofigure = single.remove_element(&"nofigure").map(|Spanned { span, .. }| Spanned { value: false, span });
 
         let figures = [figure_double, figure, nofigure];
         let figure = match figures.iter().cloned().flatten().single() {
             Ok(val) => Some(val),
             Err(single::Error::NoElements) => None,
             Err(single::Error::MultipleElements) => {
-                let mut diag = Some(diagnostics.error("found multiple figure specifiers"));
-                for WithRange(_, range) in figures.iter().cloned().flatten() {
-                    diag = Some(diag.take().unwrap().with_info_section(range, "one defined here"));
+                let mut diag = diagnostics.error(DiagnosticCode::MultipleFigureKeys);
+                for Spanned { span, .. } in figures.iter().cloned().flatten() {
+                    diag = diag.with_info_label(span, "one defined here");
                 }
-                diag.unwrap()
-                    .note(
+                diag.with_note(
                         "only one of `figure=true`, `figure=false`, `figure` and `nofigure` is \
                          allowed",
-                    )
-                    .emit();
+                    ).emit();
                 None
             },
         };
 
         Cskvp {
             diagnostics: Some(diagnostics),
-            range,
+            span,
             label,
             caption: double.remove("caption"),
             figure,
@@ -136,27 +132,27 @@ impl<'a> Cskvp<'a> {
         }
     }
 
-    pub fn range(&self) -> SourceRange {
-        self.range
+    pub fn span(&self) -> Span {
+        self.span
     }
 
     pub fn has_label(&self) -> bool {
         self.label.is_some()
     }
 
-    pub fn take_label(&mut self) -> Option<WithRange<Cow<'a, str>>> {
+    pub fn take_label(&mut self) -> Option<Spanned<Cow<'a, str>>> {
         self.label.take()
     }
 
-    pub fn take_figure(&mut self) -> Option<WithRange<bool>> {
+    pub fn take_figure(&mut self) -> Option<Spanned<bool>> {
         self.figure.take()
     }
 
-    pub fn take_caption(&mut self) -> Option<WithRange<Cow<'a, str>>> {
+    pub fn take_caption(&mut self) -> Option<Spanned<Cow<'a, str>>> {
         self.caption.take()
     }
 
-    pub fn take_double(&mut self, key: &str) -> Option<WithRange<Cow<'a, str>>> {
+    pub fn take_double(&mut self, key: &str) -> Option<Spanned<Cow<'a, str>>> {
         self.double.remove(key)
     }
 
@@ -175,44 +171,38 @@ impl<'a> Cskvp<'a> {
 impl<'a> Drop for Cskvp<'a> {
     fn drop(&mut self) {
         let mut has_warning = false;
-        let range = self.range;
-        let mut diag = self
-            .diagnostics
+        let span = self.span;
+        let mut diag = self.diagnostics
             .as_mut()
-            .map(|d| d.warning("unknown attributes in element config")
-                .with_info_section(range, "in this element config"));
-        if let Some(WithRange(label, range)) = self.label.take() {
+            .map(|d| d.warning(DiagnosticCode::UnknownAttributesInElementConfig)
+                .with_info_label(span, "unknown attributes in element config"));
+        if let Some(Spanned { value: label, span }) = self.label.take() {
             diag = diag.map(|d| {
-                d.warning(format!("label ignored: {}", label))
-                    .with_info_section(range, "label defined here")
+                d.with_info_label(span, format!("label ignored: {}", label))
             });
             has_warning = true;
         }
-        if let Some(WithRange(figure, range)) = self.figure.take() {
+        if let Some(Spanned { value: figure, span }) = self.figure.take() {
             diag = diag.map(|d| {
-                d.warning(format!("figure config ignored: {}", figure))
-                    .with_info_section(range, "figure config defined here")
+                d.with_info_label(span, format!("figure config ignored: {}", figure))
             });
             has_warning = true;
         }
-        if let Some(WithRange(caption, range)) = self.caption.take() {
+        if let Some(Spanned { value: caption, span }) = self.caption.take() {
             diag = diag.map(|d| {
-                d.warning(format!("caption ignored: {}", caption))
-                    .with_info_section(range, "caption defined here")
+                d.with_info_label(span, format!("caption ignored: {}", caption))
             });
             has_warning = true;
         }
-        for (k, WithRange(v, range)) in self.double.drain() {
+        for (k, Spanned { value: v, span }) in self.double.drain() {
             diag = diag.map(|d| {
-                d.warning(format!("unknown attribute `{}={}`", k, v))
-                    .with_info_section(range, "attribute defined here")
+                d.with_info_label(span, format!("unknown attribute `{}={}`", k, v))
             });
             has_warning = true;
         }
-        for WithRange(attr, range) in self.single.drain(..) {
+        for Spanned { value: attr, span } in self.single.drain(..) {
             diag = diag.map(|d| {
-                d.warning(format!("unknown attribute `{}`", attr))
-                    .with_info_section(range, "attribute defined here")
+                d.with_info_label(span, format!("unknown attribute `{}`", attr))
             });
             has_warning = true;
         }
@@ -228,7 +218,7 @@ impl<'a> Drop for Cskvp<'a> {
 #[derive(Debug)]
 struct Parser<'a> {
     rest: Cow<'a, str>,
-    range: SourceRange,
+    span: Span,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -238,32 +228,32 @@ enum Value<'a> {
 }
 
 impl<'a> Parser<'a> {
-    fn new(s: Cow<'a, str>, range: SourceRange) -> Parser<'a> {
-        Parser { rest: s, range }
+    fn new(s: Cow<'a, str>, span: Span) -> Parser<'a> {
+        Parser { rest: s, span }
     }
 
     fn next(
-        &mut self, diagnostics: &Diagnostics<'a>,
-    ) -> Result<Option<WithRange<Value<'a>>>, Diagnostic> {
+        &mut self, diagnostics: &'a Diagnostics,
+    ) -> Result<Option<Spanned<Value<'a>>>, Diagnostic> {
         if self.rest.is_empty() {
             return Ok(None);
         }
 
-        let WithRange(key, key_range) = self.next_single(&['=', ','], diagnostics)?;
+        let Spanned { value: key, span: key_span } = self.next_single(&['=', ','], diagnostics)?;
 
-        let (delim, delim_range) = self.skip_delimiter();
+        let (delim, delim_span) = self.skip_delimiter();
 
         if let Some('=') = delim {
-            let WithRange(val, val_range) = self.next_single(&[','], diagnostics)?;
-            let range = SourceRange { start: key_range.start, end: val_range.end };
-            let res = Some(WithRange(Value::Double(key, val), range));
+            let Spanned { value, span: value_span } = self.next_single(&[','], diagnostics)?;
+            let span = key_span.map_end(|_| value_span.end);
+            let res = Some(Spanned::new(Value::Double(key, value), span));
 
-            let (delim, delim_range) = self.skip_delimiter();
+            let (delim, delim_span) = self.skip_delimiter();
             if !(delim == None || delim == Some(',')) {
-                diagnostics.error("invalid comma seperated key-value-pair")
-                    .with_info_section(range, "in this key-value-pair")
-                    .with_error_section(delim_range, "incorrect delimiter after value")
-                    .help("use `,` to separate key-value-pairs")
+                diagnostics.error(DiagnosticCode::InvalidCskvp)
+                    .with_info_label(span, "in this key-value-pair")
+                    .with_error_label(delim_span, "incorrect delimiter after value")
+                    .with_note("use `,` to separate key-value-pairs")
                     .emit();
                 self.rest = Cow::Borrowed("");
                 return Ok(None);
@@ -271,28 +261,28 @@ impl<'a> Parser<'a> {
             Ok(res)
         } else {
             if !(delim == None || delim == Some(',')) {
-                diagnostics.error("invalid comma seperated value")
-                    .with_info_section(key_range, "in this value")
-                    .with_error_section(delim_range, "incorrect delimiter after value")
-                    .help("use `,` to separate values")
+                diagnostics.error(DiagnosticCode::InvalidCskv)
+                    .with_info_label(key_span, "in this value")
+                    .with_error_label(delim_span, "incorrect delimiter after value")
+                    .with_note("use `,` to separate values")
                     .emit();
                 self.rest = Cow::Borrowed("");
                 return Ok(None);
             }
-            Ok(Some(WithRange(Value::Single(key), key_range)))
+            Ok(Some(Spanned::new(Value::Single(key), key_span)))
         }
     }
 
     fn next_quoted(
-        &mut self, diagnostics: &Diagnostics<'a>,
-    ) -> Result<WithRange<Cow<'a, str>>, Diagnostic> {
+        &mut self, diagnostics: &'a Diagnostics,
+    ) -> Result<Spanned<Cow<'a, str>>, Diagnostic> {
         assert!(self.rest.starts_with('"'));
         macro_rules! err {
             ($e:ident) => {{
                 diagnostics
-                    .error("invalid double-quoted string")
-                    .with_error_section(self.range, "double quoted string starts here")
-                    .note(format!("cause: {}", $e))
+                    .error(DiagnosticCode::InvalidDoubleQuotedString)
+                    .with_error_label(self.span, "invalid double quoted string starts here")
+                    .with_note(format!("cause: {}", $e))
                     .emit();
                 return Err(Diagnostic);
             }};
@@ -322,13 +312,13 @@ impl<'a> Parser<'a> {
                 },
             },
         };
-        let range = SourceRange { start: self.range.start, end: self.range.start + quoted_string_len };
-        self.range.start += quoted_string_len;
-        assert_eq!(self.range.end - self.range.start, self.rest.len());
-        Ok(WithRange(content, range))
+        let span = self.span.with_len(quoted_string_len);
+        self.span.start += quoted_string_len;
+        assert_eq!(self.span.end - self.span.start, self.rest.len());
+        Ok(Spanned::new(content, span))
     }
 
-    fn next_unquoted(&mut self, delimiters: &[char]) -> WithRange<Cow<'a, str>> {
+    fn next_unquoted(&mut self, delimiters: &[char]) -> Spanned<Cow<'a, str>> {
         let idx = delimiters
             .iter()
             .cloned()
@@ -337,27 +327,28 @@ impl<'a> Parser<'a> {
             .unwrap_or(self.rest.len());
         let rest = self.rest.split_off(idx);
         let mut val = mem::replace(&mut self.rest, rest);
-        let self_range = self.range;
-        self.range.start += idx;
+        let self_span = self.span;
+        self.span.start += idx;
 
         let len = val.len();
         val.trim_start_inplace();
         let trimmed_start = len - val.len();
         val.trim_end_inplace();
         let trimmed_end = len - trimmed_start - val.len();
-        let range = SourceRange {
-            start: self_range.start + trimmed_start,
-            end: self_range.start + idx - trimmed_end,
+        let span = Span {
+            file: self_span.file,
+            start: self_span.start + trimmed_start,
+            end: self_span.start + idx - trimmed_end,
         };
-        WithRange(val, range)
+        Spanned::new(val, span)
     }
 
     fn next_single(
-        &mut self, delimiters: &[char], diagnostics: &Diagnostics<'a>,
-    ) -> Result<WithRange<Cow<'a, str>>, Diagnostic> {
+        &mut self, delimiters: &[char], diagnostics: &'a Diagnostics,
+    ) -> Result<Spanned<Cow<'a, str>>, Diagnostic> {
         let len = self.rest.len();
         self.rest.trim_start_inplace();
-        self.range.start += len - self.rest.len();
+        self.span.start += len - self.rest.len();
         if self.rest.starts_with('"') {
             self.next_quoted(diagnostics)
         } else {
@@ -365,49 +356,50 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn skip_delimiter(&mut self) -> (Option<char>, SourceRange) {
+    fn skip_delimiter(&mut self) -> (Option<char>, Span) {
         let len = self.rest.len();
         self.rest.trim_start_inplace();
-        self.range.start += len - self.rest.len();
+        self.span.start += len - self.rest.len();
         let delim = self.rest.chars().next();
-        let mut range = SourceRange { start: self.range.start, end: self.range.start };
+        let mut span = self.span.with_len(0);
         if delim.is_some() {
             let delim_len = delim.unwrap().len_utf8();
             self.rest.truncate_start(delim_len);
-            self.range.start += delim_len;
-            range.end += delim_len;
+            self.span.start += delim_len;
+            span.end += delim_len;
         }
-        (delim, range)
+        (delim, span)
     }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::sync::Mutex;
-    use codespan_reporting::termcolor::{ColorChoice, StandardStream};
-    use crate::diagnostics::Input;
+    use diagnostic::FileId;
+    use crate::Diagnostics;
 
     #[test]
     fn test_parser() {
         let s = r#"foo, bar = " baz, \"qux\"", quux, corge="grault"#;
-        let s_range = SourceRange { start: 0, end: s.len() };
-        let diagnostics = Diagnostics::new(s, Input::Stdin, Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto))));
-        let mut parser = Parser::new(Cow::Borrowed(s), s_range);
+        let fileid = FileId::synthetic("test");
+        let s_span = Span { file: fileid, start: 0, end: s.len() };
+        let diagnostics = Diagnostics::new();
+        diagnostics.add_synthetic_file("test", s.to_string());
+        let mut parser = Parser::new(Cow::Borrowed(s), s_span);
         assert_eq!(
             parser.next(&diagnostics).unwrap(),
-            Some(WithRange(Value::Single(Cow::Borrowed("foo")), (0..3).into()))
+            Some(Spanned::new(Value::Single(Cow::Borrowed("foo")), Span::new(fileid, 0, 3)))
         );
         assert_eq!(
             parser.next(&diagnostics).unwrap(),
-            Some(WithRange(
+            Some(Spanned::new(
                 Value::Double(Cow::Borrowed("bar"), Cow::Owned(r#" baz, "qux""#.to_string())),
-                (5..26).into()
+                Span::new(fileid, 5, 26).into()
             ))
         );
         assert_eq!(
             parser.next(&diagnostics).unwrap(),
-            Some(WithRange(Value::Single(Cow::Borrowed("quux")), (28..32).into()))
+            Some(Spanned::new(Value::Single(Cow::Borrowed("quux")), Span::new(fileid, 28, 32)))
         );
         assert_eq!(parser.next(&diagnostics), Err(Diagnostic));
     }

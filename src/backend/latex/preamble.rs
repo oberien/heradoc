@@ -3,8 +3,9 @@ use std::io::{Result, Write};
 use isolang::Language;
 
 use crate::config::{Config, DocumentType};
+use crate::Diagnostics;
+use crate::error::DiagnosticCode;
 use crate::util::{OutJoiner, ToUnix};
-use crate::diagnostics::Diagnostics;
 
 /// Writes the documentclass header of latex documents with the given class and options.
 ///
@@ -156,7 +157,7 @@ pub enum ShortAuthor {
 /// Sets up variables for the latex maketitle titlepage.
 ///
 /// It doesn't write the titlepage itself, that is left to the caller.
-pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> Result<()> {
+pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut impl Write, diagnostics: &Diagnostics) -> Result<()> {
     if let Some(title) = &cfg.title {
         writeln!(out, "\\title{{{}}}", title)?;
     }
@@ -177,7 +178,8 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
                 writeln!(out, "}}")?;
             }
             DocumentType::Beamer => diagnostics
-                .warning("the titlehead config property is not supported by beamer")
+                .warning(DiagnosticCode::Unsupported)
+                .with_note("the titlehead config property is not supported by beamer")
                 .emit(),
         }
     }
@@ -188,7 +190,8 @@ pub fn write_maketitle_info(cfg: &Config, short_author: ShortAuthor, out: &mut i
                 write!(out, "[{}]", author)?;
             }
         } else if cfg.shortauthor.is_some() {
-            diagnostics.warning("the shortauthor option is only supported by beamer").emit();
+            diagnostics.warning(DiagnosticCode::Unsupported)
+                .with_note("the `shortauthor` option is only supported by beamer").emit();
         }
         write!(out, "{{")?;
         let mut joiner = OutJoiner::new(&mut *out, "\\\\");

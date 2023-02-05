@@ -6,6 +6,7 @@ use std::fmt;
 use librsvg::{Loader, LoadingError, RenderingError, CairoRenderer};
 #[cfg(not(windows))]
 use cairo::{PdfSurface, Context, Rectangle};
+use diagnostic::Spanned;
 
 pub use crate::frontend::{
     Tag,
@@ -26,7 +27,6 @@ pub use crate::frontend::{
 pub use pulldown_cmark::Alignment;
 
 use crate::frontend::Event as FeEvent;
-use crate::frontend::range::WithRange;
 use crate::generator::Events;
 use crate::resolve::Command;
 
@@ -65,29 +65,29 @@ pub enum Event<'a> {
 /// Image to display as figure.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Image<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
     pub title: Option<Cow<'a, str>>,
     pub alt_text: Option<String>,
     /// Path to read image from.
     pub path: PathBuf,
-    pub scale: Option<WithRange<Cow<'a, str>>>,
-    pub width: Option<WithRange<Cow<'a, str>>>,
-    pub height: Option<WithRange<Cow<'a, str>>>,
+    pub scale: Option<Spanned<Cow<'a, str>>>,
+    pub width: Option<Spanned<Cow<'a, str>>>,
+    pub height: Option<Spanned<Cow<'a, str>>>,
 }
 
 /// Vectorgraphic to display as figure.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Svg<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
     pub title: Option<Cow<'a, str>>,
     pub alt_text: Option<String>,
     /// Path to read image from.
     pub path: PathBuf,
-    pub scale: Option<WithRange<Cow<'a, str>>>,
-    pub width: Option<WithRange<Cow<'a, str>>>,
-    pub height: Option<WithRange<Cow<'a, str>>>,
+    pub scale: Option<Spanned<Cow<'a, str>>>,
+    pub width: Option<Spanned<Cow<'a, str>>>,
+    pub height: Option<Spanned<Cow<'a, str>>>,
 }
 
 #[cfg(not(windows))]
@@ -150,13 +150,13 @@ impl<'a> Svg<'a> {
 
         // cairo uses 72ppi by default, which is equal to 12pt
         let width = self.width.as_ref()
-            .and_then(|width| Size::from_str(&width.0).ok())
+            .and_then(|width| Size::from_str(&width.value).ok())
             .and_then(|size| size.to_f64_opt(72.0, 12.0))
             .or_else(|| Size::from(renderer.intrinsic_dimensions().width?).to_f64_opt(72.0, 12.0))
             .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.width))
             .ok_or(SvgConversionError::UnknownDimensions)?;
         let height = self.height.as_ref()
-            .and_then(|height| Size::from_str(&height.0).ok())
+            .and_then(|height| Size::from_str(&height.value).ok())
             .and_then(|size| size.to_f64_opt(72.0, 12.0))
             .or_else(|| Size::from(renderer.intrinsic_dimensions().height?).to_f64_opt(72.0, 12.0))
             .or_else(|| renderer.intrinsic_dimensions().vbox.map(|vbox| vbox.height))

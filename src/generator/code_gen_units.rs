@@ -1,11 +1,10 @@
 use std::io::Write;
-use std::sync::Arc;
+use diagnostic::Spanned;
 
 use crate::backend::{Backend, StatefulCodeGenUnit};
 use crate::config::Config;
-use crate::diagnostics::Diagnostics;
+use crate::Diagnostics;
 use crate::error::Result;
-use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Tag};
 use crate::generator::Generator;
 use crate::resolve::Context;
@@ -38,40 +37,40 @@ pub enum StackElement<'a, B: Backend<'a>> {
     Graphviz(B::Graphviz),
 
     // resolve context
-    Context(Context, Arc<Diagnostics<'a>>),
+    Context(Context, &'a Diagnostics),
 }
 
 use self::StackElement::*;
 
 #[rustfmt::skip]
 impl<'a, B: Backend<'a>> StackElement<'a, B> {
-    pub fn new(cfg: &'a Config, tag: WithRange<Tag<'a>>, gen: &mut Generator<'a, B, impl Write>) -> Result<Self> {
-        let WithRange(tag, range) = tag;
+    pub fn new(cfg: &'a Config, tag: Spanned<Tag<'a>>, gen: &mut Generator<'a, B, impl Write>) -> Result<Self> {
+        let Spanned { value: tag, span } = tag;
         match tag {
-            Tag::Paragraph => Ok(Paragraph(B::Paragraph::new(cfg, WithRange((), range), gen)?)),
-            Tag::Header(header) => Ok(Header(B::Header::new(cfg, WithRange(header, range), gen)?)),
-            Tag::BlockQuote => Ok(BlockQuote(B::BlockQuote::new(cfg, WithRange((), range), gen)?)),
-            Tag::CodeBlock(cb) => Ok(CodeBlock(B::CodeBlock::new(cfg, WithRange(cb, range), gen)?)),
-            Tag::List => Ok(List(B::List::new(cfg, WithRange((), range), gen)?)),
-            Tag::Enumerate(enumerate) => Ok(Enumerate(B::Enumerate::new(cfg, WithRange(enumerate, range), gen)?)),
-            Tag::Item => Ok(Item(B::Item::new(cfg, WithRange((), range), gen)?)),
-            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(B::FootnoteDefinition::new(cfg, WithRange(fnote, range), gen)?)),
-            Tag::Url(url) => Ok(Url(B::UrlWithContent::new(cfg, WithRange(url, range), gen)?)),
-            Tag::InterLink(interlink) => Ok(InterLink(B::InterLinkWithContent::new(cfg, WithRange(interlink, range), gen)?)),
-            Tag::Figure(figure) => Ok(Figure(B::Figure::new(cfg, WithRange(figure, range), gen)?)),
-            Tag::TableFigure(figure) => Ok(TableFigure(B::TableFigure::new(cfg, WithRange(figure, range), gen)?)),
-            Tag::Table(table) => Ok(Table(B::Table::new(cfg, WithRange(table, range), gen)?)),
-            Tag::TableHead => Ok(TableHead(B::TableHead::new(cfg, WithRange((), range), gen)?)),
-            Tag::TableRow => Ok(TableRow(B::TableRow::new(cfg, WithRange((), range), gen)?)),
-            Tag::TableCell => Ok(TableCell(B::TableCell::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineEmphasis => Ok(InlineEmphasis(B::InlineEmphasis::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineStrong => Ok(InlineStrong(B::InlineStrong::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineStrikethrough => Ok(InlineStrikethrough(B::InlineStrikethrough::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineCode => Ok(InlineCode(B::InlineCode::new(cfg, WithRange((), range), gen)?)),
-            Tag::InlineMath => Ok(InlineMath(B::InlineMath::new(cfg, WithRange((), range), gen)?)),
-            Tag::Equation(equation) => Ok(Equation(B::Equation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::NumberedEquation(equation) => Ok(NumberedEquation(B::NumberedEquation::new(cfg, WithRange(equation, range), gen)?)),
-            Tag::Graphviz(graphviz) => Ok(Graphviz(B::Graphviz::new(cfg, WithRange(graphviz, range), gen)?)),
+            Tag::Paragraph => Ok(Paragraph(B::Paragraph::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::Header(header) => Ok(Header(B::Header::new(cfg, Spanned::new(header, span), gen)?)),
+            Tag::BlockQuote => Ok(BlockQuote(B::BlockQuote::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::CodeBlock(cb) => Ok(CodeBlock(B::CodeBlock::new(cfg, Spanned::new(cb, span), gen)?)),
+            Tag::List => Ok(List(B::List::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::Enumerate(enumerate) => Ok(Enumerate(B::Enumerate::new(cfg, Spanned::new(enumerate, span), gen)?)),
+            Tag::Item => Ok(Item(B::Item::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::FootnoteDefinition(fnote) => Ok(FootnoteDefinition(B::FootnoteDefinition::new(cfg, Spanned::new(fnote, span), gen)?)),
+            Tag::Url(url) => Ok(Url(B::UrlWithContent::new(cfg, Spanned::new(url, span), gen)?)),
+            Tag::InterLink(interlink) => Ok(InterLink(B::InterLinkWithContent::new(cfg, Spanned::new(interlink, span), gen)?)),
+            Tag::Figure(figure) => Ok(Figure(B::Figure::new(cfg, Spanned::new(figure, span), gen)?)),
+            Tag::TableFigure(figure) => Ok(TableFigure(B::TableFigure::new(cfg, Spanned::new(figure, span), gen)?)),
+            Tag::Table(table) => Ok(Table(B::Table::new(cfg, Spanned::new(table, span), gen)?)),
+            Tag::TableHead => Ok(TableHead(B::TableHead::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::TableRow => Ok(TableRow(B::TableRow::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::TableCell => Ok(TableCell(B::TableCell::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::InlineEmphasis => Ok(InlineEmphasis(B::InlineEmphasis::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::InlineStrong => Ok(InlineStrong(B::InlineStrong::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::InlineStrikethrough => Ok(InlineStrikethrough(B::InlineStrikethrough::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::InlineCode => Ok(InlineCode(B::InlineCode::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::InlineMath => Ok(InlineMath(B::InlineMath::new(cfg, Spanned::new((), span), gen)?)),
+            Tag::Equation(equation) => Ok(Equation(B::Equation::new(cfg, Spanned::new(equation, span), gen)?)),
+            Tag::NumberedEquation(equation) => Ok(NumberedEquation(B::NumberedEquation::new(cfg, Spanned::new(equation, span), gen)?)),
+            Tag::Graphviz(graphviz) => Ok(Graphviz(B::Graphviz::new(cfg, Spanned::new(graphviz, span), gen)?)),
         }
     }
 
@@ -106,7 +105,7 @@ impl<'a, B: Backend<'a>> StackElement<'a, B> {
         }
     }
 
-    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, B, impl Write>, peek: Option<WithRange<&Event<'a>>>) -> Result<()> {
+    pub fn finish<'b>(self, tag: Tag<'a>, gen: &mut Generator<'a, B, impl Write>, peek: Option<Spanned<&Event<'a>>>) -> Result<()> {
         match (self, tag) {
             (Paragraph(s), Tag::Paragraph) => s.finish(gen, peek),
             (Header(s), Tag::Header(_)) => s.finish(gen, peek),

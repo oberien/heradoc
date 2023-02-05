@@ -1,13 +1,13 @@
 use std::borrow::Cow;
 use std::io::Write;
 use std::fs::{File, OpenOptions};
+use diagnostic::{Span, Spanned};
 
 use crate::backend::latex::{Beamer, BeamerFrameEvent};
 use crate::backend::{Backend, CodeGenUnit, StatefulCodeGenUnit};
 use crate::config::Config;
-use crate::diagnostics::Diagnostics;
-use crate::error::{Error, Fatal, FatalResult, Result};
-use crate::frontend::range::{WithRange, SourceRange};
+use crate::Diagnostics;
+use crate::error::{DiagnosticCode, Error, Fatal, FatalResult, Result};
 use crate::generator::event::{CodeBlock, Event, Header};
 use crate::generator::Generator;
 
@@ -82,17 +82,17 @@ impl<'a> Backend<'a> for SlidesFfmpegEspeak {
         }
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()> {
         self.slides.gen_preamble(cfg, out, diagnostics)
     }
 
-    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()> {
         self.slides.gen_epilogue(cfg, out, diagnostics)
     }
 }
 
 impl SlidesFfmpegEspeak {
-    fn create_speech_file(&self, cfg: &Config, diagnostics: &Diagnostics<'_>) -> Result<File> {
+    fn create_speech_file(&self, cfg: &Config, diagnostics: &Diagnostics) -> Result<File> {
         let i = self.current_frame.get();
         let p = cfg.out_dir.join(format!("espeak_{}.txt", i));
         let res = OpenOptions::new().create(true).write(true).open(&p);
@@ -100,9 +100,10 @@ impl SlidesFfmpegEspeak {
             Ok(file) => Ok(file),
             Err(e) => {
                 diagnostics
-                    .error(format!("error creating espeak file `{}` for frame {}", p.display(), i))
-                    .note(format!("cause: {}", e))
-                    .note("this is fatal")
+                    .error(DiagnosticCode::EspeakCreationError)
+                    .with_note(format!("error creating espeak file `{}` for frame {}", p.display(), i))
+                    .with_note(format!("cause: {}", e))
+                    .with_note("this is fatal")
                     .emit();
                 Err(Error::Fatal(Fatal::Output(e)))
             },
@@ -129,26 +130,26 @@ impl CurrentFrame {
 #[derive(Debug)]
 pub struct PseudoBeamerPageBreakGen<'a> {
     cfg: &'a Config,
-    range: SourceRange,
+    span: Span,
 }
 
 impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, ()> for PseudoBeamerPageBreakGen<'a> {
     fn new(
-        cfg: &'a Config, WithRange(_, range): WithRange<()>,
+        cfg: &'a Config, Spanned { span, .. }: Spanned<()>,
         _gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
     ) -> Result<Self> {
-        Ok(PseudoBeamerPageBreakGen { cfg, range })
+        Ok(PseudoBeamerPageBreakGen { cfg, span })
     }
 
     fn finish(
         self, gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
-        _peek: Option<WithRange<&Event<'a>>>,
+        _peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
-        let PseudoBeamerPageBreakGen { cfg, range } = self;
+        let PseudoBeamerPageBreakGen { cfg, span } = self;
         let (diagnostics, backend, mut out) = gen.backend_and_out();
-        let events: Vec<_> = backend.slides.close_until(2, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.close_until(2, &mut out, span, diagnostics)?;
         backend.current_frame.advance_with(events);
-        let events: Vec<_> = backend.slides.open_until(2, cfg, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.open_until(2, cfg, &mut out, span, diagnostics)?;
         backend.current_frame.advance_with(events);
         Ok(())
     }
@@ -158,36 +159,36 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, ()> for PseudoBeamerPageBre
 pub struct PseudoBeamerHeaderGen<'a> {
     cfg: &'a Config,
     level: i32,
-    label: WithRange<Cow<'a, str>>,
-    range: SourceRange,
+    label: Spanned<Cow<'a, str>>,
+    span: Span,
 }
 
 impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, Header<'a>> for PseudoBeamerHeaderGen<'a> {
     fn new(
-        cfg: &'a Config, header: WithRange<Header<'a>>,
+        cfg: &'a Config, header: Spanned<Header<'a>>,
         gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
     ) -> Result<Self> {
         let (diagnostics, backend, mut out) = gen.backend_and_out();
-        let WithRange(Header { label, level }, range) = header;
+        let Spanned { value: Header { label, level }, span } = header;
 
         // close old slide / beamerboxesrounded
-        let events: Vec<_> = backend.slides.close_until(level, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.close_until(level, &mut out, span, diagnostics)?;
         backend.current_frame.advance_with(events);
 
         write!(out, "\\{}section{{", "sub".repeat(level as usize - 1))?;
 
-        Ok(PseudoBeamerHeaderGen { cfg, level, label, range })
+        Ok(PseudoBeamerHeaderGen { cfg, level, label, span })
     }
 
     fn finish(
         self, gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
-        _peek: Option<WithRange<&Event<'a>>>,
+        _peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
-        let PseudoBeamerHeaderGen { cfg, level, label, range } = self;
+        let PseudoBeamerHeaderGen { cfg, level, label, span } = self;
         let (diagnostics, backend, mut out) = gen.backend_and_out();
-        writeln!(out, "}}\\label{{{}}}\n", label.0)?;
+        writeln!(out, "}}\\label{{{}}}\n", label.value)?;
 
-        let events: Vec<_> = backend.slides.open_until(level, cfg, &mut out, range, diagnostics)?;
+        let events: Vec<_> = backend.slides.open_until(level, cfg, &mut out, span, diagnostics)?;
         backend.current_frame.advance_with(events);
         Ok(())
     }
@@ -201,12 +202,12 @@ pub enum CodeBlockGen {
 
 impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, CodeBlock<'a>> for CodeBlockGen {
     fn new(
-        cfg: &'a Config, code_block: WithRange<CodeBlock<'a>>,
+        cfg: &'a Config, code_block: Spanned<CodeBlock<'a>>,
         gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
     ) -> Result<Self> {
-        let WithRange(CodeBlock { label: _, caption: _, language }, _range) = &code_block;
+        let Spanned { value: CodeBlock { label: _, caption: _, language }, .. } = &code_block;
 
-        if let Some(WithRange(language, _range)) = language {
+        if let Some(Spanned { value: language, .. }) = language {
             if language.as_ref() == "espeak" {
                 let (diagnostics, backend, _) = gen.backend_and_out();
                 return backend.create_speech_file(cfg, diagnostics).map(CodeBlockGen::Speech);
@@ -226,7 +227,7 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, CodeBlock<'a>> for CodeBloc
 
     fn finish(
         self, gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
-        peek: Option<WithRange<&Event<'a>>>,
+        peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
         match self {
             CodeBlockGen::Normal(inner) => CodeGenUnit::finish(inner, gen, peek),

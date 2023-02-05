@@ -1,9 +1,9 @@
 use std::io::Write;
+use diagnostic::Spanned;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::Result;
-use crate::frontend::range::WithRange;
 use crate::generator::event::{Enumerate, Event};
 use crate::generator::Generator;
 
@@ -12,7 +12,7 @@ pub struct ListGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ListGen {
     fn new(
-        cfg: &'a Config, _: WithRange<()>,
+        cfg: &'a Config, _: Spanned<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         writeln!(gen.get_out(), "\\begin{{itemize}}")?;
@@ -24,7 +24,7 @@ impl<'a> CodeGenUnit<'a, ()> for ListGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<WithRange<&Event<'a>>>,
+        _peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{itemize}}")?;
         Ok(())
@@ -36,10 +36,10 @@ pub struct EnumerateGen;
 
 impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
     fn new(
-        _cfg: &'a Config, enumerate: WithRange<Enumerate>,
+        _cfg: &'a Config, enumerate: Spanned<Enumerate>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let WithRange(Enumerate { start_number }, _range) = enumerate;
+        let Spanned { value: Enumerate { start_number }, .. } = enumerate;
         assert!(std::mem::size_of::<usize>() >= 4);
         assert!(start_number < i32::MAX as u64);
         let start = start_number as i32 - 1;
@@ -56,7 +56,7 @@ impl<'a> CodeGenUnit<'a, Enumerate> for EnumerateGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<WithRange<&Event<'a>>>,
+        _peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
         writeln!(gen.get_out(), "\\end{{enumerate}}")?;
         Ok(())
@@ -68,7 +68,7 @@ pub struct ItemGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ItemGen {
     fn new(
-        _cfg: &'a Config, _: WithRange<()>,
+        _cfg: &'a Config, _: Spanned<()>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         write!(gen.get_out(), "\\item ")?;
@@ -77,7 +77,7 @@ impl<'a> CodeGenUnit<'a, ()> for ItemGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        _peek: Option<WithRange<&Event<'a>>>,
+        _peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
         writeln!(gen.get_out())?;
         Ok(())

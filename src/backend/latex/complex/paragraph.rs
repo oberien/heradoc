@@ -1,9 +1,9 @@
 use std::io::Write;
+use diagnostic::Spanned;
 
 use crate::backend::{Backend, CodeGenUnit};
 use crate::config::Config;
 use crate::error::Result;
-use crate::frontend::range::WithRange;
 use crate::generator::event::{Event, Tag};
 use crate::generator::Generator;
 
@@ -12,7 +12,7 @@ pub struct ParagraphGen;
 
 impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
     fn new(
-        _cfg: &'a Config, _: WithRange<()>,
+        _cfg: &'a Config, _: Spanned<()>,
         _gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
         Ok(ParagraphGen)
@@ -20,11 +20,11 @@ impl<'a> CodeGenUnit<'a, ()> for ParagraphGen {
 
     fn finish(
         self, gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
-        peek: Option<WithRange<&Event<'a>>>,
+        peek: Option<Spanned<&Event<'a>>>,
     ) -> Result<()> {
         // TODO: improve latex readability (e.g. no newline between list items)
         // TODO: fix too many linebreaks (e.g. after placeholditimage)
-        match peek.map(|WithRange(peek, _)| peek) {
+        match peek.map(|Spanned { value: peek, .. }| peek) {
             Some(Event::Text(_))
             | Some(Event::Html(_))
             | Some(Event::Start(Tag::Paragraph))

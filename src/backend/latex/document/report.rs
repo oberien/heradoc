@@ -3,8 +3,8 @@ use std::io::Write;
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
+use crate::Diagnostics;
 use crate::error::FatalResult;
-use crate::diagnostics::Diagnostics;
 
 #[derive(Debug)]
 pub struct Report;
@@ -65,7 +65,7 @@ impl<'a> Backend<'a> for Report {
         Report
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, _diagnostics: &'a Diagnostics) -> FatalResult<()> {
         // TODO: itemizespacing
         preamble::write_documentclass(cfg, out, "scrreprt", "")?;
         preamble::write_packages(cfg, out)?;
@@ -84,7 +84,7 @@ impl<'a> Backend<'a> for Report {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &'a Diagnostics) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }

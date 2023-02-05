@@ -2,7 +2,7 @@ use std::io::Write;
 
 use super::StackElement;
 use crate::backend::Backend;
-use crate::diagnostics::Diagnostics;
+use crate::Diagnostics;
 
 pub struct Stack<'a, 'b, B: Backend<'a>, W: Write> {
     default_out: &'b mut W,
@@ -27,7 +27,7 @@ impl<'a: 'b, 'b, B: Backend<'a> + 'b, W: Write> Stack<'a, 'b, B, W> {
             .unwrap_or(self.default_out)
     }
 
-    pub fn diagnostics(&mut self) -> &Diagnostics<'a> {
+    pub fn diagnostics(&mut self) -> &'a Diagnostics {
         self.stack
             .iter_mut()
             .rev()

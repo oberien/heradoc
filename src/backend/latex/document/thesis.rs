@@ -1,18 +1,15 @@
 use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Arc;
-
-use typed_arena::Arena;
+use diagnostic::{Span, Spanned};
 
 use crate::backend::latex::{self, preamble};
 use crate::backend::Backend;
 use crate::config::Config;
-use crate::diagnostics::Input;
-use crate::error::FatalResult;
+use crate::{CONFIG_SPAN, Diagnostics};
+use crate::error::{DiagnosticCode, FatalResult};
 use crate::generator::Generator;
 use crate::resolve::Context;
-use crate::diagnostics::Diagnostics;
 
 #[derive(Debug)]
 pub struct Thesis;
@@ -73,7 +70,7 @@ impl<'a> Backend<'a> for Thesis {
         Thesis
     }
 
-    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_preamble(&mut self, cfg: &Config, out: &mut impl Write, diagnostics: &'a Diagnostics) -> FatalResult<()> {
         // TODO: itemizespacing
         preamble::write_documentclass(cfg, out, "scrbook", "headsepline,footsepline,BCOR=12mm,DIV=12,")?;
         preamble::write_packages(cfg, out)?;
@@ -116,31 +113,30 @@ impl<'a> Backend<'a> for Thesis {
         Ok(())
     }
 
-    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &Diagnostics<'a>) -> FatalResult<()> {
+    fn gen_epilogue(&mut self, _cfg: &Config, out: &mut impl Write, _diagnostics: &'a Diagnostics) -> FatalResult<()> {
         writeln!(out, "\\end{{document}}")?;
         Ok(())
     }
 }
 
-fn gen_abstract(path: PathBuf, abstract_name: &str, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics<'_>) -> FatalResult<()> {
-    let arena = Arena::new();
-    let stderr = Arc::clone(diagnostics.stderr());
-    let mut gen = Generator::new(cfg, Thesis, out, &arena, stderr);
+fn gen_abstract(path: PathBuf, abstract_name: &str, cfg: &Config, out: &mut impl Write, diagnostics: &Diagnostics) -> FatalResult<()> {
+    let mut gen = Generator::new(cfg, Thesis, out, diagnostics);
     let markdown = fs::read_to_string(&path)?;
     let context = match Context::from_path(path.clone()) {
         Ok(context) => context,
         Err(e) => {
             diagnostics
-                .error(format!("invalid path to `{}` in the config", abstract_name))
-                .note("can't create a URL from the path")
-                .error(format!("cause: {:?}", e))
-                .note("skipping over it")
+                .error(DiagnosticCode::InvalidConfigPath(abstract_name.to_string()))
+                .with_error_label(CONFIG_SPAN, format!("cause: {:?}", e))
+                .with_note("can't create a URL from the path")
+                .with_note("skipping over it")
                 .emit();
             return Ok(());
         }
     };
-    let input = Input::File(path);
-    let events = gen.get_events(markdown, context, input);
+    let (fileid, markdown) = diagnostics.add_file(path.display().to_string(), markdown);
+    let markdown = Spanned::new(markdown, Span::new(fileid, 0, markdown.len()));
+    let events = gen.get_events(markdown, context);
     gen.generate_body(events)?;
     Ok(())
 }

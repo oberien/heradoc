@@ -22,7 +22,7 @@
 #![allow(single_use_lifetimes)]
 #![warn(clippy::all, clippy::nursery, clippy::pedantic/*, clippy::cargo*/)]
 #![allow(clippy::match_bool)]
-#![allow(clippy::range_plus_one)]
+#![allow(clippy::span_plus_one)]
 #![allow(clippy::module_name_repetitions)]
 #![allow(clippy::use_self)]
 #![allow(clippy::result_map_unwrap_or_else)]
@@ -34,17 +34,14 @@ use std::fs::{self, File};
 use std::io::{self, Result, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use diagnostic::{FileId, Span, Spanned};
 
 use structopt::StructOpt;
 use tempdir::TempDir;
-use typed_arena::Arena;
-use codespan_reporting::termcolor::{ColorChoice, StandardStream};
 
 mod backend;
 mod config;
 mod cskvp;
-mod diagnostics;
 mod error;
 mod ext;
 mod frontend;
@@ -57,14 +54,20 @@ use crate::backend::{
     latex::{Article, Beamer, Report, Thesis},
     ffmpeg::SlidesFfmpegEspeak,
 };
-use crate::config::{CliArgs, Config, DocumentType, FileConfig, OutType};
-use crate::error::Fatal;
+use crate::config::{CliArgs, Config, DocumentType, FileConfig, FileOrStdio, OutType};
+use crate::error::{Diagnostics, Fatal};
+
+static CONFIG_SPAN: Span = Span::new(FileId::synthetic("config"), 0, CONFIG_TEXT.len());
+const CONFIG_TEXT: &str = "config";
 
 fn main() {
     let args = CliArgs::from_args();
+    let diagnostics = Diagnostics::new();
+    diagnostics.add_synthetic_file("config", CONFIG_TEXT.to_string());
 
     let mut markdown = String::new();
     args.input.to_read().read_to_string(&mut markdown).unwrap();
+    let mut markdown_start = 0;
 
     let infile = if markdown.starts_with("```heradoc") || markdown.starts_with("```config") {
         let start = markdown
@@ -73,7 +76,7 @@ fn main() {
         let end = markdown.find("\n```").expect("unclosed preamble");
         let content = &markdown[(start + 1)..(end + 1)];
         let res = toml::from_str(content).expect("invalid config");
-        markdown.drain(..(end + 4));
+        markdown_start = end + 4;
         res
     } else {
         FileConfig::default()
@@ -122,10 +125,17 @@ fn main() {
         env::set_current_dir(&cfg.project_root).expect("error setting current dir");
     }
 
+    let markdown_filename = match &cfg.input {
+        FileOrStdio::File(path) => path.to_string_lossy().to_string(),
+        FileOrStdio::StdIo => "stdin".to_string(),
+    };
+    let (fileid, markdown) = diagnostics.add_file(markdown_filename, markdown);
+    let markdown = Spanned { value: markdown, span: Span::new(fileid, markdown_start, markdown.len()) };
+
     match cfg.output_type {
-        OutType::Latex => gen_latex(&cfg, markdown, output),
+        OutType::Latex => gen_latex(&cfg, markdown, &diagnostics, output),
         OutType::Pdf => {
-            let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
+            let generated = gen_pdf_to_file(&cfg, markdown, &diagnostics, &tmpdir);
             let mut pdf = File::open(generated)
                 .expect("unable to open generated pdf");
             io::copy(&mut pdf, &mut output).expect("can't write to output");
@@ -133,7 +143,7 @@ fn main() {
         OutType::Mp4 => {
             ensure_mp4_tools_installed();
             let tmpdir = mem::ManuallyDrop::new(tmpdir);
-            let generated = gen_pdf_to_file(&cfg, markdown, &tmpdir);
+            let generated = gen_pdf_to_file(&cfg, markdown, &diagnostics, &tmpdir);
             let movie = ffmpeg(generated, &cfg);
             let mut movie = File::open(movie)
                 .expect("unable to open generated movie");
@@ -142,10 +152,10 @@ fn main() {
     }
 }
 
-fn gen_pdf_to_file(cfg: &Config, markdown: String, tmpdir: &TempDir) -> PathBuf {
+fn gen_pdf_to_file(cfg: &Config, markdown: Spanned<&str>, diagnostics: &Diagnostics, tmpdir: &TempDir) -> PathBuf {
     let tex_path = tmpdir.path().join("document.tex");
     let tex_file = File::create(&tex_path).expect("can't create temporary tex file");
-    gen_latex(cfg, markdown, tex_file);
+    gen_latex(cfg, markdown, diagnostics, tex_file);
 
     pdflatex(tmpdir, cfg);
     if cfg.bibliography.is_some() {
@@ -156,17 +166,15 @@ fn gen_pdf_to_file(cfg: &Config, markdown: String, tmpdir: &TempDir) -> PathBuf 
     tmpdir.path().join("document.pdf")
 }
 
-fn gen_latex(cfg: &Config, markdown: String, out: impl Write) {
-    // TODO: make this configurable
-    let stderr = Arc::new(Mutex::new(StandardStream::stderr(ColorChoice::Auto)));
+fn gen_latex(cfg: &Config, markdown: Spanned<&str>, diagnostics: &Diagnostics, out: impl Write) {
     let res = match cfg.document_type {
-        DocumentType::Article => backend::generate(cfg, Article::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Article => backend::generate(cfg, Article::new(), markdown, diagnostics, out),
         DocumentType::Beamer => match cfg.output_type {
-            OutType::Pdf | OutType::Latex => backend::generate(cfg, Beamer::new(), &Arena::new(), markdown, out, stderr),
-            OutType::Mp4 => backend::generate(cfg, SlidesFfmpegEspeak::new(), &Arena::new(), markdown, out, stderr),
+            OutType::Pdf | OutType::Latex => backend::generate(cfg, Beamer::new(), markdown, diagnostics, out),
+            OutType::Mp4 => backend::generate(cfg, SlidesFfmpegEspeak::new(), markdown, diagnostics, out),
         },
-        DocumentType::Report => backend::generate(cfg, Report::new(), &Arena::new(), markdown, out, stderr),
-        DocumentType::Thesis => backend::generate(cfg, Thesis::new(), &Arena::new(), markdown, out, stderr),
+        DocumentType::Report => backend::generate(cfg, Report::new(), markdown, diagnostics, out),
+        DocumentType::Thesis => backend::generate(cfg, Thesis::new(), markdown, diagnostics, out),
     };
     match res {
         Ok(()) => (),

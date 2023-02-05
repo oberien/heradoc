@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::io::{Result, Write};
+use diagnostic::Spanned;
 
 mod complex;
 mod document;
@@ -8,8 +9,6 @@ mod replace;
 mod simple;
 
 pub use self::document::{Article, Beamer, BeamerFrameEvent, Report, Thesis};
-
-use crate::frontend::range::WithRange;
 
 use self::simple::{
     AppendixGen,
@@ -74,20 +73,20 @@ use self::complex::{
 /// Thus we create an inline figure / table with placement specifier `H` (from the `float` package).
 #[derive(Debug)]
 struct InlineEnvironment<'a> {
-    pub label: Option<WithRange<Cow<'a, str>>>,
-    pub caption: Option<WithRange<Cow<'a, str>>>,
+    pub label: Option<Spanned<Cow<'a, str>>>,
+    pub caption: Option<Spanned<Cow<'a, str>>>,
     environment: &'static str,
 }
 
 impl<'a> InlineEnvironment<'a> {
     pub fn new_figure(
-        label: Option<WithRange<Cow<'a, str>>>, caption: Option<WithRange<Cow<'a, str>>>,
+        label: Option<Spanned<Cow<'a, str>>>, caption: Option<Spanned<Cow<'a, str>>>,
     ) -> InlineEnvironment<'a> {
         InlineEnvironment { label, caption, environment: "figure" }
     }
 
     pub fn new_table(
-        label: Option<WithRange<Cow<'a, str>>>, caption: Option<WithRange<Cow<'a, str>>>,
+        label: Option<Spanned<Cow<'a, str>>>, caption: Option<Spanned<Cow<'a, str>>>,
     ) -> InlineEnvironment<'a> {
         InlineEnvironment { label, caption, environment: "table" }
     }
@@ -104,7 +103,7 @@ impl<'a> InlineEnvironment<'a> {
             return Ok(());
         }
 
-        if let Some(WithRange(caption, _)) = &self.caption {
+        if let Some(Spanned { value: caption, .. }) = &self.caption {
             if self.label.is_some() {
                 writeln!(out, "\\caption{{{}}}", caption)?;
             } else {
@@ -114,7 +113,7 @@ impl<'a> InlineEnvironment<'a> {
             writeln!(out, "\\caption{{}}")?;
         }
 
-        if let Some(WithRange(label, _)) = &self.label {
+        if let Some(Spanned { value: label, .. }) = &self.label {
             writeln!(out, "\\label{{{}}}", label)?;
         }
 
