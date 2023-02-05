@@ -55,7 +55,7 @@ pub struct Geometry {
     #[structopt(long = "marginpar")]
     pub marginpar: Option<String>,
     #[serde(flatten)]
-    #[structopt(long = "others", raw(hidden = "true"), parse(try_from_str = "parse_others"))]
+    #[structopt(long = "others", hidden = true, parse(try_from_str = parse_others))]
     pub others: Option<HashMap<String, String>>,
 }
 

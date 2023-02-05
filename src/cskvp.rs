@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use std::mem;
 use std::fmt;
 use diagnostic::{FileId, Span, Spanned};
+use itertools::Itertools;
 
 use quoted_string::test_utils::TestSpec;
-use single::{self, Single};
 use crate::Diagnostics;
 
 use crate::error::DiagnosticCode;
@@ -105,10 +105,9 @@ impl<'a> Cskvp<'a> {
         let nofigure = single.remove_element(&"nofigure").map(|Spanned { span, .. }| Spanned { value: false, span });
 
         let figures = [figure_double, figure, nofigure];
-        let figure = match figures.iter().cloned().flatten().single() {
-            Ok(val) => Some(val),
-            Err(single::Error::NoElements) => None,
-            Err(single::Error::MultipleElements) => {
+        let figure = match figures.iter().cloned().flatten().at_most_one() {
+            Ok(val) => val,
+            Err(_) => {
                 let mut diag = diagnostics.error(DiagnosticCode::MultipleFigureKeys);
                 for Spanned { span, .. } in figures.iter().cloned().flatten() {
                     diag = diag.with_info_label(span, "one defined here");
