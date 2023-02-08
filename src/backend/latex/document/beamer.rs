@@ -51,6 +51,10 @@ impl Beamer {
                 3 => {
                     writeln!(out, "\\end{{beamerboxesrounded}}")?;
                     levels.push(FrameEvent::EndBox);
+                    if level == 3 {
+                        // space between two beamerboxesrounded
+                        writeln!(out, "\\vspace{{1em}}")?;
+                    }
                 },
                 _ => unreachable!(),
             }
