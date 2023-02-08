@@ -77,7 +77,7 @@ impl<'a> CodeGenUnit<'a, Graphviz<'a>> for GraphvizGen<'a> {
             // TODO: parse the dot output and provide appropriate error messages
             gen.diagnostics()
                 .error(DiagnosticCode::GraphvizError)
-                .with_error_label(self.span, "error trying to render this graphviz cdoe block")
+                .with_error_label(self.span, "error trying to render this graphviz code block")
                 .with_note(format!("`dot` returned error code {:?}", out.status.code()))
                 .with_note("logs written to dot_stdout.log and dot_stderr.log")
                 .with_note("skipping over it")
