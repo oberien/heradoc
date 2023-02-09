@@ -119,7 +119,6 @@ fn main() {
         clear_dir(&cfg.out_dir).expect("can't clear output directory");
     }
     println!("{:#?}", cfg);
-    let mut output = cfg.output.to_write();
     if matches!(env::current_dir(), Ok(dir) if dir != cfg.project_root) {
         println!("Found config file at {}, using that folder as project root.", cfg.project_root.display());
         env::set_current_dir(&cfg.project_root).expect("error setting current dir");
@@ -133,11 +132,12 @@ fn main() {
     let markdown = Spanned { value: markdown, span: Span::new(fileid, markdown_start, markdown.len()) };
 
     match cfg.output_type {
-        OutType::Latex => gen_latex(&cfg, markdown, &diagnostics, output),
+        OutType::Latex => gen_latex(&cfg, markdown, &diagnostics, cfg.output.to_write()),
         OutType::Pdf => {
             let generated = gen_pdf_to_file(&cfg, markdown, &diagnostics, &tmpdir);
             let mut pdf = File::open(generated)
                 .expect("unable to open generated pdf");
+            let mut output = cfg.output.to_write();
             io::copy(&mut pdf, &mut output).expect("can't write to output");
         },
         OutType::Mp4 => {
@@ -147,6 +147,7 @@ fn main() {
             let movie = ffmpeg(generated, &cfg);
             let mut movie = File::open(movie)
                 .expect("unable to open generated movie");
+            let mut output = cfg.output.to_write();
             io::copy(&mut movie, &mut output).expect("can't write to output");
         }
     }
