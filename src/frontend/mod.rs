@@ -417,6 +417,7 @@ impl<'a> Frontend<'a> {
             _ => Tag::CodeBlock(CodeBlock {
                 label: cskvp.take_label(),
                 caption: cskvp.take_caption(),
+                basicstyle: cskvp.take_double("basicstyle"),
                 language: if language.is_empty() {
                     None
                 } else if language == "sequence" {

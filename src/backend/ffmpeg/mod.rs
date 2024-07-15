@@ -205,7 +205,7 @@ impl<'a> StatefulCodeGenUnit<'a, SlidesFfmpegEspeak, CodeBlock<'a>> for CodeBloc
         cfg: &'a Config, code_block: Spanned<CodeBlock<'a>>,
         gen: &mut Generator<'a, SlidesFfmpegEspeak, impl Write>,
     ) -> Result<Self> {
-        let Spanned { value: CodeBlock { label: _, caption: _, language }, .. } = &code_block;
+        let Spanned { value: CodeBlock { label: _, caption: _, language, basicstyle: _ }, .. } = &code_block;
 
         if let Some(Spanned { value: language, .. }) = language {
             if language.as_ref() == "espeak" {

@@ -109,6 +109,7 @@ pub struct CodeBlock<'a> {
     pub label: Option<Spanned<Cow<'a, str>>>,
     pub caption: Option<Spanned<Cow<'a, str>>>,
     pub language: Option<Spanned<Cow<'a, str>>>,
+    pub basicstyle: Option<Spanned<Cow<'a, str>>>,
 }
 
 #[derive(Debug, Clone)]

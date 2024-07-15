@@ -16,7 +16,7 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
         _cfg: &'a Config, code_block: Spanned<CodeBlock<'a>>,
         gen: &mut Generator<'a, impl Backend<'a>, impl Write>,
     ) -> Result<Self> {
-        let Spanned { value: CodeBlock { label, caption, language }, .. } = code_block;
+        let Spanned { value: CodeBlock { label, caption, language, basicstyle }, .. } = code_block;
 
         let mut out = gen.get_out();
         write!(out, "\\begin{{lstlisting}}[")?;
@@ -35,6 +35,10 @@ impl<'a> CodeGenUnit<'a, CodeBlock<'a>> for CodeBlockGen {
             };
             joiner.join(format_args!("language={{{}}}", language))?;
         }
+        if let Some(Spanned { value: basicstyle, .. }) = basicstyle {
+            joiner.join(format_args!("basicstyle={{{basicstyle}}}"))?;
+        }
+
         writeln!(out, "]")?;
 
         Ok(CodeBlockGen)
