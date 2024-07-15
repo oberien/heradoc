@@ -58,6 +58,7 @@ impl<'a> MediumCodeGenUnit<Cow<'a, str>> for TextGen {
                 '✔' => s.push_str("\\checkmark{}"),
                 '✘' => s.push_str("\\text{X}"),
                 '’' => s.push('\''),
+                '"' if in_inline_code => s.push_str("\\\""),
                 c if in_graphviz => s.push(c),
                 c => match replace(c) {
                     Some(rep) => s.push_str(strfn(rep)),
